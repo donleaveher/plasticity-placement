@@ -56,6 +56,21 @@ uv run plasticity-train-lora \
 
 训练数据采用 JSONL，每行必须包含字符串字段 `prompt` 和 `completion`。训练损失只计算 completion 部分，prompt 词元会被掩码。Colab 上可用 `uv sync --extra train --extra colab` 安装量化训练依赖。
 
+## LoRA 写入评估
+
+对同一组探针依次运行基础模型、加载 LoRA 后的模型，以及禁用 LoRA 后的回滚模型：
+
+```bash
+uv run plasticity-evaluate-lora \
+  --model Qwen/Qwen2.5-0.5B-Instruct \
+  --adapter artifacts/adapters/demo-middle \
+  --probes data/examples/probes.jsonl \
+  --output artifacts/evaluations/demo-middle \
+  --use-4bit
+```
+
+评估生成 `probe_results.jsonl` 和 `evaluation_summary.json`，分别保存逐探针输出以及按阶段、类别汇总的准确率。确定性解码保证回滚输出可以与基础模型逐项比较。
+
 ## 项目结构
 
 ```text
@@ -64,6 +79,7 @@ uv run plasticity-train-lora \
 ├── notebooks/                 # Colab 启动与结果分析
 ├── src/plasticity_placement/
 │   ├── simulation/            # 可控环境与四载体实验
+│   ├── evaluation/            # Base、LoRA 与回滚探针
 │   └── training/              # LoRA 训练后端
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制

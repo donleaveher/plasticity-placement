@@ -9,6 +9,7 @@ dependencies = []
 [project.scripts]
 plasticity-pilot = "plasticity_placement.simulation.cli:main"
 plasticity-train-lora = "plasticity_placement.training.cli:main"
+plasticity-evaluate-lora = "plasticity_placement.evaluation.cli:main"
 
 [project.optional-dependencies]
 train = [

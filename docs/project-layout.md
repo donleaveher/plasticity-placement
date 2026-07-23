@@ -8,6 +8,7 @@ plasticity-placement/
 ├── notebooks/                 # Colab 入口和交互式分析
 ├── src/plasticity_placement/
 │   ├── simulation/            # 可控环境、记忆载体和 P0 模拟实验
+│   ├── evaluation/            # LoRA 写入、迁移、干扰和回滚评估
 │   └── training/              # PEFT/LoRA 数据、配置与训练后端
 ├── tests/                     # 不依赖大模型下载的单元测试
 ├── artifacts/                 # 本地结果、适配器和检查点；不提交版本库
