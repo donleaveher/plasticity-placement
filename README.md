@@ -1,8 +1,10 @@
 # 因果可塑性放置实验
 
-该项目实现研究计划的 P0-A/P0-B 最小实验管线：对同一个实验单元克隆四个分支，比较不写入、外部记忆、参数记忆和混合记忆。
+该项目实现研究计划的 P0-A/P0-B 模拟管线以及 P0-C 真实模型实验：对同一个 lesson
+比较不写入、外部文本记忆、LoRA 参数记忆和二者结合。
 
-当前的参数记忆是一个确定性的模拟后端，用于先验证环境生成、配对干预、分支隔离、回滚和日志协议。真实 LoRA 后端将在这套接口稳定后接入。
+模拟后端用于验证环境生成、配对干预、分支隔离和日志协议；P0-C 使用真实 PEFT/LoRA、
+oracle external prompt injection、严格动作解析、逐 unit Drive 恢复和配对聚合。
 
 ## 环境安装
 
@@ -71,6 +73,61 @@ uv run plasticity-evaluate-lora \
 
 评估生成 `probe_results.jsonl` 和 `evaluation_summary.json`，分别保存逐探针输出以及按阶段、类别汇总的准确率。确定性解码保证回滚输出可以与基础模型逐项比较。
 
+## P0-C 真实四载体实验
+
+先编译 frozen lesson bank：
+
+```bash
+uv run plasticity-p0c prepare --output artifacts/p0c-smoke
+```
+
+在 GPU 环境运行 2-lesson smoke：
+
+```bash
+uv run plasticity-p0c run \
+  --output artifacts/p0c-smoke \
+  --tier smoke \
+  --use-4bit
+```
+
+运行完成后聚合结果：
+
+```bash
+uv run plasticity-p0c aggregate --output artifacts/p0c-smoke
+```
+
+`manifest.json` 中所有 adapter unit 必须为 `verified`，且 rollback exact match 为 1。
+`aggregate` 会再次强制检查完整 seed 集合、arm/probe 数量、run/model revision 和
+adapter hash；部分运行不能生成正式 summary。
+随后在 development lessons 上校准配置：
+
+```bash
+uv run plasticity-p0c calibrate \
+  --output artifacts/p0c-calibration \
+  --use-4bit
+```
+
+该命令按预注册 successive-halving 方案训练 60 个 development adapters，并生成
+`calibration_report.json`。校准专用路径只执行用于选择的 N/P/rollback，并跨候选复用
+No-write 输出，不重复运行 E/B。只有 `selected_config` 非空时，才使用新的输出目录运行
+pilot：
+
+```bash
+uv run plasticity-p0c run \
+  --output artifacts/p0c-pilot \
+  --tier pilot \
+  --use-4bit \
+  --calibration-config artifacts/p0c-calibration/calibration_report.json
+```
+
+Pilot 和 Confirmatory tier 都强制要求 provenance-compatible calibration report；
+Confirmatory 自动要求三个训练种子。Colab 入口为
+[`notebooks/p0c_colab.ipynb`](notebooks/p0c_colab.ipynb)。
+
+Colab 首次运行会把当前远程分支解析成 commit SHA 并写入 Drive；后续重连使用同一
+detached commit。若代码、GPU、CUDA 或关键依赖发生变化，原输出目录会拒绝继续混跑。
+失败 unit 的产物保持不可变，不会在下次执行时自动重新训练覆盖。
+
 ## 项目结构
 
 ```text
@@ -80,9 +137,13 @@ uv run plasticity-evaluate-lora \
 ├── src/plasticity_placement/
 │   ├── simulation/            # 可控环境与四载体实验
 │   ├── evaluation/            # Base、LoRA 与回滚探针
-│   └── training/              # LoRA 训练后端
+│   ├── training/              # LoRA 训练后端
+│   └── p0c/                   # 真实四载体编译、运行、恢复和聚合
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```
 
 完整边界说明见 [`docs/project-layout.md`](docs/project-layout.md)。
+
+第一个真实载体实验（P0-C）的 Colab 设计、lesson/probe 规范、运行分级、统计分析和
+go/no-go 条件见 [`docs/p0c-colab-protocol.md`](docs/p0c-colab-protocol.md)。

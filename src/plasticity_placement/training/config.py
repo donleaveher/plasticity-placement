@@ -19,6 +19,7 @@ class LoraTrainingConfig:
     model_name: str
     data_path: Path
     output_dir: Path
+    model_revision: str | None = None
     layer_band: LayerBand = LayerBand.FULL
     explicit_layers: tuple[int, ...] = ()
     target_modules: tuple[str, ...] = ("q_proj", "v_proj")
@@ -31,9 +32,12 @@ class LoraTrainingConfig:
     gradient_accumulation_steps: int = 4
     max_length: int = 512
     warmup_ratio: float = 0.03
+    max_steps: int | None = None
     seed: int = 42
     use_4bit: bool = False
     gradient_checkpointing: bool = True
+    use_chat_template: bool = False
+    save_tokenizer: bool = True
     resume_adapter: Path | None = None
 
     def __post_init__(self) -> None:
@@ -53,6 +57,8 @@ class LoraTrainingConfig:
             raise ValueError("dropout must be in [0, 1)")
         if not 0.0 <= self.warmup_ratio < 1.0:
             raise ValueError("warmup_ratio must be in [0, 1)")
+        if self.max_steps is not None and self.max_steps <= 0:
+            raise ValueError("max_steps must be positive when provided")
         if self.layer_band is LayerBand.EXPLICIT and not self.explicit_layers:
             raise ValueError("explicit layer band requires --layers")
         if self.layer_band is not LayerBand.EXPLICIT and self.explicit_layers:
@@ -64,6 +70,8 @@ class LoraTrainingConfig:
         result = asdict(self)
         result["data_path"] = str(self.data_path)
         result["output_dir"] = str(self.output_dir)
+        result["explicit_layers"] = list(self.explicit_layers)
+        result["target_modules"] = list(self.target_modules)
         result["resume_adapter"] = str(self.resume_adapter) if self.resume_adapter else None
         return result
 

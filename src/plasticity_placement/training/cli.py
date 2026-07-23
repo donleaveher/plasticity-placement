@@ -12,6 +12,7 @@ from plasticity_placement.training.lora import train_lora
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="训练 Agent 经验的 LoRA 参数记忆")
     parser.add_argument("--model", required=True, help="Hugging Face 模型名称或本地路径")
+    parser.add_argument("--model-revision")
     parser.add_argument("--data", type=Path, required=True, help="prompt/completion JSONL")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--layer-band", choices=list(LayerBand), default=LayerBand.FULL)
@@ -26,8 +27,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gradient-accumulation-steps", type=int, default=4)
     parser.add_argument("--max-length", type=int, default=512)
     parser.add_argument("--warmup-ratio", type=float, default=0.03)
+    parser.add_argument("--max-steps", type=int)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--use-4bit", action="store_true")
+    parser.add_argument("--use-chat-template", action="store_true")
     parser.add_argument("--no-gradient-checkpointing", action="store_true")
     parser.add_argument("--resume-adapter", type=Path)
     return parser
@@ -37,6 +40,7 @@ def main() -> None:
     args = build_parser().parse_args()
     config = LoraTrainingConfig(
         model_name=args.model,
+        model_revision=args.model_revision,
         data_path=args.data,
         output_dir=args.output,
         layer_band=LayerBand(args.layer_band),
@@ -51,8 +55,10 @@ def main() -> None:
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         max_length=args.max_length,
         warmup_ratio=args.warmup_ratio,
+        max_steps=args.max_steps,
         seed=args.seed,
         use_4bit=args.use_4bit,
+        use_chat_template=args.use_chat_template,
         gradient_checkpointing=not args.no_gradient_checkpointing,
         resume_adapter=args.resume_adapter,
     )
