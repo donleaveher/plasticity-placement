@@ -162,7 +162,7 @@ def _select_balanced_pairs(
         imbalance = max(counts) - min(counts)
         squared = sum(value * value for value in counts)
         pair_ids = tuple(sorted(pair[0].lesson.pair_id for pair in chosen))
-        return reserve_count, imbalance, squared, pair_ids
+        return imbalance, squared, reserve_count, pair_ids
 
     return min(combinations(pairs, count), key=score)
 

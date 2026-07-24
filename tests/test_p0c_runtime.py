@@ -12,6 +12,7 @@ from plasticity_placement.p0c.runtime import (
     _adapter_hash,
     _adapter_training_config,
     _load_training_metadata,
+    _validate_selected_lessons,
     _write_environment,
     select_screened_lessons,
 )
@@ -50,6 +51,55 @@ def test_pilot_selection_preserves_complete_counterbalanced_pairs() -> None:
             if item.lesson.lesson_type == lesson_type
         ]
         assert len(set(actions)) == 4
+
+
+def test_pilot_selection_uses_reserves_before_accepting_action_imbalance(
+    tmp_path: Path,
+) -> None:
+    compiled = compile_bank()
+    eligible_pair_ids = {
+        "F_pair01",
+        "F_pair04",
+        "RF_pair01",
+        "RF_pair02",
+        "P_pair01",
+        "P_pair04",
+        "RP_pair01",
+        "RP_pair02",
+    }
+    screening_results = [
+        {
+            "lesson_id": item.lesson.lesson_id,
+            "correct": item.lesson.pair_id not in eligible_pair_ids,
+            "invalid": False,
+        }
+        for item in compiled
+        if item.lesson.split in {"confirmatory", "reserve"}
+        for _ in range(4)
+    ]
+
+    selected = select_screened_lessons(
+        compiled=compiled,
+        screening_results=screening_results,
+        tier=Tier.PILOT,
+        accuracy_threshold=0.5,
+        invalid_threshold=0.5,
+    )
+
+    config = P0CConfig(
+        output_dir=tmp_path,
+        tier=Tier.PILOT,
+        calibration_report_sha256="calibration-report",
+    )
+    _validate_selected_lessons(config, selected)
+    assert {item.lesson.split for item in selected} == {"reserve"}
+    for lesson_type in ("fact_mapping", "procedure_recovery"):
+        actions = {
+            item.lesson.desired_action
+            for item in selected
+            if item.lesson.lesson_type == lesson_type
+        }
+        assert len(actions) == 4
 
 
 def test_training_metadata_recovery_validates_hashes(tmp_path: Path) -> None:
