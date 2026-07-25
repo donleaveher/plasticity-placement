@@ -1,7 +1,7 @@
 # P0-C Colab 实验协议：同一 Lesson 的真实四载体比较
 
-- **版本：** 0.1
-- **日期：** 2026-07-23
+- **版本：** 0.2（P0-C v4）
+- **日期：** 2026-07-25
 - **模式：** design + result-template
 - **目标会议：** ICLR
 - **硬件边界：** 单个 Colab GPU，允许中断后从 Google Drive 恢复
@@ -162,13 +162,29 @@ P0-C 只寻找“存在异质性的先兆”，不训练路由器。
 
 ### 5.4 数量和拆分
 
-准备 38 条候选 lesson：
+准备 46 条候选 lesson：
 
 - 6 条 development lessons：只用于 LoRA 超参数校准；
 - 24 条 confirmatory lessons：12 F + 12 P，组成 12 个 counterbalanced pairs；
-- 8 条 reserve lessons：4 F + 4 P，组成 4 个备用 counterbalanced pairs；
+- 16 条 reserve lessons：12 F + 4 P，组成 8 个备用 counterbalanced pairs；
 - screening 后若有 confirmatory lesson 不合格，只能按完整 pair 从同类型 reserve 替换；
 - 不得把 development lesson 移入 confirmatory set。
+
+P0-C v3 在任何 Confirmatory adapter 训练开始前触发了预注册 screening 闸门：完整合格的
+F pairs 为 5，对应的 P pairs 为 8，而 Tier 2 每类需要 6 对。该结果作为
+screening-feasibility failure 封存，不构成四臂行为结果。v4 保持 development lessons、
+24 条 confirmatory lessons、screening threshold、主指标和正式选择规则不变，只扩展冻结
+的 fact reserve pool：
+
+- 保留 `RF_pair01`（`act_n7 ↔ act_v9`）和 `RF_pair02`
+  （`act_k2 ↔ act_p3`）；
+- 新增两对位置互换的 `act_k2 ↔ act_v9` reserve pairs；
+- 新增两对位置互换的 `act_p3 ↔ act_v9` reserve pairs；
+- 新 reserve contexts 全部在运行 v4 screening 前由 compiler 确定，不按新结果修改。
+
+这四个新增 pairs 为 v3 中不足的 `act_v9` 覆盖提供冗余，同时允许 selection 在 6 个
+fact pairs 上恢复四 action 各 3 次的平衡。由于 compiler、bank 和 provenance hash
+变化，v4 必须使用新的 Smoke、Calibration、Pilot 和 Confirmatory 目录重新执行。
 
 ### 5.5 Canonical lesson schema
 
@@ -604,7 +620,7 @@ run-level metadata。Tokenizer 不在每个 P0-C adapter 目录重复保存。
 
 仓库当前已经实现：
 
-1. 38 条 canonical lesson bank 与 deterministic compiler；
+1. 46 条 canonical lesson bank 与 deterministic compiler；
 2. external memory block renderer；
 3. N/E/P/B/rollback 统一 runner；
 4. screening 与 held-out split；
@@ -613,15 +629,20 @@ run-level metadata。Tokenizer 不在每个 P0-C adapter 目录重复保存。
 7. seed/category → lesson 层级 aggregate、paired bootstrap、arm CI、median/IQR、
    seed stability 与 pair/action diagnostics；
 8. 环境 session 快照、code/model revision pinning 和 Tier 0/1/2 配置；
-9. 可直接运行的 `notebooks/p0c_colab.ipynb`。
+9. Smoke、Calibration、Pilot 和 Confirmatory 分别使用
+   `notebooks/p0c_v4/p0c_smoke_v4_colab.ipynb`、
+   `notebooks/p0c_v4/p0c_calibration_v4_colab.ipynb`、
+   `notebooks/p0c_v4/p0c_pilot_v4_colab.ipynb` 和
+   `notebooks/p0c_v4/p0c_confirmatory_v4_colab.ipynb`。
 
 完整 60-adapter successive-halving 校准已由 `plasticity-p0c calibrate` 自动化，并生成
 带 `selected_config` 的 `calibration_report.json`。Pilot/Confirmatory tier 强制要求该报告
 并从中读取冻结的 rank、alpha、learning rate 和 optimizer steps。
 
-当前 compiler 为 `p0c-compiler-v3`：动作选项顺序已 counterbalance，pair 中 action/位置
+当前 compiler 为 `p0c-compiler-v4`：动作选项顺序已 counterbalance，pair 中 action/位置
 关系会跨 pair 反转，near-neighbor 使用与目标 context 词法不相交的 nonce，并生成
-`leakage_audit.json`。Pilot 同样强制要求校准报告；formal tier 禁止通过显式 lesson IDs
+`leakage_audit.json`。v4 新增四个 fact reserve pairs，但不改变 development 或
+confirmatory records。Pilot 同样强制要求校准报告；formal tier 禁止通过显式 lesson IDs
 绕过数量、split、完整 pair 与 action-balance 检查。
 
 尚未实现的是 exposure-matched ICL-$K$ 诊断臂；它只在 P/E 差异较大时触发，不阻塞
@@ -641,4 +662,6 @@ smoke、calibration、pilot 或主四臂 confirmatory 运行。
 
 ## 18. No-fabrication status
 
-本文没有生成任何实验结果。所有 `TBD` 必须由 Colab 实际运行结果填充。Tier 0 和 Tier 1 只能作为工程与方向检查，不能包装成 confirmatory evidence。
+本文没有生成任何 v4 四臂实验结果。所有 `TBD` 必须由 Colab 实际运行结果填充。v3
+Confirmatory 只完成了 base screening，并因 5 个完整合格 fact pairs 少于所需 6 个而
+停止；它不能包装成 confirmatory evidence。Tier 0 和 Tier 1 仍只能作为工程与方向检查。

@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 import plasticity_placement.p0c.calibration as calibration_module
 from plasticity_placement.p0c.calibration import (
     CalibrationConfig,
@@ -135,3 +137,44 @@ def test_calibration_records_candidate_failure_and_continues(
     assert report["stage1_results"][0]["status"] == "failed"
     assert report["stage1_results"][0]["error"]["message"] == "synthetic OOM"
     assert report["selected_config"] is not None
+
+
+def test_completed_calibration_report_is_terminal(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    calls = 0
+
+    def fake_run_candidate(**kwargs):
+        nonlocal calls
+        calls += 1
+        return {
+            "p_target": 0.9,
+            "n_target": 0.2,
+            "target_gain": 0.7,
+            "p_exact": 1.0,
+            "p_interference": 0.0,
+            "invalid_increase": 0.0,
+            "p_write_time": 1.0,
+            "p_peak_memory": 1.0,
+            "p_adapter_bytes": 1.0,
+            "resolved_model_revision": "revision-1",
+        }
+
+    monkeypatch.setattr(calibration_module, "_run_candidate", fake_run_candidate)
+    monkeypatch.setattr(
+        calibration_module,
+        "resolve_model_revision",
+        lambda model_name, revision: "revision-1",
+    )
+    config = CalibrationConfig(output_dir=tmp_path)
+    first_path = run_calibration(config)
+    assert calls == 24
+
+    second_path = run_calibration(config)
+
+    assert second_path == first_path
+    assert calls == 24
+    mismatched = CalibrationConfig(output_dir=tmp_path, max_length=192)
+    with pytest.raises(ValueError, match="config mismatch"):
+        run_calibration(mismatched)

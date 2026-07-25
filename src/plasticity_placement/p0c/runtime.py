@@ -35,6 +35,19 @@ from plasticity_placement.p0c.modeling import (
 from plasticity_placement.training.config import LayerBand, LoraTrainingConfig
 from plasticity_placement.training.lora import train_lora
 
+CRITICAL_ENVIRONMENT_KEYS = (
+    "python",
+    "packages",
+    "cuda_available",
+    "cuda_version",
+    "gpu",
+    "code_sha256",
+)
+
+
+def _progress(message: str) -> None:
+    print(f"[p0c] {message}", flush=True)
+
 
 def prepare_experiment(output_dir: Path, overwrite: bool = False) -> dict[str, str]:
     hashes_path = output_dir / "compiled" / "hashes.json"
@@ -46,6 +59,7 @@ def prepare_experiment(output_dir: Path, overwrite: bool = False) -> dict[str, s
 
 
 def run_experiment(config: P0CConfig) -> Path:
+    _progress(f"starting tier={config.tier.value} output={config.output_dir}")
     config = replace(
         config,
         model_revision=resolve_model_revision(
@@ -63,6 +77,7 @@ def run_experiment(config: P0CConfig) -> Path:
         compiler_hashes=hashes,
     )
     _write_environment(config.output_dir)
+    _progress(f"manifest ready run_id={run_id} model_revision={config.model_revision}")
     compiled = load_compiled_bank(config.output_dir)
 
     selected_ids = list(manifest.payload.get("selected_lessons", []))
@@ -78,6 +93,7 @@ def run_experiment(config: P0CConfig) -> Path:
                 : config.target_lesson_count
             ]
         else:
+            _progress("running base-model screening")
             screening = _run_screening(config, run_id, compiled)
             selected = select_screened_lessons(
                 compiled=compiled,
@@ -88,6 +104,9 @@ def run_experiment(config: P0CConfig) -> Path:
             )
         selected_ids = [item.lesson.lesson_id for item in selected]
         manifest.set_selected_lessons(selected_ids)
+        _progress(f"selected lessons: {', '.join(selected_ids)}")
+    else:
+        _progress(f"resuming frozen lessons: {', '.join(selected_ids)}")
     selected = [item for item in compiled if item.lesson.lesson_id in set(selected_ids)]
     selected.sort(key=lambda item: selected_ids.index(item.lesson.lesson_id))
     _validate_selected_lessons(config, selected)
@@ -96,6 +115,7 @@ def run_experiment(config: P0CConfig) -> Path:
     for item in selected:
         for seed in config.training_seeds:
             _run_adapter_unit(config, run_id, manifest, item, seed)
+    _progress(f"completed tier={config.tier.value} manifest={manifest.path}")
     return manifest.path
 
 
@@ -222,8 +242,10 @@ def _run_screening(
 ) -> list[dict[str, Any]]:
     path = config.output_dir / "results" / "screening.jsonl"
     if path.exists():
+        _progress(f"reusing screening artifact {path}")
         return read_probe_results(path)
     candidates = [item for item in compiled if item.lesson.split in {"confirmatory", "reserve"}]
+    _progress(f"screening {len(candidates)} candidate lessons")
     bundle = load_base_model(config)
     try:
         results = [
@@ -241,6 +263,7 @@ def _run_screening(
         write_probe_results(path, results)
     finally:
         release_model(bundle)
+    _progress(f"screening complete rows={len(results)}")
     return read_probe_results(path)
 
 
@@ -264,7 +287,9 @@ def _run_base_arms(
         )
     pending = [item for item in selected if not manifest.base_arm_complete(item.lesson.lesson_id)]
     if not pending:
+        _progress("all base arms already verified")
         return
+    _progress(f"base arms pending={len(pending)}")
     remaining: list[CompiledLesson] = []
     for item in pending:
         lesson_id = item.lesson.lesson_id
@@ -273,6 +298,7 @@ def _run_base_arms(
             if path.exists():
                 _verify_base_result_rows(config, item, path, run_id)
                 manifest.mark_base_arm(lesson_id, "verified")
+                _progress(f"base verified from existing result lesson={lesson_id}")
                 continue
             if config.calibration_only and _restore_cached_base_results(
                 config,
@@ -282,6 +308,7 @@ def _run_base_arms(
             ):
                 _verify_base_result_rows(config, item, path, run_id)
                 manifest.mark_base_arm(lesson_id, "verified")
+                _progress(f"base verified from calibration cache lesson={lesson_id}")
                 continue
             remaining.append(item)
         except (RuntimeError, ValueError, OSError) as error:
@@ -324,6 +351,7 @@ def _run_base_arms(
                     if not cache_path.exists():
                         write_probe_results(cache_path, no_write)
                 manifest.mark_base_arm(lesson_id, "verified")
+                _progress(f"base verified lesson={lesson_id}")
             except (RuntimeError, ValueError, OSError) as error:
                 manifest.mark_base_arm(lesson_id, "failed")
                 manifest.record_error(f"{lesson_id}::base", error)
@@ -340,8 +368,10 @@ def _run_adapter_unit(
     seed: int,
 ) -> None:
     lesson_id = item.lesson.lesson_id
+    unit_id = f"{lesson_id}::seed-{seed}"
     state = manifest.unit_state(lesson_id, seed)
     if state == "verified":
+        _progress(f"unit already verified {unit_id}")
         return
     if state == "failed":
         raise RuntimeError(
@@ -371,7 +401,9 @@ def _run_adapter_unit(
                 training_summary=training_summary,
             )
             state = "trained"
+            _progress(f"recovered trained adapter metadata {unit_id}")
         if state in {"pending", "training"}:
+            _progress(f"training adapter {unit_id}")
             manifest.mark_unit(lesson_id, seed, "training")
             summary = train_lora(training_config)
             adapter_hash = _adapter_hash(adapter_dir)
@@ -387,6 +419,7 @@ def _run_adapter_unit(
             )
             _clear_accelerator_cache()
             state = "trained"
+            _progress(f"trained adapter {unit_id} elapsed={summary.elapsed_seconds:.1f}s")
         adapter_hash = _adapter_hash(adapter_dir)
         recorded_hash = (
             manifest.payload["units"].get(f"{lesson_id}::seed-{seed}", {}).get("adapter_sha256")
@@ -404,6 +437,7 @@ def _run_adapter_unit(
             )
             manifest.mark_unit(lesson_id, seed, "evaluated")
             state = "evaluated"
+            _progress(f"validated existing adapter results {unit_id}")
         if state == "evaluated":
             if not result_path.exists():
                 raise FileNotFoundError(f"missing evaluated result file: {result_path}")
@@ -415,10 +449,17 @@ def _run_adapter_unit(
                 seed,
                 adapter_hash,
             )
-            _verify_rollback(config, lesson_id, result_path)
-            manifest.mark_unit(lesson_id, seed, "verified")
+            rollback_rate = _verify_rollback(config, lesson_id, result_path)
+            manifest.mark_unit(
+                lesson_id,
+                seed,
+                "verified",
+                rollback_exact_match_rate=rollback_rate,
+            )
+            _progress(f"unit verified {unit_id} rollback={rollback_rate:.3f}")
             return
         if state == "trained":
+            _progress(f"evaluating adapter arms {unit_id}")
             bundle = load_adapter_model(config, adapter_dir)
             try:
                 parametric = evaluate_probes(
@@ -473,9 +514,11 @@ def _run_adapter_unit(
             "verified",
             rollback_exact_match_rate=rollback_rate,
         )
+        _progress(f"unit verified {unit_id} rollback={rollback_rate:.3f}")
     except (RuntimeError, ValueError, OSError) as error:
         manifest.mark_unit(lesson_id, seed, "failed")
         manifest.record_error(f"{lesson_id}::seed-{seed}", error)
+        _progress(f"unit failed {unit_id}: {type(error).__name__}: {error}")
         raise
 
 
@@ -811,17 +854,9 @@ def _write_environment(output_dir: Path) -> None:
     environment = _environment_snapshot()
     if path.exists():
         original = json.loads(path.read_text(encoding="utf-8"))
-        critical = (
-            "python",
-            "packages",
-            "cuda_available",
-            "cuda_version",
-            "gpu",
-            "code_sha256",
-        )
         mismatches = {
             key: (original.get(key), environment.get(key))
-            for key in critical
+            for key in CRITICAL_ENVIRONMENT_KEYS
             if original.get(key) != environment.get(key)
         }
         if mismatches:
@@ -894,7 +929,6 @@ def _code_hash() -> str:
         for path in (
             root / "pyproject.toml",
             root / "uv.lock",
-            root / "notebooks" / "p0c_colab.ipynb",
         )
         if path.exists()
     )
@@ -907,6 +941,22 @@ def _code_hash() -> str:
 
 def current_code_hash() -> str:
     return _code_hash()
+
+
+def current_environment_snapshot() -> dict[str, Any]:
+    return _environment_snapshot()
+
+
+def current_environment_fingerprint() -> str:
+    environment = _environment_snapshot()
+    critical = {key: environment.get(key) for key in CRITICAL_ENVIRONMENT_KEYS}
+    payload = json.dumps(
+        critical,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return sha256(payload.encode()).hexdigest()[:12]
 
 
 def _atomic_json_write(path: Path, value: object) -> None:

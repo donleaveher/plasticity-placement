@@ -8,7 +8,7 @@ from pathlib import Path
 
 from plasticity_placement.p0c.domain import CompiledLesson, Lesson, P0CProbe, TrainingRow
 
-COMPILER_VERSION = "p0c-compiler-v3"
+COMPILER_VERSION = "p0c-compiler-v4"
 ACTIONS = ("act_n7", "act_p3", "act_v9", "act_k2")
 PAIR_ACTIONS = (
     (ACTIONS[0], ACTIONS[1]),
@@ -18,11 +18,19 @@ PAIR_ACTIONS = (
     (ACTIONS[0], ACTIONS[2]),
     (ACTIONS[3], ACTIONS[1]),
 )
-RESERVE_PAIR_ACTIONS = (PAIR_ACTIONS[4], PAIR_ACTIONS[5])
+FACT_RESERVE_PAIR_ACTIONS = (
+    PAIR_ACTIONS[4],
+    PAIR_ACTIONS[5],
+    (ACTIONS[3], ACTIONS[2]),
+    (ACTIONS[1], ACTIONS[2]),
+    (ACTIONS[2], ACTIONS[3]),
+    (ACTIONS[2], ACTIONS[1]),
+)
+PROCEDURE_RESERVE_PAIR_ACTIONS = (PAIR_ACTIONS[4], PAIR_ACTIONS[5])
 
 
 def build_lesson_bank() -> tuple[Lesson, ...]:
-    """Build the frozen 6-development, 24-confirmatory, 8-reserve lesson bank."""
+    """Build the frozen 6-development, 24-confirmatory, 16-reserve v4 lesson bank."""
     lessons: list[Lesson] = []
     lessons.extend(_development_lessons())
     lessons.extend(
@@ -30,7 +38,7 @@ def build_lesson_bank() -> tuple[Lesson, ...]:
             lesson_type="fact_mapping",
             split="confirmatory",
             prefix="F",
-            pair_count=6,
+            action_pairs=PAIR_ACTIONS,
             offset=100,
         )
     )
@@ -39,7 +47,7 @@ def build_lesson_bank() -> tuple[Lesson, ...]:
             lesson_type="procedure_recovery",
             split="confirmatory",
             prefix="P",
-            pair_count=6,
+            action_pairs=PAIR_ACTIONS,
             offset=200,
         )
     )
@@ -48,7 +56,7 @@ def build_lesson_bank() -> tuple[Lesson, ...]:
             lesson_type="fact_mapping",
             split="reserve",
             prefix="RF",
-            pair_count=2,
+            action_pairs=FACT_RESERVE_PAIR_ACTIONS,
             offset=300,
         )
     )
@@ -57,12 +65,12 @@ def build_lesson_bank() -> tuple[Lesson, ...]:
             lesson_type="procedure_recovery",
             split="reserve",
             prefix="RP",
-            pair_count=2,
+            action_pairs=PROCEDURE_RESERVE_PAIR_ACTIONS,
             offset=400,
         )
     )
-    if len(lessons) != 38:
-        raise AssertionError(f"expected 38 lessons, got {len(lessons)}")
+    if len(lessons) != 46:
+        raise AssertionError(f"expected 46 lessons, got {len(lessons)}")
     return tuple(lessons)
 
 
@@ -283,15 +291,17 @@ def _paired_lessons(
     lesson_type: str,
     split: str,
     prefix: str,
-    pair_count: int,
+    action_pairs: tuple[tuple[str, str], ...],
     offset: int,
 ) -> list[Lesson]:
     lessons: list[Lesson] = []
-    action_pairs = PAIR_ACTIONS if pair_count == len(PAIR_ACTIONS) else RESERVE_PAIR_ACTIONS
-    if pair_count > len(action_pairs):
-        raise ValueError(f"unsupported pair_count for counterbalancing: {pair_count}")
-    for pair_index in range(pair_count):
-        first_action, second_action = action_pairs[pair_index]
+    if not action_pairs:
+        raise ValueError("action_pairs cannot be empty")
+    for pair_index, (first_action, second_action) in enumerate(action_pairs):
+        if first_action == second_action or {first_action, second_action} - set(ACTIONS):
+            raise ValueError(
+                f"invalid counterbalanced action pair: {(first_action, second_action)}"
+            )
         pair_id = f"{prefix}_pair{pair_index + 1:02d}"
         lessons.append(
             _lesson(

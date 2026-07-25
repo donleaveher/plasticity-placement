@@ -10,6 +10,7 @@ from plasticity_placement.p0c.config import P0CConfig
 from plasticity_placement.p0c.domain import Arm, Tier
 from plasticity_placement.p0c.modeling import resolve_model_revision
 from plasticity_placement.p0c.runtime import (
+    _write_environment,
     current_code_hash,
     prepare_experiment,
     run_experiment,
@@ -62,16 +63,41 @@ def calibration_candidates() -> tuple[Candidate, ...]:
     )
 
 
+def _progress(message: str) -> None:
+    print(f"[calibration] {message}", flush=True)
+
+
 def run_calibration(config: CalibrationConfig) -> Path:
     config.output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = config.output_dir / "calibration_report.json"
+    requested_config = _calibration_config_payload(config)
+    if report_path.exists():
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        _validate_terminal_report(report, requested_config, report_path)
+        _progress(f"reusing terminal report {report_path}")
+        return report_path
+
     compiler_hashes = prepare_experiment(config.output_dir)
     requested_revision = config.model_revision
     resolved_revision = resolve_model_revision(config.model_name, requested_revision)
     runtime_config = replace(config, model_revision=resolved_revision)
+    _write_environment(config.output_dir)
+    _freeze_calibration_request(
+        config.output_dir,
+        {
+            "calibration_config": requested_config,
+            "resolved_model_revision": resolved_revision,
+            "code_sha256": current_code_hash(),
+            "compiler_hashes": compiler_hashes,
+        },
+    )
+
     stage1_results: list[dict[str, Any]] = []
     candidates = calibration_candidates()
-    for candidate in candidates:
+    _progress(f"stage1 starting candidates={len(candidates)} adapters={len(candidates) * 2}")
+    for index, candidate in enumerate(candidates, start=1):
         stage_dir = config.output_dir / "candidates" / candidate.candidate_id / "stage1"
+        _progress(f"stage1 {index}/{len(candidates)} start {candidate.candidate_id}")
         try:
             summary = _run_candidate(
                 config=runtime_config,
@@ -87,6 +113,10 @@ def run_calibration(config: CalibrationConfig) -> Path:
                     "error": _error_record(error),
                 }
             )
+            _progress(
+                f"stage1 {index}/{len(candidates)} failed {candidate.candidate_id}: "
+                f"{type(error).__name__}: {error}"
+            )
             continue
         stage1_results.append(
             {
@@ -96,19 +126,26 @@ def run_calibration(config: CalibrationConfig) -> Path:
                 "stage1_score": _calibration_score(summary),
             }
         )
+        _progress(
+            f"stage1 {index}/{len(candidates)} completed {candidate.candidate_id} "
+            f"score={_calibration_score(summary):.4f}"
+        )
 
     survivors = sorted(
         [row for row in stage1_results if row["status"] == "completed"],
         key=_stage1_sort_key,
     )[:6]
+    _progress(f"stage1 survivors: {', '.join(str(row['candidate_id']) for row in survivors)}")
     final_results: list[dict[str, Any]] = []
-    for survivor in survivors:
+    _progress(f"stage2 starting candidates={len(survivors)} adapters={len(survivors) * 4}")
+    for index, survivor in enumerate(survivors, start=1):
         candidate = Candidate(
             rank=int(survivor["rank"]),
             learning_rate=float(survivor["learning_rate"]),
             max_steps=int(survivor["max_steps"]),
         )
         stage_dir = config.output_dir / "candidates" / candidate.candidate_id / "stage2"
+        _progress(f"stage2 {index}/{len(survivors)} start {candidate.candidate_id}")
         try:
             stage2 = _run_candidate(
                 config=runtime_config,
@@ -126,6 +163,10 @@ def run_calibration(config: CalibrationConfig) -> Path:
                     "qualified": False,
                 }
             )
+            _progress(
+                f"stage2 {index}/{len(survivors)} failed {candidate.candidate_id}: "
+                f"{type(error).__name__}: {error}"
+            )
             continue
         combined = _combine_summaries(survivor["stage1"], stage2, 2, 4)
         final_results.append(
@@ -137,6 +178,10 @@ def run_calibration(config: CalibrationConfig) -> Path:
                 "combined": combined,
                 "qualified": _qualified(combined),
             }
+        )
+        _progress(
+            f"stage2 {index}/{len(survivors)} completed {candidate.candidate_id} "
+            f"qualified={_qualified(combined)}"
         )
 
     qualified = [row for row in final_results if row["status"] == "completed" and row["qualified"]]
@@ -184,14 +229,61 @@ def run_calibration(config: CalibrationConfig) -> Path:
             "resolved_model_revision": resolved_revision,
         },
     }
-    report_path = config.output_dir / "calibration_report.json"
     temporary = report_path.with_suffix(".json.tmp")
     temporary.write_text(
         json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
     )
     temporary.replace(report_path)
+    _progress(f"completed report={report_path} selected={selected}")
     return report_path
+
+
+def _calibration_config_payload(config: CalibrationConfig) -> dict[str, Any]:
+    return {
+        **asdict(config),
+        "output_dir": str(config.output_dir),
+    }
+
+
+def _validate_terminal_report(
+    report: dict[str, Any],
+    requested_config: dict[str, Any],
+    report_path: Path,
+) -> None:
+    observed = report.get("calibration_config")
+    if not isinstance(observed, dict):
+        raise ValueError(f"terminal calibration report is missing config: {report_path}")
+    mismatches = {
+        key: (observed.get(key), value)
+        for key, value in requested_config.items()
+        if observed.get(key) != value
+    }
+    if mismatches:
+        raise ValueError(f"terminal calibration report config mismatch: {mismatches}")
+    provenance = report.get("provenance")
+    if not isinstance(provenance, dict):
+        raise ValueError(f"terminal calibration report is missing provenance: {report_path}")
+    if provenance.get("code_sha256") != current_code_hash():
+        raise ValueError("terminal calibration report was produced by different experiment code")
+
+
+def _freeze_calibration_request(output_dir: Path, request: dict[str, Any]) -> None:
+    path = output_dir / "calibration_request.json"
+    if path.exists():
+        observed = json.loads(path.read_text(encoding="utf-8"))
+        if observed != request:
+            raise ValueError(
+                "existing calibration request differs from the current request; "
+                f"use a new output directory: {path}"
+            )
+        return
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(
+        json.dumps(request, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
 
 
 def _run_candidate(

@@ -9,8 +9,11 @@ from plasticity_placement.p0c.analysis import aggregate_experiment
 from plasticity_placement.p0c.calibration import CalibrationConfig, run_calibration
 from plasticity_placement.p0c.config import P0CConfig
 from plasticity_placement.p0c.domain import Tier
+from plasticity_placement.p0c.modeling import resolve_model_revision
 from plasticity_placement.p0c.runtime import (
     current_code_hash,
+    current_environment_fingerprint,
+    current_environment_snapshot,
     prepare_experiment,
     run_experiment,
 )
@@ -19,6 +22,12 @@ from plasticity_placement.p0c.runtime import (
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="运行 P0-C 真实四载体 Colab 实验")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    subparsers.add_parser("environment", help="输出当前可复现环境快照和 fingerprint")
+
+    resolve_model = subparsers.add_parser("resolve-model", help="解析并固定模型 revision")
+    resolve_model.add_argument("--model", default="Qwen/Qwen2.5-0.5B-Instruct")
+    resolve_model.add_argument("--model-revision")
 
     prepare = subparsers.add_parser("prepare", help="编译 frozen lesson/probe artifacts")
     prepare.add_argument("--output", type=Path, required=True)
@@ -62,6 +71,32 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
+    if args.command == "environment":
+        print(
+            json.dumps(
+                {
+                    "fingerprint": current_environment_fingerprint(),
+                    "environment": current_environment_snapshot(),
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return
+    if args.command == "resolve-model":
+        resolved = resolve_model_revision(args.model, args.model_revision)
+        print(
+            json.dumps(
+                {
+                    "model_name": args.model,
+                    "requested_revision": args.model_revision,
+                    "resolved_revision": resolved,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return
     if args.command == "prepare":
         hashes = prepare_experiment(args.output, overwrite=args.overwrite)
         print(f"compiled artifacts: {args.output / 'compiled'}")

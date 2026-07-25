@@ -1,27 +1,88 @@
 # Notebook 目录
 
-Notebook 只负责 Colab 环境初始化、调用项目命令和结果可视化。核心环境、训练与实验逻辑必须保留在 `src/` 中，避免单元格执行顺序影响可复现性。
+Notebook 只负责 Colab 环境初始化、调用项目命令、进度检查和结果可视化。核心编译、训练、
+推理、恢复与聚合逻辑必须保留在 `src/` 中，避免单元格执行顺序影响可复现性。
 
 第一个真实四载体实验的 Colab 预注册协议见
 [`docs/p0c-colab-protocol.md`](../docs/p0c-colab-protocol.md)。Notebook 只编排已经实现在
 `src/` 中的 canonical compiler、四臂 runner、manifest/resume 和聚合脚本。
 
-当前按实验阶段提供独立入口：
+## 强制组织规则
 
-- [`p0c_colab.ipynb`](p0c_colab.ipynb)：历史 Smoke、Development Calibration 和 Pilot
-  入口；
-- [`p0c_confirmatory_colab.ipynb`](p0c_confirmatory_colab.ipynb)：独立的 24 lessons ×
-  3 seeds Tier 2 Confirmatory 入口。
+从 v4 开始，**每个新实验必须新建一个独立的 Colab notebook 文件**。
+不得继续在已有 notebook 末尾追加新的实验、诊断臂或后续研究阶段。
+
+以下情况均视为新实验，必须创建新文件：
+
+- 新的执行阶段，例如 Confirmatory；
+- 新的诊断实验，例如 exposure-matched ICL-K 或 hard-B；
+- 新的研究问题，例如 recurrence–volatility 或 layer-locus；
+- 修改 primary endpoint、lesson bank、compiler、模型、精度或冻结训练配置后的重跑。
+
+新 notebook 应满足：
+
+1. 文件名明确表达实验与版本，例如 `p0c_confirmatory_v4_colab.ipynb`；
+2. 能独立完成 Drive 挂载、代码 revision 恢复、依赖安装和 provenance 检查；
+3. 只运行一个实验，不依赖先执行其他 notebook 中的内存变量或隐藏单元格；
+4. 明确声明 calibration/input 目录和本实验的独立 output 目录；
+5. 包含运行开关、进度检查、失败诊断和聚合入口；
+6. 将可复用实验逻辑放入 `src/`，notebook 内只保留编排代码；
+7. 产生正式结果后冻结文件；若实验定义变化，创建新 notebook 或升级文件版本，而不是
+   静默修改原实验入口。
+
+## 当前入口
+
+- [`p0c_v4/p0c_smoke_v4_colab.ipynb`](p0c_v4/p0c_smoke_v4_colab.ipynb)：只运行
+  2-lesson Smoke v4；
+- [`p0c_v4/p0c_calibration_v4_colab.ipynb`](p0c_v4/p0c_calibration_v4_colab.ipynb)：
+  只运行 60-adapter
+  Development Calibration v4，启动前验证 Smoke v4；
+- [`p0c_v4/p0c_pilot_v4_colab.ipynb`](p0c_v4/p0c_pilot_v4_colab.ipynb)：只运行
+  8-lesson Pilot v4，
+  启动前验证 Smoke 和 Calibration v4；
+- [`p0c_v4/p0c_confirmatory_v4_colab.ipynb`](p0c_v4/p0c_confirmatory_v4_colab.ipynb)：
+  只运行 24 lessons × 3 seeds Tier 2 Confirmatory v4，启动前验证 Pilot v4 并要求显式
+  确认 Pilot `GO`。
+
+[`p0c_colab.ipynb`](p0c_colab.ipynb) 是 v4 拆分所依据的组合式 provenance/workflow
+基线；[`p0c_confirmatory_colab.ipynb`](p0c_confirmatory_colab.ipynb) 是旧版
+Confirmatory 入口。二者均保留用于历史审计，不再作为 v4 执行入口。
+
+四个 v4 notebook 由
+[`p0c_v4/build_p0c_v4_notebooks.py`](p0c_v4/build_p0c_v4_notebooks.py) 从同一模板生成，
+确保 checkout、fingerprint、日志、manifest 校验和恢复策略一致。修改公共编排逻辑时应
+先改生成器并重新生成全部 v4 文件，不要单独手改某一个生成文件。
+
+后续 ICL-K、hard-B、recurrence–volatility 和 layer-locus 等实验必须各自创建新的
+notebook，不得合并进上述文件。
+
+## Drive 目录规则
+
+- 不同实验必须使用不同输出目录；
+- 同一实验正常断线且没有 `failed` unit 时，可从原目录恢复；
+- 出现不可变 `failed` unit 时，保留原目录用于审计，修复后使用新的 run 目录；
+- 不得删除失败记录后在原目录覆盖重跑；
+- 模型、精度、代码、compiler、calibration 或超参数变化时必须使用新的 run 目录；
+- v4 notebook 会根据 experiment code hash 和冻结模型/运行设置自动生成
+  `/content/drive/MyDrive/plasticity-p0c/v4/pipelines/<pipeline-attempt>/runs/`
+  下的 provenance 目录，并在其中使用 `smoke-a1`、`calibration-a1`、`pilot-a1`、
+  `confirmatory-a1` 等 phase-attempt 目录；
+- 四个阶段必须使用同一个 `PIPELINE_ATTEMPT`；首次执行会在该 pipeline 目录锁定精确
+  code revision 和 model revision，后续 notebook 自动复用；
+- 如果代码、模型或冻结设置改变，创建新的 `PIPELINE_ATTEMPT`，不得改写原 pipeline
+  的 revision lock；
+- 不同阶段允许由 Colab 分配不同 GPU；每次会话的 GPU、CUDA、Python、依赖版本和
+  environment fingerprint 都会单独记录，不参与跨阶段目录寻址；
+- 同一阶段在相同环境中的正常断线保持 attempt 名不变即可恢复；如果同一阶段恢复时
+  GPU 或关键环境改变，或发生不可变 `failed` unit，则保留旧目录并递增该阶段 attempt，
+  例如从 `pilot-a1` 改为 `pilot-a2`。
 
 每个 notebook 将 lesson/seed adapter、原始结果和 manifest 写入对应的 Google Drive
 目录。只有 smoke 的所有 unit 达到 `verified` 后，才应启动 60-adapter development
 calibration；校准产生非空 `selected_config` 后，才能运行 Pilot 或 Confirmatory。
 
-Notebook 首次运行会把代码 commit 固定到 Drive 的 `code-revision-v2.txt`；重连不会
-自动漂移到分支的新 HEAD。`smoke-v2`、`calibration-v2` 和 `pilot-v2` 对应 compiler v3，
-不要与旧输出目录混用。
-
-Confirmatory notebook 不复用上述 revision 指针，而是从所选成功
-`calibration_report.json` 的 selected candidate 环境快照中恢复精确 Git commit，并在
-创建实验 manifest 前核对 code hash。每次新的 Confirmatory 尝试使用新的
-`CONFIRMATORY_RUN` 目录名；发生不可变 `failed` unit 时保留原目录用于审计，不覆盖重跑。
+每个 v4 notebook 都在安装阶段把 Git branch 解析成精确 commit，并以 detached HEAD
+运行；也可通过 `REQUESTED_CODE_REVISION` 显式指定 commit。它们同时冻结模型 revision、
+代码 hash、运行设置和关键环境快照，将每次 Colab 会话写入 `source_sessions.json`，
+并把本阶段 stdout/stderr 保存到对应 Drive 目录。代码、模型或冻结设置变化必须使用
+新的 pipeline attempt；阶段运行环境变化则使用新的 stage attempt，不会与旧输出混用。

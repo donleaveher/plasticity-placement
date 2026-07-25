@@ -16,10 +16,23 @@ from plasticity_placement.p0c.runtime import prepare_experiment
 
 def test_frozen_bank_has_expected_splits_and_probe_counts() -> None:
     lessons = build_lesson_bank()
-    assert len(lessons) == 38
+    assert len(lessons) == 46
     assert sum(lesson.split == "development" for lesson in lessons) == 6
     assert sum(lesson.split == "confirmatory" for lesson in lessons) == 24
-    assert sum(lesson.split == "reserve" for lesson in lessons) == 8
+    assert sum(lesson.split == "reserve" for lesson in lessons) == 16
+    assert (
+        sum(
+            lesson.split == "reserve" and lesson.lesson_type == "fact_mapping" for lesson in lessons
+        )
+        == 12
+    )
+    assert (
+        sum(
+            lesson.split == "reserve" and lesson.lesson_type == "procedure_recovery"
+            for lesson in lessons
+        )
+        == 4
+    )
 
     compiled = compile_bank(lessons[:1])[0]
     assert len(compiled.training_rows) == 4
@@ -41,9 +54,9 @@ def test_external_note_is_only_injected_for_relevant_probes() -> None:
 def test_compiled_bank_round_trip(tmp_path: Path) -> None:
     hashes = write_compiled_bank(tmp_path)
     loaded = load_compiled_bank(tmp_path)
-    assert hashes["compiler_version"] == "p0c-compiler-v3"
+    assert hashes["compiler_version"] == "p0c-compiler-v4"
     assert hashes["leakage_audit_sha256"]
-    assert len(loaded) == 38
+    assert len(loaded) == 46
     assert loaded[0] == compile_bank()[:1][0]
     audit = audit_compiled_bank(loaded)
     assert audit["exact_training_evaluation_overlap_count"] == 0
@@ -61,6 +74,25 @@ def test_pairs_counterbalance_action_and_position() -> None:
         position = "a" if lesson.lesson_id.endswith("_a") else "b"
         action_positions[lesson.desired_action].add(position)
     assert all(positions == {"a", "b"} for positions in action_positions.values())
+
+
+def test_v4_fact_reserves_add_redundant_v9_edges_with_position_balance() -> None:
+    lessons = {
+        lesson.lesson_id: lesson
+        for lesson in build_lesson_bank()
+        if lesson.split == "reserve" and lesson.lesson_type == "fact_mapping"
+    }
+    expected = {
+        "RF_pair03_a": "act_k2",
+        "RF_pair03_b": "act_v9",
+        "RF_pair04_a": "act_p3",
+        "RF_pair04_b": "act_v9",
+        "RF_pair05_a": "act_v9",
+        "RF_pair05_b": "act_k2",
+        "RF_pair06_a": "act_v9",
+        "RF_pair06_b": "act_p3",
+    }
+    assert {lesson_id: lessons[lesson_id].desired_action for lesson_id in expected} == expected
 
 
 def test_neighbor_prompts_do_not_embed_target_context() -> None:
