@@ -61,8 +61,17 @@ P0-D layer-locus 已使用独立目录实现：
   仅接受人工冻结的显式层/窗口条件。
 
 生成、恢复和 Drive namespace 规则见
-[`p0d_lora_locus/README.md`](p0d_lora_locus/README.md)。后续 ICL-K、hard-B、
-recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自创建新目录和 notebook。
+[`p0d_lora_locus/README.md`](p0d_lora_locus/README.md)。
+
+P0-D2 参数预算匹配同样使用独立目录：
+
+- [`p0d2_budget_match/p0d2_budget_match_colab.ipynb`](p0d2_budget_match/p0d2_budget_match_colab.ipynb)：
+  7 conditions × 24 lessons × 3 seeds，共 504 adapter units；
+- [`p0d2_budget_match/README.md`](p0d2_budget_match/README.md)：冻结矩阵、实际参数预算
+  验证、恢复和 Drive namespace。
+
+后续 ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自创建新目录和
+notebook。
 
 ## Drive 目录规则
 
@@ -79,6 +88,9 @@ recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自创建新目录和 not
   code revision 和 model revision，后续 notebook 自动复用；
 - 如果代码、模型或冻结设置改变，创建新的 `PIPELINE_ATTEMPT`，不得改写原 pipeline
   的 revision lock；
+- P0-D2 使用
+  `/content/drive/MyDrive/plasticity-p0d/budget-match/v1/pipelines/`，不得复用
+  P0-D1 `lora-locus/v1` 的 pipeline 或 stage attempt；
 - 不同阶段允许由 Colab 分配不同 GPU；每次会话的 GPU、CUDA、Python、依赖版本和
   environment fingerprint 都会单独记录，不参与跨阶段目录寻址；
 - 同一阶段在相同环境中的正常断线保持 attempt 名不变即可恢复；如果同一阶段恢复时

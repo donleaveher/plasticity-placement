@@ -170,6 +170,34 @@ Colab 入口：
 详细运行和 frozen narrow-condition 规则见
 [`notebooks/p0d_lora_locus/README.md`](notebooks/p0d_lora_locus/README.md)。
 
+## P0-D2 参数预算匹配
+
+P0-D2 用独立的 `plasticity-p0d2` CLI 检验 P0-D1 的局部 band 劣势是否来自较少的
+trainable parameters。冻结矩阵同时重跑 Full、三个原始 band 和三个 matched band：
+
+```bash
+uv run plasticity-p0d2 plan \
+  --output artifacts/p0d2-budget-match \
+  --source-manifest /path/to/p0c-confirmatory/manifest.json
+
+uv run plasticity-p0d2 run \
+  --output artifacts/p0d2-budget-match \
+  --source-manifest /path/to/p0c-confirmatory/manifest.json
+
+uv run plasticity-p0d2 aggregate \
+  --output artifacts/p0d2-budget-match \
+  --bootstrap-samples 10000
+```
+
+正式规模为 7 conditions × 24 lessons × 3 seeds = 504 adapter units。Matched 条件从
+P0-C calibration 的 rank/alpha 冻结为三倍值，并保持 alpha/rank；runner 对每个
+matched unit 相对 `full-base` 验证实际 trainable parameter count，默认容差为 1%。
+
+Colab 入口为
+[`notebooks/p0d2_budget_match/p0d2_budget_match_colab.ipynb`](notebooks/p0d2_budget_match/p0d2_budget_match_colab.ipynb)；
+设计、决策门和恢复规则见
+[`docs/p0d2-budget-match-protocol.md`](docs/p0d2-budget-match-protocol.md)。
+
 ## 项目结构
 
 ```text
@@ -181,7 +209,8 @@ Colab 入口：
 │   ├── evaluation/            # Base、LoRA 与回滚探针
 │   ├── training/              # LoRA 训练后端
 │   ├── p0c/                   # 真实四载体编译、运行、恢复和聚合
-│   └── p0d/                   # LoRA layer-locus 条件、恢复和聚合
+│   ├── p0d/                   # LoRA layer-locus 条件、恢复和聚合
+│   └── p0d2/                  # 参数预算匹配、容量救援和决策门
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```
