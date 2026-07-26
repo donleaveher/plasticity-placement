@@ -53,8 +53,16 @@ Confirmatory 入口。二者均保留用于历史审计，不再作为 v4 执行
 确保 checkout、fingerprint、日志、manifest 校验和恢复策略一致。修改公共编排逻辑时应
 先改生成器并重新生成全部 v4 文件，不要单独手改某一个生成文件。
 
-后续 ICL-K、hard-B、recurrence–volatility 和 layer-locus 等实验必须各自创建新的
-notebook，不得合并进上述文件。
+P0-D layer-locus 已使用独立目录实现：
+
+- [`p0d_lora_locus/p0d_band_scan_colab.ipynb`](p0d_lora_locus/p0d_band_scan_colab.ipynb)：
+  `full/early/middle/late` × 24 lessons × 3 seeds；
+- [`p0d_lora_locus/p0d_narrow_scan_colab.ipynb`](p0d_lora_locus/p0d_narrow_scan_colab.ipynb)：
+  仅接受人工冻结的显式层/窗口条件。
+
+生成、恢复和 Drive namespace 规则见
+[`p0d_lora_locus/README.md`](p0d_lora_locus/README.md)。后续 ICL-K、hard-B、
+recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自创建新目录和 notebook。
 
 ## Drive 目录规则
 

@@ -128,6 +128,48 @@ Colab 首次运行会把当前远程分支解析成 commit SHA 并写入 Drive�
 detached commit。若代码、GPU、CUDA 或关键依赖发生变化，原输出目录会拒绝继续混跑。
 失败 unit 的产物保持不可变，不会在下次执行时自动重新训练覆盖。
 
+## P0-D LoRA layer-locus
+
+P0-D 从一个完整 verified 的 P0-C Confirmatory `manifest.json` 冻结 24-lesson cohort、
+模型 revision、训练 seeds 和校准配置。Band scan 固定运行
+`full/early/middle/late × 24 lessons × 3 seeds`，即 288 个 adapter units；No-write 和
+External 每条 lesson 只运行一次。
+
+先检查解析后的条件矩阵：
+
+```bash
+uv run plasticity-p0d plan \
+  --output artifacts/p0d-band-scan \
+  --source-manifest /path/to/p0c-confirmatory/manifest.json \
+  --stage band_scan
+```
+
+运行并聚合：
+
+```bash
+uv run plasticity-p0d run \
+  --output artifacts/p0d-band-scan \
+  --source-manifest /path/to/p0c-confirmatory/manifest.json \
+  --stage band_scan
+
+uv run plasticity-p0d aggregate \
+  --output artifacts/p0d-band-scan \
+  --bootstrap-samples 10000
+```
+
+P0-D 使用独立的 condition-aware manifest，unit identity 为
+`condition × lesson × seed`。Aggregate 会拒绝 partial/mixed matrix，先在 lesson 内
+等权汇总 seeds，再执行 lesson-clustered paired bootstrap、retention/locus gates 和
+`fact_mapping × act_k2` secondary diagnostic。它不会自动选择或启动 narrow scan。
+
+Colab 入口：
+
+- [`notebooks/p0d_lora_locus/p0d_band_scan_colab.ipynb`](notebooks/p0d_lora_locus/p0d_band_scan_colab.ipynb)
+- [`notebooks/p0d_lora_locus/p0d_narrow_scan_colab.ipynb`](notebooks/p0d_lora_locus/p0d_narrow_scan_colab.ipynb)
+
+详细运行和 frozen narrow-condition 规则见
+[`notebooks/p0d_lora_locus/README.md`](notebooks/p0d_lora_locus/README.md)。
+
 ## 项目结构
 
 ```text
@@ -138,7 +180,8 @@ detached commit。若代码、GPU、CUDA 或关键依赖发生变化，原输出
 │   ├── simulation/            # 可控环境与四载体实验
 │   ├── evaluation/            # Base、LoRA 与回滚探针
 │   ├── training/              # LoRA 训练后端
-│   └── p0c/                   # 真实四载体编译、运行、恢复和聚合
+│   ├── p0c/                   # 真实四载体编译、运行、恢复和聚合
+│   └── p0d/                   # LoRA layer-locus 条件、恢复和聚合
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```
@@ -147,3 +190,6 @@ detached commit。若代码、GPU、CUDA 或关键依赖发生变化，原输出
 
 第一个真实载体实验（P0-C）的 Colab 设计、lesson/probe 规范、运行分级、统计分析和
 go/no-go 条件见 [`docs/p0c-colab-protocol.md`](docs/p0c-colab-protocol.md)。
+24-lesson × 3-seed Confirmatory 主结果、当前可支持的主张以及“先做 LoRA layer-locus、
+再以 GRPO/RLVR 补充”的后续路线见
+[`docs/p0c-confirmatory-results-and-next-experiments.md`](docs/p0c-confirmatory-results-and-next-experiments.md)。

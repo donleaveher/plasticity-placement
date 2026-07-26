@@ -1,11 +1,11 @@
 # P0-C Colab 实验协议：同一 Lesson 的真实四载体比较
 
-- **版本：** 0.2（P0-C v4）
-- **日期：** 2026-07-25
-- **模式：** design + result-template
+- **版本：** 0.3（P0-C v4 results backfill）
+- **日期：** 2026-07-26
+- **模式：** frozen design + confirmatory results
 - **目标会议：** ICLR
 - **硬件边界：** 单个 Colab GPU，允许中断后从 Google Drive 恢复
-- **结果状态：** 本文只设计实验；所有结果格均为 `TBD`
+- **结果状态：** 24-lesson × 3-seed Confirmatory 已完成；未运行的诊断仍标记为 pending
 
 ## 1. 实验定位
 
@@ -70,12 +70,12 @@ P0-C 只寻找“存在异质性的先兆”，不训练路由器。
 
 | Claim | Reviewer question | Evidence | Workload | Baselines | Metric | Result |
 |---|---|---|---|---|---|---|
-| LoRA 写入真实有效 | 是否只是 base 本来就会？ | 独立 screening + held-out probes | nonce lessons | No-write | $TG$, exact accuracy | TBD |
-| 两种载体行为不同 | 是否只是成本或检索错误？ | 同 lesson、同 base、oracle retrieval | 全部 lesson | External, Parametric | $TG$, transfer, $IR$ | TBD |
-| Both 有/无互补 | 是否只是重复暴露？ | 同 adapter + 同 canonical note | 全部 lesson | P, E, Both | complement gain | TBD |
-| 差异可复现 | 是否依赖训练随机性？ | 3 training seeds | confirmatory set | paired arms | seed variance, CI | TBD |
-| 比较公平 | LoRA 是否获得了更多表达形式？ | exposure-matched ICL diagnostic | 差异最大的 lessons | ICL-$K$ | $TG$, tokens | TBD |
-| 回滚可信 | adapter 关闭后是否恢复？ | base vs disabled-adapter exact output | 全部 probes | Base | exact-match | TBD |
+| LoRA 写入真实有效 | 是否只是 base 本来就会？ | 独立 screening + held-out probes | nonce lessons | No-write | $TG$, exact accuracy | P−N TG +0.6215 [0.5313, 0.7031]，24/24 为正 |
+| 两种载体行为不同 | 是否只是成本或检索错误？ | 同 lesson、同 base、oracle retrieval | 全部 lesson | External, Parametric | $TG$, transfer, $IR$ | P−E TG −0.0347 [−0.1042, 0.0295]；差异和等价均未建立 |
+| Both 有/无互补 | 是否只是重复暴露？ | 同 adapter + 同 canonical note | 全部 lesson | P, E, Both | complement gain | B−best single +0.0573 [0.0156, 0.1076]；7/16/1 |
+| 差异可复现 | 是否依赖训练随机性？ | 3 training seeds | confirmatory set | paired arms | seed variance, CI | 23/24 P lessons 的 seed range ≤ 0.125 |
+| 比较公平 | LoRA 是否获得了更多表达形式？ | exposure-matched ICL diagnostic | 差异最大的 lessons | ICL-$K$ | $TG$, tokens | Pending：尚未运行 ICL-$K$ |
+| 回滚可信 | adapter 关闭后是否恢复？ | base vs disabled-adapter exact output | 全部 probes | Base | exact-match | 1.0；这是 aggregate 接受每个 unit 的前置条件 |
 
 ## 4. 模型和默认配置
 
@@ -547,16 +547,16 @@ run-level metadata。Tokenizer 不在每个 P0-C adapter 目录重复保存。
 
 不把多项指标加权成一个任意总分作为主结论。
 
-## 13. 结果模板
+## 13. Confirmatory 结果
 
 ### 13.1 主表
 
 | Arm | Target generalization ↑ | Interference regression ↓ | Exact-heldout ↑ | Conflict robustness ↑ | Invalid rate ↓ | Write time ↓ | Read tokens ↓ |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| No-write | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| External | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| Parametric | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| Both | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| No-write | 0.2448 [0.1875, 0.3073] | 0.0000 [0.0000, 0.0000] | 0.2292 [0.1042, 0.3542] | 0.1354 [0.0521, 0.2396] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 83.17 [81.14, 85.36] |
+| External | 0.9010 [0.8438, 0.9531] | 0.0000 [0.0000, 0.0000] | 1.0000 [1.0000, 1.0000] | 0.6146 [0.4896, 0.7500] | 0.0000 [0.0000, 0.0000] | 0.0000 [0.0000, 0.0000] | 103.90 [98.91, 109.05] |
+| Parametric | 0.8663 [0.7743, 0.9410] | 0.0289 [-0.0347, 0.0949] | 0.9236 [0.8403, 0.9931] | 0.5764 [0.4514, 0.7014] | 0.0000 [0.0000, 0.0000] | 5.3775 [5.3656, 5.3864] | 83.17 [81.14, 85.36] |
+| Both | 0.9983 [0.9948, 1.0000] | 0.0289 [-0.0347, 0.0949] | 1.0000 [1.0000, 1.0000] | 0.9271 [0.8438, 0.9896] | 0.0000 [0.0000, 0.0000] | 5.3775 [5.3656, 5.3864] | 103.90 [98.91, 109.05] |
 
 所有行为指标报告 lesson-level mean 与 95% paired/bootstrap CI；效率指标同时报告 median 和 IQR。
 
@@ -564,10 +564,10 @@ run-level metadata。Tokenizer 不在每个 P0-C adapter 目录重复保存。
 
 | Contrast | $TG$ difference | 95% CI | $IR$ difference | 95% CI | Wins / ties / losses | Interpretation |
 |---|---:|---:|---:|---:|---:|---|
-| P − N | TBD | TBD | TBD | TBD | TBD | TBD |
-| E − N | TBD | TBD | TBD | TBD | TBD | TBD |
-| P − E | TBD | TBD | TBD | TBD | TBD | TBD |
-| B − max(P,E) | TBD | TBD | TBD | TBD | TBD | TBD |
+| P − N | +0.6215 | [0.5313, 0.7031] | +0.0289 | [-0.0347, 0.0949] | 24 / 0 / 0 | 参数写入稳定优于不写入 |
+| E − N | +0.6563 | [0.5938, 0.7135] | 0.0000 | [0.0000, 0.0000] | 24 / 0 / 0 | Oracle external memory 稳定有效 |
+| P − E | −0.0347 | [-0.1042, 0.0295] | +0.0289 | [-0.0347, 0.0949] | 5 / 8 / 11 | 未建立差异，也未建立 ±0.05 内等价 |
+| B − max(P,E) | +0.0573 | [0.0156, 0.1076] | +0.0324 | [-0.0012, 0.0741] | 7 / 16 / 1 | 均值互补，但多数 lessons 打平且接近上界 |
 
 ### 13.3 结果图
 
@@ -658,10 +658,17 @@ smoke、calibration、pilot 或主四臂 confirmatory 运行。
 | P1 | 8-lesson Tier 1 | 存在载体差异信号 | 中 | calibration | P≈N 或全面干扰 |
 | P2 | 24 lessons × 3 seeds | confirmatory P0-C | 高 | Tier 1 | Tier 1 未通过 |
 | P2 | ICL-$K$ diagnostic | exposure 公平性 | 中 | P/E 差异 | 差异很小则跳过 |
-| P3 | persistent regime world | 动态 crossover | 高 | P0-C 通过 | 无异质性 |
+| P3 | LoRA layer-locus/depth | 参数写入位置 | 中—高 | P0-C 通过 | band 间无可复现差异 |
+| P4 | GRPO/RLVR supplement | 优化目标稳健性 | 高 | layer-locus 完成 | 奖励或算力不可行 |
+| P5 | persistent regime world | 动态 crossover | 高 | 位置/载体异质性稳定 | 无可复现异质性 |
 
-## 18. No-fabrication status
+## 18. Result status
 
-本文没有生成任何 v4 四臂实验结果。所有 `TBD` 必须由 Colab 实际运行结果填充。v3
-Confirmatory 只完成了 base screening，并因 5 个完整合格 fact pairs 少于所需 6 个而
-停止；它不能包装成 confirmatory evidence。Tier 0 和 Tier 1 仍只能作为工程与方向检查。
+v3 Confirmatory 只完成了 base screening，并因 5 个完整合格 fact pairs 少于所需 6 个而
+停止；它不能包装成 confirmatory evidence。
+
+P0-C v4 已完成 24-lesson × 3-seed 四臂 Confirmatory 聚合。主结果、证据边界、reserve
+pair 披露和后续实验顺序见
+[`p0c-confirmatory-results-and-next-experiments.md`](p0c-confirmatory-results-and-next-experiments.md)。
+该结果文档以实际 `summary.json` 为唯一数值来源；未完成的 ICL-$K$、layer-locus、
+recurrence–volatility 和 GRPO/RLVR 仍不得写成已有结果。
