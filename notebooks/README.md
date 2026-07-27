@@ -70,6 +70,13 @@ P0-D2 参数预算匹配同样使用独立目录：
 - [`p0d2_budget_match/README.md`](p0d2_budget_match/README.md)：冻结矩阵、实际参数预算
   验证、恢复和 Drive namespace。
 
+P0-D2H 困难 probe 诊断使用另一个独立目录：
+
+- [`p0d2_hard_probe/p0d2_hard_probe_colab.ipynb`](p0d2_hard_probe/p0d2_hard_probe_colab.ipynb)：
+  只读复用 verified P0-D2 adapters，运行 16 probes/lesson；
+- [`p0d2_hard_probe/README.md`](p0d2_hard_probe/README.md)：四类 difficulty、
+  5,376-row matrix、恢复和解释边界。
+
 后续 ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自创建新目录和
 notebook。
 
@@ -91,6 +98,9 @@ notebook。
 - P0-D2 使用
   `/content/drive/MyDrive/plasticity-p0d/budget-match/v1/pipelines/`，不得复用
   P0-D1 `lora-locus/v1` 的 pipeline 或 stage attempt；
+- P0-D2H 使用
+  `/content/drive/MyDrive/plasticity-p0d/hard-probe/v1/pipelines/`，只读引用
+  P0-D2 manifest/summary/adapters，不得向 P0-D2 source stage 写入文件；
 - 不同阶段允许由 Colab 分配不同 GPU；每次会话的 GPU、CUDA、Python、依赖版本和
   environment fingerprint 都会单独记录，不参与跨阶段目录寻址；
 - 同一阶段在相同环境中的正常断线保持 attempt 名不变即可恢复；如果同一阶段恢复时

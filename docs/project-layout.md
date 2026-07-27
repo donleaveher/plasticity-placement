@@ -12,7 +12,8 @@ plasticity-placement/
 │   ├── training/              # PEFT/LoRA 数据、配置与训练后端
 │   ├── p0c/                   # P0-C lesson compiler、真实四臂、恢复和聚合
 │   ├── p0d/                   # P0-D layer-locus matrix、恢复、gates 和聚合
-│   └── p0d2/                  # P0-D2 budget-match、恢复、容量对比和聚合
+│   ├── p0d2/                  # P0-D2 budget-match、恢复、容量对比和聚合
+│   └── p0d2h/                 # P0-D2H read-only hard-probe stress diagnostic
 ├── tests/                     # 不依赖大模型下载的单元测试
 ├── artifacts/                 # 本地结果、适配器和检查点；不提交版本库
 ├── pyproject.toml
@@ -28,6 +29,9 @@ plasticity-placement/
   但维护独立的 condition-aware manifest、raw/adapter 目录和 aggregate。
 - `p0d2/` 不修改 P0-D1 frozen semantics；它为每个 condition 冻结 rank/alpha/modules，
   并维护独立 `p0d2-*` config、manifest、run ID、budget validation 和 aggregate。
+- `p0d2h/` 只读 verified P0-D2 manifest、summary 和 adapter bundles；它维护独立的
+  hard-probe compiler、`p0d2h-*` identity/manifest/raw results 和 diagnostic gates，
+  不包含训练入口。
 - `notebooks/` 不保存核心业务逻辑，只调用已安装的命令行入口。
 - `data/examples/` 仅保存可公开、体积小且可复现的输入样例。
 - `artifacts/` 保存生成结果，通过 `.gitignore` 排除。

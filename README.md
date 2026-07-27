@@ -198,6 +198,35 @@ Colab 入口为
 设计、决策门和恢复规则见
 [`docs/p0d2-budget-match-protocol.md`](docs/p0d2-budget-match-protocol.md)。
 
+## P0-D2H 困难 Probe 压力测试
+
+P0-D2H 不重新训练，只读复用完整 verified P0-D2 run 中的 `full-base` 和三个 matched
+conditions。它对每个 lesson 编译 16 个困难 probes，覆盖多干扰绑定、冲突堆叠、
+条件路由和长上下文稀释：
+
+```bash
+uv run plasticity-p0d2h plan \
+  --output artifacts/p0d2h-hard-probe \
+  --source-manifest /path/to/p0d2-budget-match/manifest.json
+
+uv run plasticity-p0d2h run \
+  --output artifacts/p0d2h-hard-probe \
+  --source-manifest /path/to/p0d2-budget-match/manifest.json
+
+uv run plasticity-p0d2h aggregate \
+  --output artifacts/p0d2h-hard-probe \
+  --bootstrap-samples 10000
+```
+
+冻结规模为 288 个 read-only adapter units 和 5,376 行结果。Aggregate 同时报告困难
+准确率、相对原 P0-D2 TG 的退化、late-vs-full 的配对韧性以及 seed/lesson type/category
+稳定性。它不会自动启动窄扫描或多映射训练。
+
+Colab 入口为
+[`notebooks/p0d2_hard_probe/p0d2_hard_probe_colab.ipynb`](notebooks/p0d2_hard_probe/p0d2_hard_probe_colab.ipynb)；
+预注册规则见
+[`docs/p0d2h-hard-probe-stress-protocol.md`](docs/p0d2h-hard-probe-stress-protocol.md)。
+
 ## 项目结构
 
 ```text
@@ -210,7 +239,8 @@ Colab 入口为
 │   ├── training/              # LoRA 训练后端
 │   ├── p0c/                   # 真实四载体编译、运行、恢复和聚合
 │   ├── p0d/                   # LoRA layer-locus 条件、恢复和聚合
-│   └── p0d2/                  # 参数预算匹配、容量救援和决策门
+│   ├── p0d2/                  # 参数预算匹配、容量救援和决策门
+│   └── p0d2h/                 # 只读困难 probe 编译、压力评估和诊断门
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```

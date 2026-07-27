@@ -7,11 +7,11 @@ from typing import Any
 
 BRANCH = "agent/add-lora-evaluation"
 OUTPUT_DIR = Path(__file__).resolve().parent
-NOTEBOOK_NAME = "p0d2_budget_match_colab.ipynb"
+NOTEBOOK_NAME = "p0d2_hard_probe_colab.ipynb"
 COLAB_URL = (
     "https://colab.research.google.com/github/donleaveher/"
     "plasticity-placement/blob/"
-    f"{BRANCH.replace('/', '%2F')}/notebooks/p0d2_budget_match/{NOTEBOOK_NAME}"
+    f"{BRANCH.replace('/', '%2F')}/notebooks/p0d2_hard_probe/{NOTEBOOK_NAME}"
 )
 
 
@@ -56,42 +56,42 @@ BRANCH = '{BRANCH}'
 REQUESTED_CODE_REVISION = None
 REPO_DIR = Path('/content/plasticity-placement')
 
-P0C_PIPELINE_ATTEMPT = 'pipeline-a1'
-P0C_CONFIRMATORY_ATTEMPT = 'a1'
-P0C_PIPELINE_ROOT = (
-    Path('/content/drive/MyDrive/plasticity-p0c/v4/pipelines')
-    / P0C_PIPELINE_ATTEMPT
-)
-
 P0D2_PIPELINE_ATTEMPT = 'pipeline-a1'
-BUDGET_MATCH_ATTEMPT = 'a1'
+P0D2_BUDGET_MATCH_ATTEMPT = 'a1'
 P0D2_PIPELINE_ROOT = (
     Path('/content/drive/MyDrive/plasticity-p0d/budget-match/v1/pipelines')
     / P0D2_PIPELINE_ATTEMPT
 )
 
-RETENTION_MARGIN = 0.05
-BUDGET_TOLERANCE = 0.01
-RUN_BUDGET_MATCH = False
+P0D2H_PIPELINE_ATTEMPT = 'pipeline-a1'
+HARD_PROBE_ATTEMPT = 'a1'
+P0D2H_PIPELINE_ROOT = (
+    Path('/content/drive/MyDrive/plasticity-p0d/hard-probe/v1/pipelines')
+    / P0D2H_PIPELINE_ATTEMPT
+)
+
+RESILIENCE_MARGIN = 0.05
+RUN_HARD_PROBE = False
 
 for name, value in {{
-    'P0C_PIPELINE_ATTEMPT': P0C_PIPELINE_ATTEMPT,
-    'P0C_CONFIRMATORY_ATTEMPT': P0C_CONFIRMATORY_ATTEMPT,
     'P0D2_PIPELINE_ATTEMPT': P0D2_PIPELINE_ATTEMPT,
-    'BUDGET_MATCH_ATTEMPT': BUDGET_MATCH_ATTEMPT,
+    'P0D2_BUDGET_MATCH_ATTEMPT': P0D2_BUDGET_MATCH_ATTEMPT,
+    'P0D2H_PIPELINE_ATTEMPT': P0D2H_PIPELINE_ATTEMPT,
+    'HARD_PROBE_ATTEMPT': HARD_PROBE_ATTEMPT,
 }}.items():
     if not re.fullmatch(r'[A-Za-z0-9._-]+', value):
         raise ValueError(f'{{name}} contains unsafe path characters: {{value!r}}')
-if not 0.0 <= RETENTION_MARGIN <= 1.0:
-    raise ValueError('RETENTION_MARGIN must be between 0 and 1')
-if not 0.0 <= BUDGET_TOLERANCE <= 0.1:
-    raise ValueError('BUDGET_TOLERANCE must be between 0 and 0.1')
+if not 0.0 <= RESILIENCE_MARGIN <= 1.0:
+    raise ValueError('RESILIENCE_MARGIN must be between 0 and 1')
 """
 
 
 CHECKOUT_SOURCE = """
 subprocess.run(['nvidia-smi'], check=True)
-subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'uv'], check=True)
+subprocess.run(
+    [sys.executable, '-m', 'pip', 'install', '-q', 'uv'],
+    check=True,
+)
 
 if REPO_DIR.exists() and not (REPO_DIR / '.git').exists():
     raise RuntimeError(f'{REPO_DIR} exists but is not a Git repository')
@@ -108,18 +108,19 @@ dirty = subprocess.run(
     text=True,
 ).stdout.strip()
 if dirty:
-    raise RuntimeError(
-        'The Colab checkout contains local changes; use a fresh runtime.\\n' + dirty
-    )
+    raise RuntimeError(f'Repository has local changes:\\n{dirty}')
 
-P0D2_PIPELINE_ROOT.mkdir(parents=True, exist_ok=True)
-CODE_REVISION_LOCK = P0D2_PIPELINE_ROOT / 'code-revision.txt'
+P0D2H_PIPELINE_ROOT.mkdir(parents=True, exist_ok=True)
+CODE_REVISION_LOCK = P0D2H_PIPELINE_ROOT / 'code_revision.txt'
 locked_revision = (
     CODE_REVISION_LOCK.read_text().strip()
     if CODE_REVISION_LOCK.exists()
     else None
 )
-subprocess.run(['git', '-C', str(REPO_DIR), 'fetch', 'origin', BRANCH], check=True)
+subprocess.run(
+    ['git', '-C', str(REPO_DIR), 'fetch', 'origin', BRANCH],
+    check=True,
+)
 revision_ref = REQUESTED_CODE_REVISION or locked_revision or f'origin/{BRANCH}'
 CODE_REVISION = subprocess.run(
     ['git', '-C', str(REPO_DIR), 'rev-parse', f'{revision_ref}^{{commit}}'],
@@ -129,8 +130,8 @@ CODE_REVISION = subprocess.run(
 ).stdout.strip()
 if locked_revision and CODE_REVISION != locked_revision:
     raise RuntimeError(
-        f'P0-D2 code lock mismatch: {locked_revision} != {CODE_REVISION}. '
-        'Use a new P0D2_PIPELINE_ATTEMPT.'
+        f'P0-D2H code lock mismatch: {locked_revision} != {CODE_REVISION}. '
+        'Use a new P0D2H_PIPELINE_ATTEMPT.'
     )
 if not locked_revision:
     temporary = CODE_REVISION_LOCK.with_suffix('.txt.tmp')
@@ -145,7 +146,7 @@ subprocess.run(
     cwd=REPO_DIR,
     check=True,
 )
-print('Checked out P0-D2 code:', CODE_REVISION)
+print('Checked out P0-D2H code:', CODE_REVISION)
 """
 
 
@@ -170,74 +171,81 @@ def run_json(command):
     return json.loads(lines[-1])
 
 source_matches = sorted(
-    P0C_PIPELINE_ROOT.glob(
-        'runs/*/confirmatory-'
-        + P0C_CONFIRMATORY_ATTEMPT
+    P0D2_PIPELINE_ROOT.glob(
+        'runs/*/budget_match-'
+        + P0D2_BUDGET_MATCH_ATTEMPT
         + '/manifest.json'
     )
 )
 if len(source_matches) != 1:
     raise RuntimeError(
-        'Expected exactly one P0-C Confirmatory manifest under '
-        f'{P0C_PIPELINE_ROOT}, found {source_matches}'
+        'Expected exactly one P0-D2 budget-match manifest under '
+        f'{P0D2_PIPELINE_ROOT}, found {source_matches}'
     )
-SOURCE_P0C_MANIFEST = source_matches[0]
-source_manifest = json.loads(SOURCE_P0C_MANIFEST.read_text())
-source_lessons = source_manifest.get('selected_lessons', [])
+SOURCE_P0D2_MANIFEST = source_matches[0]
+source_manifest = json.loads(SOURCE_P0D2_MANIFEST.read_text())
 source_units = source_manifest.get('units', {})
 source_config = source_manifest.get('config', {})
-SOURCE_MODEL_REVISION = source_config.get('model_revision')
+source_base = source_manifest.get('base_arms', {})
+source_summary_path = (
+    SOURCE_P0D2_MANIFEST.parent / 'results' / 'aggregate' / 'summary.json'
+)
+if not source_summary_path.exists():
+    raise FileNotFoundError(f'Missing P0-D2 summary: {source_summary_path}')
+source_summary = json.loads(source_summary_path.read_text())
 if (
-    source_config.get('tier') != 'confirmatory'
-    or len(source_lessons) != 24
-    or len(source_units) != 72
-    or set(source_manifest.get('base_arms', {}).values()) != {'verified'}
+    source_manifest.get('schema_version') != 'p0d2-manifest-v1'
+    or source_config.get('stage') != 'budget_match'
+    or len(source_manifest.get('selected_lessons', [])) != 24
+    or len(source_manifest.get('conditions', {})) != 7
+    or len(source_units) != 504
+    or set(source_base.values()) != {'verified'}
     or any(
         unit.get('state') != 'verified'
         or float(unit.get('rollback_exact_match_rate', 0.0)) != 1.0
         for unit in source_units.values()
     )
+    or source_summary.get('run_id') != source_manifest.get('run_id')
+    or source_summary.get('gates', {}).get('run_valid') is not True
+    or 'late-matched'
+    not in source_summary.get('gates', {}).get('eligible_locus_conditions', [])
 ):
-    raise RuntimeError('P0-C source manifest is not a complete verified Confirmatory run')
-SOURCE_MANIFEST_HASH = sha256(SOURCE_P0C_MANIFEST.read_bytes()).hexdigest()
-SELECTED_LESSON_HASH = sha256(
-    json.dumps(source_lessons, separators=(',', ':')).encode()
-).hexdigest()
+    raise RuntimeError(
+        'Source is not a complete verified P0-D2 run with late-matched eligible'
+    )
 
-environment_context = run_json(['uv', 'run', 'plasticity-p0d2', 'environment'])
+SOURCE_MANIFEST_HASH = sha256(SOURCE_P0D2_MANIFEST.read_bytes()).hexdigest()
+SOURCE_SUMMARY_HASH = sha256(source_summary_path.read_bytes()).hexdigest()
+environment_context = run_json(
+    ['uv', 'run', 'plasticity-p0d2h', 'environment']
+)
 environment = environment_context['environment']
 ENVIRONMENT_FINGERPRINT = environment_context['fingerprint']
 CODE_HASH = environment['code_sha256']
 
-FROZEN_MATRIX_ID = 'p0d2-seven-condition-budget-match-v1'
-MATRIX_HASH = sha256(FROZEN_MATRIX_ID.encode()).hexdigest()
 PROVENANCE_KEY = (
     f'code-{CODE_HASH[:10]}_source-{SOURCE_MANIFEST_HASH[:10]}'
 )
-PROVENANCE_ROOT = P0D2_PIPELINE_ROOT / 'runs' / PROVENANCE_KEY
-STAGE_DIR = PROVENANCE_ROOT / ('budget_match-' + BUDGET_MATCH_ATTEMPT)
+PROVENANCE_ROOT = P0D2H_PIPELINE_ROOT / 'runs' / PROVENANCE_KEY
+STAGE_DIR = PROVENANCE_ROOT / ('hard_probe-' + HARD_PROBE_ATTEMPT)
 LOG_DIR = PROVENANCE_ROOT / 'logs'
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 frozen_context = {
     'schema_version': 1,
-    'pipeline_version': 'p0d2-budget-match-v1',
+    'pipeline_version': 'p0d2h-hard-probe-v1',
     'code_sha256': CODE_HASH,
     'source_manifest_sha256': SOURCE_MANIFEST_HASH,
-    'source_model_revision': SOURCE_MODEL_REVISION,
-    'selected_lesson_sha256': SELECTED_LESSON_HASH,
-    'matrix_sha256': MATRIX_HASH,
-    'retention_margin': RETENTION_MARGIN,
-    'budget_tolerance': BUDGET_TOLERANCE,
-    'stage': 'budget_match',
+    'source_summary_sha256': SOURCE_SUMMARY_HASH,
+    'source_run_id': source_manifest['run_id'],
+    'resilience_margin': RESILIENCE_MARGIN,
+    'stage': 'hard_probe',
 }
-context_path = STAGE_DIR / 'notebook_context.json'
 STAGE_DIR.mkdir(parents=True, exist_ok=True)
+context_path = STAGE_DIR / 'notebook_context.json'
 if context_path.exists():
     if json.loads(context_path.read_text()) != frozen_context:
-        raise RuntimeError(
-            f'Frozen P0-D2 stage context mismatch: {context_path}'
-        )
+        raise RuntimeError(f'Frozen P0-D2H context mismatch: {context_path}')
 else:
     temporary = context_path.with_suffix('.json.tmp')
     temporary.write_text(
@@ -251,13 +259,15 @@ sessions.append({
     'recorded_at': datetime.now(timezone.utc).isoformat(),
     'git_revision': CODE_REVISION,
     'branch': BRANCH,
-    'stage': 'budget_match',
+    'stage': 'hard_probe',
     'environment_fingerprint': ENVIRONMENT_FINGERPRINT,
     'environment': environment,
-    'source_p0c_manifest': str(SOURCE_P0C_MANIFEST),
+    'source_p0d2_manifest': str(SOURCE_P0D2_MANIFEST),
 })
 temporary = sessions_path.with_suffix('.json.tmp')
-temporary.write_text(json.dumps(sessions, indent=2, sort_keys=True) + '\\n')
+temporary.write_text(
+    json.dumps(sessions, indent=2, sort_keys=True) + '\\n'
+)
 temporary.replace(sessions_path)
 
 def run_checked(label, command):
@@ -296,20 +306,47 @@ def run_checked(label, command):
             f'{label} failed with exit code {return_code}; log={log_path}'
         )
 
-def p0d2_command(action):
-    if sha256(SOURCE_P0C_MANIFEST.read_bytes()).hexdigest() != SOURCE_MANIFEST_HASH:
-        raise RuntimeError('P0-C source manifest changed after provenance freeze')
+def p0d2h_command(action):
+    if sha256(SOURCE_P0D2_MANIFEST.read_bytes()).hexdigest() != SOURCE_MANIFEST_HASH:
+        raise RuntimeError('P0-D2 source manifest changed after freeze')
+    if sha256(source_summary_path.read_bytes()).hexdigest() != SOURCE_SUMMARY_HASH:
+        raise RuntimeError('P0-D2 source summary changed after freeze')
     command = [
-        'uv', 'run', 'plasticity-p0d2', action,
+        'uv', 'run', 'plasticity-p0d2h', action,
         '--output', str(STAGE_DIR),
     ]
     if action in {'plan', 'run'}:
         command.extend([
-            '--source-manifest', str(SOURCE_P0C_MANIFEST),
-            '--retention-margin', str(RETENTION_MARGIN),
-            '--budget-tolerance', str(BUDGET_TOLERANCE),
+            '--source-manifest', str(SOURCE_P0D2_MANIFEST),
+            '--resilience-margin', str(RESILIENCE_MARGIN),
         ])
     return command
+"""
+
+
+RUN_SOURCE = """
+plan = run_json(p0d2h_command('plan'))
+expected_conditions = [
+    'full-base',
+    'early-matched',
+    'middle-matched',
+    'late-matched',
+]
+if (
+    [condition['condition_id'] for condition in plan['config']['conditions']]
+    != expected_conditions
+    or plan['hard_categories'] != [
+        'binding_decoys',
+        'conflict_stack',
+        'conditional_route',
+        'long_context',
+    ]
+    or plan['probes_per_lesson'] != 16
+    or plan['expected_unit_count'] != 288
+    or plan['expected_probe_row_count'] != 5376
+):
+    raise RuntimeError('Unexpected P0-D2H preflight plan')
+display(plan)
 
 def manifest_status():
     path = STAGE_DIR / 'manifest.json'
@@ -320,112 +357,39 @@ def manifest_status():
         'exists': True,
         'run_id': manifest.get('run_id'),
         'stage_dir': str(STAGE_DIR),
-        'lesson_count': len(manifest.get('selected_lessons', [])),
-        'conditions': list(manifest.get('conditions', {})),
-        'base_states': dict(Counter(manifest.get('base_arms', {}).values())),
+        'base_states': dict(Counter(
+            value.get('state')
+            for value in manifest.get('base_arms', {}).values()
+        )),
         'unit_states': dict(Counter(
-            unit.get('state') for unit in manifest.get('units', {}).values()
+            value.get('state')
+            for value in manifest.get('units', {}).values()
         )),
         'errors': manifest.get('errors', [])[-10:],
     }
 
-def verify_manifest():
-    path = STAGE_DIR / 'manifest.json'
-    if not path.exists():
-        raise FileNotFoundError(f'Missing P0-D2 manifest: {path}')
-    manifest = json.loads(path.read_text())
-    units = manifest.get('units', {})
-    if len(manifest.get('selected_lessons', [])) != 24:
-        raise RuntimeError('P0-D2 manifest does not contain 24 lessons')
-    if len(manifest.get('conditions', {})) != 7:
-        raise RuntimeError('P0-D2 manifest does not contain 7 conditions')
-    if len(units) != 504:
-        raise RuntimeError(f'Expected 504 adapter units, got {len(units)}')
-    if set(manifest.get('base_arms', {}).values()) != {'verified'}:
-        raise RuntimeError('P0-D2 base arms are incomplete')
-    bad = {
-        key: unit.get('state')
-        for key, unit in units.items()
-        if unit.get('state') != 'verified'
-        or float(unit.get('rollback_exact_match_rate', 0.0)) != 1.0
-    }
-    matched_bad = {
-        key: unit.get('budget_validation')
-        for key, unit in units.items()
-        if str(unit.get('condition_id', '')).endswith('-matched')
-        and (
-            unit.get('budget_validation', {}).get('within_tolerance') is not True
-            or float(
-                unit.get('budget_validation', {}).get('relative_error', 1.0)
-            ) > BUDGET_TOLERANCE
+if RUN_HARD_PROBE:
+    run_checked('p0d2h-hard-probe', p0d2h_command('run'))
+    manifest = json.loads((STAGE_DIR / 'manifest.json').read_text())
+    if (
+        len(manifest.get('selected_lessons', [])) != 24
+        or len(manifest.get('conditions', {})) != 4
+        or len(manifest.get('units', {})) != 288
+        or any(
+            value.get('state') != 'verified'
+            for value in manifest.get('base_arms', {}).values()
         )
-    }
-    if bad or matched_bad or manifest.get('errors'):
-        raise RuntimeError(
-            f'P0-D2 invalid units={bad}, budget={matched_bad}, '
-            f'errors={manifest.get("errors", [])[-5:]}'
+        or any(
+            value.get('state') != 'verified'
+            for value in manifest.get('units', {}).values()
         )
-    return manifest
-
-print(json.dumps({
-    'code_revision': CODE_REVISION,
-    'code_sha256': CODE_HASH,
-    'source_manifest': str(SOURCE_P0C_MANIFEST),
-    'source_manifest_sha256': SOURCE_MANIFEST_HASH,
-    'source_model_revision': SOURCE_MODEL_REVISION,
-    'source_base_rank': source_config.get('rank'),
-    'source_base_alpha': source_config.get('alpha'),
-    'selected_lesson_sha256': SELECTED_LESSON_HASH,
-    'matrix_sha256': MATRIX_HASH,
-    'budget_tolerance': BUDGET_TOLERANCE,
-    'environment_fingerprint': ENVIRONMENT_FINGERPRINT,
-    'stage_dir': str(STAGE_DIR),
-}, indent=2))
-"""
-
-
-RUN_SOURCE = """
-plan = run_json(p0d2_command('plan'))
-expected_ids = {
-    'full-base',
-    'early-base',
-    'middle-base',
-    'late-base',
-    'early-matched',
-    'middle-matched',
-    'late-matched',
-}
-conditions = plan['config']['conditions']
-if plan['expected_unit_count'] != 504:
-    raise RuntimeError(
-        f"P0-D2 expected 504 units, got {plan['expected_unit_count']}"
-    )
-if plan['expected_probe_row_count'] != 27456:
-    raise RuntimeError(
-        'P0-D2 expected 27,456 rows, got '
-        f"{plan['expected_probe_row_count']}"
-    )
-if {condition['condition_id'] for condition in conditions} != expected_ids:
-    raise RuntimeError('P0-D2 frozen condition IDs changed')
-matched = [
-    condition
-    for condition in conditions
-    if condition['condition_id'].endswith('-matched')
-]
-if any(
-    condition['nominal_budget_relative_error'] > BUDGET_TOLERANCE
-    for condition in matched
-):
-    raise RuntimeError('P0-D2 nominal parameter budget preflight failed')
-display(conditions)
-
-if RUN_BUDGET_MATCH:
-    run_checked('p0d2-budget-match-run', p0d2_command('run'))
-    verify_manifest()
+        or manifest.get('errors')
+    ):
+        raise RuntimeError('P0-D2H manifest is incomplete or invalid')
     run_checked(
-        'p0d2-budget-match-aggregate',
+        'p0d2h-hard-probe-aggregate',
         [
-            'uv', 'run', 'plasticity-p0d2', 'aggregate',
+            'uv', 'run', 'plasticity-p0d2h', 'aggregate',
             '--output', str(STAGE_DIR),
             '--bootstrap-samples', '10000',
         ],
@@ -436,23 +400,21 @@ summary_path = STAGE_DIR / 'results' / 'aggregate' / 'summary.json'
 if summary_path.exists():
     summary = json.loads(summary_path.read_text())
     if (
-        summary['adapter_unit_count'] != 504
-        or summary['probe_row_count'] != 27456
+        summary['adapter_unit_count'] != 288
+        or summary['probe_row_count'] != 5376
+        or not summary['gates']['run_valid']
     ):
-        raise RuntimeError('Unexpected P0-D2 result dimensions')
-    if not summary['gates']['run_valid']:
-        raise RuntimeError('P0-D2 aggregate did not pass the run-valid gate')
+        raise RuntimeError('Unexpected P0-D2H aggregate dimensions or gate')
     display(summary['condition_summary'])
-    display(summary['contrast_families'])
+    display(summary['degradation_vs_original_tg'])
     display(summary['contrasts'])
-    display(summary['budget_validation'])
     display(summary['gates'])
     print(
-        'Next-stage decision file:',
-        STAGE_DIR / 'results' / 'aggregate' / 'next_stage_candidates.json',
+        'Next-stage decision:',
+        STAGE_DIR / 'results' / 'aggregate' / 'next_stage_decision.json',
     )
 else:
-    print('Dry preflight complete. Set RUN_BUDGET_MATCH = True to start GPU work.')
+    print('Dry preflight complete. Set RUN_HARD_PROBE = True to evaluate.')
 """
 
 
@@ -464,20 +426,20 @@ def build_notebook() -> dict[str, Any]:
             src="https://colab.research.google.com/assets/colab-badge.svg"
             alt="Open In Colab"/></a>
 
-            # P0-D2: LoRA Parameter-Budget Match
+            # P0-D2H: Read-Only Hard-Probe Stress Test
 
-            Frozen seven-condition matrix on the verified P0-C Confirmatory cohort.
-            This notebook does not modify P0-C or P0-D1 outputs and does not
-            automatically start a narrow scan.
+            Evaluate verified P0-D2 adapters on four frozen difficulty dimensions.
+            This notebook never retrains adapters, modifies P0-D2 outputs, starts a
+            narrow scan, or starts a multi-mapping experiment.
             """
         ),
         _markdown(
             """
             ## 1. Configuration
 
-            Select a GPU runtime. Point the P0-C attempt labels at the complete
-            verified Confirmatory run. Keep `RUN_BUDGET_MATCH = False` for the
-            first preflight.
+            Select a GPU runtime. Point the P0-D2 attempt labels at the complete
+            verified budget-match run. Keep `RUN_HARD_PROBE = False` for the first
+            preflight.
             """
         ),
         _code(CONFIGURATION_SOURCE),
@@ -485,19 +447,20 @@ def build_notebook() -> dict[str, Any]:
         _code(CHECKOUT_SOURCE),
         _markdown("## 3. Resolve source provenance and recovery directory"),
         _code(PROVENANCE_SOURCE),
-        _markdown("## 4. Preflight, run, verify, and aggregate"),
+        _markdown("## 4. Preflight, evaluate, verify, and aggregate"),
         _code(RUN_SOURCE),
         _markdown(
             """
-            ## Recovery policy
+            ## Recovery and interpretation
 
             A normal disconnect resumes verified units in the same attempt when
-            code, source manifest, matrix, tolerances, and environment match.
-            Preserve an attempt containing a `failed` unit and increment
-            `BUDGET_MATCH_ATTEMPT`. Never edit manifests, adapters, raw rows,
-            aggregate files, or frozen context in place.
+            code, source hashes, probe bank, and environment match. Preserve any
+            attempt containing a `failed` unit and increment `HARD_PROBE_ATTEMPT`.
 
-            P0-D2 results remain `TBD` until the complete verified aggregate exists.
+            P0-D2H increases evaluation difficulty only. A reviewed result may
+            motivate a separate multi-mapping training experiment, but this notebook
+            cannot start one automatically. All results remain `TBD` until the
+            complete verified aggregate exists.
             """
         ),
     ]

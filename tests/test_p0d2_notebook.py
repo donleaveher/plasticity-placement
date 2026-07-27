@@ -24,6 +24,14 @@ def test_p0d2_notebook_matches_generator_and_has_valid_python() -> None:
     notebook = json.loads(path.read_text(encoding="utf-8"))
     assert notebook == generator.build_notebook()
     assert notebook["metadata"]["colab"]["name"] == path.name
+    opening_markdown = "".join(notebook["cells"][0]["source"])
+    assert (
+        "https://colab.research.google.com/github/donleaveher/"
+        "plasticity-placement/blob/agent%2Fadd-lora-evaluation/"
+        "notebooks/p0d2_budget_match/p0d2_budget_match_colab.ipynb"
+        in opening_markdown
+    )
+    assert "alt=\"Open In Colab\"" in opening_markdown
     for index, cell in enumerate(notebook["cells"]):
         if cell["cell_type"] == "code":
             ast.parse(
