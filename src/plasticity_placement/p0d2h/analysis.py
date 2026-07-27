@@ -29,6 +29,11 @@ from plasticity_placement.p0d2h.probes import (
     load_hard_probe_bank,
     verify_hard_probe_hashes,
 )
+from plasticity_placement.p0d2h.prompting import (
+    EXTERNAL_PROMPT_RENDERER_VERSION,
+    EXTERNAL_PROMPT_VARIANT,
+    PLAIN_PROMPT_VARIANT,
+)
 from plasticity_placement.p0d2h.runtime import (
     _adapter_result_path,
     _base_result_path,
@@ -38,8 +43,7 @@ from plasticity_placement.p0d2h.runtime import (
 def _source_validation_progress(index: int, total: int, key: str) -> None:
     if index == 1 or index == total or index % 25 == 0:
         print(
-            f"[p0d2h-aggregate] source integrity CPU/Drive "
-            f"{index}/{total}: {key}",
+            f"[p0d2h-aggregate] source integrity CPU/Drive {index}/{total}: {key}",
             flush=True,
         )
 
@@ -52,10 +56,14 @@ def aggregate_experiment(
     if not manifest_path.exists():
         raise FileNotFoundError(f"missing P0-D2H manifest: {manifest_path}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    source, source_summary, compiled, hard_bank, rows = _validate_and_load(
-        output_dir,
-        manifest,
-    )
+    (
+        source,
+        source_summary,
+        compiled,
+        hard_bank,
+        prompt_audit,
+        rows,
+    ) = _validate_and_load(output_dir, manifest)
     seed_category, base_category = _category_metrics(rows, compiled)
     lesson_category = [
         *base_category,
@@ -90,12 +98,18 @@ def aggregate_experiment(
             "middle-matched",
         )
     }
+    suite_quality = _suite_quality(
+        condition_summary,
+        rows,
+        manifest["config"],
+    )
     gates = _gate_status(
         contrasts["late-matched-vs-full-base"],
         float(manifest["config"]["resilience_margin"]),
+        suite_quality,
     )
     summary = {
-        "schema_version": "p0d2h-summary-v1",
+        "schema_version": "p0d2h-summary-v2",
         "run_id": manifest["run_id"],
         "stage": "hard_probe",
         "source_p0d2_run_id": source["run_id"],
@@ -108,13 +122,15 @@ def aggregate_experiment(
         "condition_summary": condition_summary,
         "degradation_vs_original_tg": degradation,
         "contrasts": contrasts,
+        "prompt_token_audit": {
+            key: value for key, value in prompt_audit.items() if key != "records"
+        },
+        "suite_quality": suite_quality,
         "seed_category_metrics": seed_category,
         "lesson_category_metrics": lesson_category,
         "lesson_overall_metrics": lesson_overall,
         "gates": gates,
-        "source_summary_sha256": manifest["config"][
-            "source_summary_sha256"
-        ],
+        "source_summary_sha256": manifest["config"]["source_summary_sha256"],
         "hard_probe_hashes": manifest["config"]["hard_probe_hashes"],
         "no_fabrication_status": (
             "All values were aggregated from verified P0-D2H raw records; "
@@ -132,9 +148,11 @@ def aggregate_experiment(
     _atomic_json_write(
         aggregate_dir / "next_stage_decision.json",
         {
-            "schema_version": "p0d2h-next-stage-v1",
+            "schema_version": "p0d2h-next-stage-v2",
             "source_run_id": manifest["run_id"],
-            "status": gates["decision_status"],
+            "status": gates["next_stage_status"],
+            "frozen_locus_status": gates["decision_status"],
+            "suite_quality_status": suite_quality["status"],
             "selection_automatic": False,
             "automatic_narrow_scan_started": False,
             "automatic_training_started": False,
@@ -152,6 +170,7 @@ def _validate_and_load(
     dict[str, Any],
     dict[str, CompiledLesson],
     dict[str, tuple[P0CProbe, ...]],
+    dict[str, Any],
     list[dict[str, Any]],
 ]:
     if manifest.get("schema_version") != "p0d2h-manifest-v1":
@@ -164,30 +183,28 @@ def _validate_and_load(
         "conditions",
         "base_arms",
         "units",
+        "prompt_token_audit_sha256",
     }
     if not required.issubset(manifest):
-        raise ValueError(
-            f"P0-D2H manifest is missing {sorted(required - manifest.keys())}"
-        )
+        raise ValueError(f"P0-D2H manifest is missing {sorted(required - manifest.keys())}")
     if manifest.get("errors"):
         raise ValueError("P0-D2H manifest contains recorded errors")
     config = manifest["config"]
     if (
-        config.get("schema_version") != "p0d2h-config-v1"
+        config.get("schema_version") != "p0d2h-config-v2"
         or config.get("stage") != "hard_probe"
+        or config.get("external_prompt_renderer_version") != EXTERNAL_PROMPT_RENDERER_VERSION
     ):
         raise ValueError("P0-D2H config schema/stage mismatch")
     condition_ids = set(manifest["conditions"])
     if condition_ids != set(STRESS_CONDITION_IDS):
         raise ValueError("P0-D2H conditions differ from the frozen matrix")
-    if [
-        str(condition["condition_id"]) for condition in config["conditions"]
-    ] != list(STRESS_CONDITION_IDS):
+    if [str(condition["condition_id"]) for condition in config["conditions"]] != list(
+        STRESS_CONDITION_IDS
+    ):
         raise ValueError("P0-D2H config condition order changed")
     lesson_ids = tuple(str(value) for value in manifest["selected_lessons"])
-    if list(lesson_ids) != [
-        str(value) for value in config["selected_lesson_ids"]
-    ]:
+    if list(lesson_ids) != [str(value) for value in config["selected_lesson_ids"]]:
         raise ValueError("P0-D2H selected lesson order changed")
     seeds = tuple(int(seed) for seed in config["training_seeds"])
 
@@ -223,17 +240,39 @@ def _validate_and_load(
             [],
         )
     ):
-        raise ValueError(
-            "P0-D2 source summary is not run-valid and late-matched eligible"
-        )
+        raise ValueError("P0-D2 source summary is not run-valid and late-matched eligible")
 
     verify_hard_probe_hashes(output_dir, config["hard_probe_hashes"])
     hard_bank = load_hard_probe_bank(output_dir)
     if tuple(hard_bank) != lesson_ids:
         raise ValueError("P0-D2H hard-probe lesson order changed")
-    compiled = {
-        item.lesson.lesson_id: item for item in load_compiled_bank(source_dir)
+    compiled = {item.lesson.lesson_id: item for item in load_compiled_bank(source_dir)}
+    prompt_audit_path = output_dir / "preflight" / "prompt_token_audit.json"
+    prompt_audit_bytes = prompt_audit_path.read_bytes()
+    if _sha256(prompt_audit_bytes) != manifest["prompt_token_audit_sha256"]:
+        raise ValueError("P0-D2H prompt-token audit changed")
+    prompt_audit = json.loads(prompt_audit_bytes)
+    if (
+        prompt_audit.get("schema_version") != "p0d2h-prompt-token-audit-v1"
+        or prompt_audit.get("all_prompts_fit") is not True
+        or int(prompt_audit.get("input_truncated_count", -1)) != 0
+        or int(prompt_audit.get("output_instruction_missing_count", -1)) != 0
+        or int(prompt_audit.get("source_training_max_length", -1))
+        != int(config["source_training_max_length"])
+        or int(prompt_audit.get("evaluation_max_length", -1))
+        != int(config["evaluation_max_length"])
+    ):
+        raise ValueError("P0-D2H prompt-token audit is not run-valid")
+    prompt_audit_index = {
+        (
+            str(record["lesson_id"]),
+            str(record["probe_id"]),
+            str(record["prompt_variant"]),
+        ): record
+        for record in prompt_audit["records"]
     }
+    if len(prompt_audit_index) != int(prompt_audit["prompt_count"]):
+        raise ValueError("P0-D2H prompt-token audit contains duplicate records")
 
     expected_units = {
         unit_key(condition_id, lesson_id, seed)
@@ -264,6 +303,7 @@ def _validate_and_load(
                 adapter_sha256=None,
                 expected_precision=str(base["evaluation_precision"]),
                 source_training_precision=None,
+                prompt_audit_index=prompt_audit_index,
             )
         )
     for condition_id in STRESS_CONDITION_IDS:
@@ -273,26 +313,15 @@ def _validate_and_load(
                 unit = manifest["units"][key]
                 if unit.get("state") != "verified":
                     raise ValueError(f"P0-D2H unit is not verified: {key}")
-                source_adapter = (
-                    source_dir
-                    / "adapters"
-                    / condition_id
-                    / lesson_id
-                    / f"seed-{seed}"
-                )
+                source_adapter = source_dir / "adapters" / condition_id / lesson_id / f"seed-{seed}"
                 source_hash = str(unit["source_adapter_sha256"])
-                source_unit = source["units"][
-                    source_unit_key(condition_id, lesson_id, seed)
-                ]
-                source_training_precision = str(
-                    source_unit["training_summary"]["precision"]
-                )
+                source_unit = source["units"][source_unit_key(condition_id, lesson_id, seed)]
+                source_training_precision = str(source_unit["training_summary"]["precision"])
                 evaluation_precision = str(unit["evaluation_precision"])
                 if (
                     str(unit.get("source_adapter_path")) != str(source_adapter)
                     or _adapter_hash(source_adapter) != source_hash
-                    or unit.get("source_training_precision")
-                    != source_training_precision
+                    or unit.get("source_training_precision") != source_training_precision
                 ):
                     raise ValueError(f"P0-D2 source adapter changed: {key}")
                 path = _adapter_result_path(
@@ -313,17 +342,22 @@ def _validate_and_load(
                         adapter_sha256=source_hash,
                         expected_precision=evaluation_precision,
                         source_training_precision=source_training_precision,
+                        prompt_audit_index=prompt_audit_index,
                     )
                 )
     expected_rows = (
-        len(lesson_ids) * 2 * PROBES_PER_LESSON
-        + len(expected_units) * PROBES_PER_LESSON
+        len(lesson_ids) * 2 * PROBES_PER_LESSON + len(expected_units) * PROBES_PER_LESSON
     )
     if len(rows) != expected_rows:
-        raise ValueError(
-            f"P0-D2H row count mismatch: {len(rows)} != {expected_rows}"
-        )
-    return source, source_summary, compiled, hard_bank, rows
+        raise ValueError(f"P0-D2H row count mismatch: {len(rows)} != {expected_rows}")
+    return (
+        source,
+        source_summary,
+        compiled,
+        hard_bank,
+        prompt_audit,
+        rows,
+    )
 
 
 def _verify_result_file(
@@ -338,18 +372,12 @@ def _verify_result_file(
     adapter_sha256: str | None,
     expected_precision: str,
     source_training_precision: str | None,
+    prompt_audit_index: dict[tuple[str, str, str], dict[str, Any]],
 ) -> list[dict[str, Any]]:
     rows = read_probe_results(path)
     probe_by_id = {probe.probe_id: probe for probe in probes}
-    expected = {
-        (arm.value, probe.probe_id)
-        for arm in expected_arms
-        for probe in probes
-    }
-    observed = [
-        (str(row.get("arm")), str(row.get("probe_id")))
-        for row in rows
-    ]
+    expected = {(arm.value, probe.probe_id) for arm in expected_arms for probe in probes}
+    observed = [(str(row.get("arm")), str(row.get("probe_id"))) for row in rows]
     if len(observed) != len(set(observed)) or set(observed) != expected:
         raise ValueError(f"P0-D2H result matrix mismatch: {path}")
     precisions = {str(row.get("precision")) for row in rows}
@@ -367,17 +395,27 @@ def _verify_result_file(
         "prompt_sha256",
         "precision",
         "source_training_precision",
+        "source_training_max_length",
+        "evaluation_max_length",
+        "prompt_variant",
+        "prompt_rendering_version",
+        "untruncated_input_tokens",
+        "truncated_token_count",
+        "input_truncated",
+        "output_instruction_preserved",
     }
     for row in rows:
         missing = required_fields - row.keys()
         if missing:
-            raise ValueError(
-                f"P0-D2H result row is missing {sorted(missing)}: {path}"
-            )
+            raise ValueError(f"P0-D2H result row is missing {sorted(missing)}: {path}")
         probe = probe_by_id[str(row["probe_id"])]
         predicted = row.get("predicted_action")
+        is_external = row.get("arm") == Arm.EXTERNAL.value
+        prompt_variant = EXTERNAL_PROMPT_VARIANT if is_external else PLAIN_PROMPT_VARIANT
+        audit = prompt_audit_index.get((lesson_id, probe.probe_id, prompt_variant))
         if (
-            row.get("run_id") != manifest["run_id"]
+            audit is None
+            or row.get("run_id") != manifest["run_id"]
             or row.get("model") != config["model_name"]
             or row.get("model_revision") != config["model_revision"]
             or row.get("lesson_id") != lesson_id
@@ -388,30 +426,36 @@ def _verify_result_file(
             or row.get("training_seed") != seed
             or row.get("condition_id") != condition_id
             or row.get("adapter_sha256") != adapter_sha256
-            or row.get("source_training_precision")
-            != source_training_precision
+            or row.get("source_training_precision") != source_training_precision
+            or int(row.get("source_training_max_length", -1))
+            != int(config["source_training_max_length"])
+            or int(row.get("evaluation_max_length", -1)) != int(config["evaluation_max_length"])
+            or row.get("prompt_variant") != prompt_variant
+            or row.get("prompt_rendering_version")
+            != (EXTERNAL_PROMPT_RENDERER_VERSION if is_external else "frozen_hard_probe")
             or row.get("source_p0d2_run_id") != config["source_run_id"]
-            or row.get("source_manifest_sha256")
-            != config["source_manifest_sha256"]
-            or row.get("hard_probe_compiler_version")
-            != HARD_PROBE_COMPILER_VERSION
-            or row.get("hard_probes_sha256")
-            != config["hard_probe_hashes"]["hard_probes_sha256"]
+            or row.get("source_manifest_sha256") != config["source_manifest_sha256"]
+            or row.get("hard_probe_compiler_version") != HARD_PROBE_COMPILER_VERSION
+            or row.get("hard_probes_sha256") != config["hard_probe_hashes"]["hard_probes_sha256"]
             or not isinstance(row.get("prompt_sha256"), str)
             or len(str(row["prompt_sha256"])) != 64
-            or parse_unique_action(str(row["generated_text"]), ACTIONS)
-            != predicted
-            or bool(row["correct"])
-            != (predicted == probe.expected_action)
+            or row.get("prompt_sha256") != audit["prompt_sha256"]
+            or parse_unique_action(str(row["generated_text"]), ACTIONS) != predicted
+            or bool(row["correct"]) != (predicted == probe.expected_action)
             or bool(row["invalid"]) != (predicted is None)
             or int(row["input_tokens"]) <= 0
+            or int(row["input_tokens"]) != int(audit["retained_input_tokens"])
+            or int(row["untruncated_input_tokens"]) != int(audit["untruncated_input_tokens"])
+            or int(row["truncated_token_count"]) != int(audit["truncated_token_count"])
+            or bool(row["input_truncated"]) != bool(audit["input_truncated"])
+            or bool(row["output_instruction_preserved"])
+            != bool(audit["output_instruction_preserved"])
+            or bool(row["input_truncated"])
+            or not bool(row["output_instruction_preserved"])
             or int(row["generated_tokens"]) < 0
             or float(row["latency_seconds"]) < 0.0
         ):
-            raise ValueError(
-                f"P0-D2H result provenance mismatch: "
-                f"{path}/{row.get('probe_id')}"
-            )
+            raise ValueError(f"P0-D2H result provenance mismatch: {path}/{row.get('probe_id')}")
     return rows
 
 
@@ -425,19 +469,13 @@ def _category_metrics(
     ] = defaultdict(list)
     for row in rows:
         condition_id = (
-            str(row["condition_id"])
-            if row["condition_id"] is not None
-            else str(row["arm"])
+            str(row["condition_id"]) if row["condition_id"] is not None else str(row["arm"])
         )
         groups[
             (
                 condition_id,
                 str(row["lesson_id"]),
-                (
-                    int(row["training_seed"])
-                    if row["training_seed"] is not None
-                    else None
-                ),
+                (int(row["training_seed"]) if row["training_seed"] is not None else None),
                 str(row["category"]),
             )
         ].append(row)
@@ -464,12 +502,15 @@ def _category_metrics(
             "category": category,
             "hard_accuracy": mean(bool(row["correct"]) for row in group),
             "invalid_rate": mean(bool(row["invalid"]) for row in group),
-            "mean_input_tokens": mean(
-                float(row["input_tokens"]) for row in group
+            "truncation_rate": mean(bool(row["input_truncated"]) for row in group),
+            "instruction_preservation_rate": mean(
+                bool(row["output_instruction_preserved"]) for row in group
             ),
-            "median_latency_seconds": median(
-                float(row["latency_seconds"]) for row in group
+            "mean_input_tokens": mean(float(row["input_tokens"]) for row in group),
+            "mean_untruncated_input_tokens": mean(
+                float(row["untruncated_input_tokens"]) for row in group
             ),
+            "median_latency_seconds": median(float(row["latency_seconds"]) for row in group),
         }
         (base if seed is None else adapter).append(metric)
     return adapter, base
@@ -478,9 +519,7 @@ def _category_metrics(
 def _average_seed_categories(
     seed_category: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(
-        list
-    )
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in seed_category:
         groups[
             (
@@ -512,7 +551,10 @@ def _average_seed_categories(
                     for field in (
                         "hard_accuracy",
                         "invalid_rate",
+                        "truncation_rate",
+                        "instruction_preservation_rate",
                         "mean_input_tokens",
+                        "mean_untruncated_input_tokens",
                         "median_latency_seconds",
                     )
                 },
@@ -532,8 +574,7 @@ def _overall_lesson_metrics(
         first = rows[0]
         if {str(row["category"]) for row in rows} != set(HARD_CATEGORIES):
             raise ValueError(
-                f"missing hard category for {first['condition_id']}/"
-                f"{first['lesson_id']}"
+                f"missing hard category for {first['condition_id']}/{first['lesson_id']}"
             )
         result.append(
             {
@@ -553,7 +594,10 @@ def _overall_lesson_metrics(
                     for field in (
                         "hard_accuracy",
                         "invalid_rate",
+                        "truncation_rate",
+                        "instruction_preservation_rate",
                         "mean_input_tokens",
+                        "mean_untruncated_input_tokens",
                         "median_latency_seconds",
                     )
                 },
@@ -565,9 +609,7 @@ def _overall_lesson_metrics(
 def _overall_seed_metrics(
     seed_category: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    groups: dict[tuple[str, str, int], list[dict[str, Any]]] = defaultdict(
-        list
-    )
+    groups: dict[tuple[str, str, int], list[dict[str, Any]]] = defaultdict(list)
     for row in seed_category:
         groups[
             (
@@ -582,9 +624,7 @@ def _overall_seed_metrics(
             "lesson_id": rows[0]["lesson_id"],
             "lesson_type": rows[0]["lesson_type"],
             "training_seed": int(rows[0]["training_seed"]),
-            "hard_accuracy": mean(
-                float(row["hard_accuracy"]) for row in rows
-            ),
+            "hard_accuracy": mean(float(row["hard_accuracy"]) for row in rows),
         }
         for _, rows in sorted(groups.items())
     ]
@@ -596,25 +636,16 @@ def _condition_summary(
     bootstrap_samples: int,
 ) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
-    condition_ids = sorted(
-        {str(row["condition_id"]) for row in lesson_overall}
-    )
+    condition_ids = sorted({str(row["condition_id"]) for row in lesson_overall})
     for condition_id in condition_ids:
-        overall_rows = [
-            row
-            for row in lesson_overall
-            if row["condition_id"] == condition_id
-        ]
-        accuracies = [
-            float(row["hard_accuracy"]) for row in overall_rows
-        ]
+        overall_rows = [row for row in lesson_overall if row["condition_id"] == condition_id]
+        accuracies = [float(row["hard_accuracy"]) for row in overall_rows]
         categories: dict[str, Any] = {}
         for category in HARD_CATEGORIES:
             category_values = [
                 float(row["hard_accuracy"])
                 for row in lesson_category
-                if row["condition_id"] == condition_id
-                and row["category"] == category
+                if row["condition_id"] == condition_id and row["category"] == category
             ]
             categories[category] = {
                 "accuracy": mean(category_values),
@@ -630,15 +661,17 @@ def _condition_summary(
                 accuracies,
                 bootstrap_samples,
             ),
-            "invalid_rate": mean(
-                float(row["invalid_rate"]) for row in overall_rows
+            "invalid_rate": mean(float(row["invalid_rate"]) for row in overall_rows),
+            "truncation_rate": mean(float(row["truncation_rate"]) for row in overall_rows),
+            "instruction_preservation_rate": mean(
+                float(row["instruction_preservation_rate"]) for row in overall_rows
             ),
-            "mean_input_tokens": mean(
-                float(row["mean_input_tokens"]) for row in overall_rows
+            "mean_input_tokens": mean(float(row["mean_input_tokens"]) for row in overall_rows),
+            "mean_untruncated_input_tokens": mean(
+                float(row["mean_untruncated_input_tokens"]) for row in overall_rows
             ),
             "median_latency_seconds": median(
-                float(row["median_latency_seconds"])
-                for row in overall_rows
+                float(row["median_latency_seconds"]) for row in overall_rows
             ),
             "categories": categories,
         }
@@ -657,8 +690,7 @@ def _original_metrics(
     expected = len(allowed) * 24
     if len(result) != expected:
         raise ValueError(
-            f"P0-D2 source summary lacks original metrics: "
-            f"{len(result)} != {expected}"
+            f"P0-D2 source summary lacks original metrics: {len(result)} != {expected}"
         )
     return result
 
@@ -672,8 +704,7 @@ def _degradation_summary(
     for row in lesson_overall:
         key = (str(row["condition_id"]), str(row["lesson_id"]))
         groups[key[0]].append(
-            float(row["hard_accuracy"])
-            - float(original[key]["target_generalization"])
+            float(row["hard_accuracy"]) - float(original[key]["target_generalization"])
         )
     return {
         condition_id: {
@@ -698,11 +729,7 @@ def _paired_contrast(
 ) -> dict[str, Any]:
     overall_by_lesson = _index(lesson_overall)
     lesson_ids = sorted(
-        {
-            lesson_id
-            for condition_id, lesson_id in overall_by_lesson
-            if condition_id == left
-        }
+        {lesson_id for condition_id, lesson_id in overall_by_lesson if condition_id == left}
     )
     hard_differences = [
         float(overall_by_lesson[(left, lesson_id)]["hard_accuracy"])
@@ -748,13 +775,7 @@ def _paired_contrast(
         ): row
         for row in seed_overall
     }
-    seeds = sorted(
-        {
-            seed
-            for condition_id, _, seed in seed_index
-            if condition_id == left
-        }
-    )
+    seeds = sorted({seed for condition_id, _, seed in seed_index if condition_id == left})
     seed_differences = {
         str(seed): mean(
             float(seed_index[(left, lesson_id, seed)]["hard_accuracy"])
@@ -764,10 +785,7 @@ def _paired_contrast(
         for seed in seeds
     }
     lesson_types = sorted(
-        {
-            str(overall_by_lesson[(left, lesson_id)]["lesson_type"])
-            for lesson_id in lesson_ids
-        }
+        {str(overall_by_lesson[(left, lesson_id)]["lesson_type"]) for lesson_id in lesson_ids}
     )
     type_differences = {
         lesson_type: mean(
@@ -777,8 +795,7 @@ def _paired_contrast(
                 hard_differences,
                 strict=True,
             )
-            if overall_by_lesson[(left, lesson_id)]["lesson_type"]
-            == lesson_type
+            if overall_by_lesson[(left, lesson_id)]["lesson_type"] == lesson_type
         )
         for lesson_type in lesson_types
     }
@@ -787,9 +804,7 @@ def _paired_contrast(
         key=lambda index: abs(hard_differences[index]),
     )
     leave_largest_out = [
-        value
-        for index, value in enumerate(hard_differences)
-        if index != largest_index
+        value for index, value in enumerate(hard_differences) if index != largest_index
     ]
     return {
         "left": left,
@@ -812,58 +827,125 @@ def _paired_contrast(
         ),
         "category_differences": category_differences,
         "seed_mean_differences": seed_differences,
-        "positive_seed_count": sum(
-            value > 0 for value in seed_differences.values()
-        ),
+        "positive_seed_count": sum(value > 0 for value in seed_differences.values()),
         "lesson_type_mean_differences": type_differences,
         "leave_largest_out_mean": mean(leave_largest_out),
+    }
+
+
+def _suite_quality(
+    condition_summary: dict[str, dict[str, Any]],
+    rows: list[dict[str, Any]],
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    chance_accuracy = 1.0 / len(ACTIONS)
+    floor_tolerance = float(config["common_floor_tolerance"])
+    floor_limit = chance_accuracy + floor_tolerance
+    common_floor_categories = [
+        category
+        for category in HARD_CATEGORIES
+        if max(
+            float(condition_summary[condition_id]["categories"][category]["accuracy"])
+            for condition_id in STRESS_CONDITION_IDS
+        )
+        <= floor_limit
+    ]
+    external = condition_summary[Arm.EXTERNAL.value]
+    no_write = condition_summary[Arm.NO_WRITE.value]
+    external_category_accuracies = {
+        category: float(external["categories"][category]["accuracy"])
+        for category in HARD_CATEGORIES
+    }
+    checks = {
+        "all_rows_untruncated": all(not bool(row["input_truncated"]) for row in rows),
+        "all_output_instructions_preserved": all(
+            bool(row["output_instruction_preserved"]) for row in rows
+        ),
+        "external_accuracy_at_least_threshold": (
+            float(external["hard_accuracy"]) >= float(config["external_anchor_min_accuracy"])
+        ),
+        "external_invalid_rate_at_most_threshold": (
+            float(external["invalid_rate"]) <= float(config["external_anchor_max_invalid_rate"])
+        ),
+        "external_every_category_above_floor": all(
+            accuracy > floor_limit for accuracy in external_category_accuracies.values()
+        ),
+        "no_common_parametric_category_floor": (not common_floor_categories),
+    }
+    ready = all(checks.values())
+    return {
+        "status": "ready" if ready else "suite_repair_required",
+        "ready_for_next_stage": ready,
+        "checks": checks,
+        "chance_accuracy": chance_accuracy,
+        "common_floor_tolerance": floor_tolerance,
+        "common_floor_limit": floor_limit,
+        "common_floor_categories": common_floor_categories,
+        "external_anchor": {
+            "accuracy": float(external["hard_accuracy"]),
+            "minimum_accuracy": float(config["external_anchor_min_accuracy"]),
+            "invalid_rate": float(external["invalid_rate"]),
+            "maximum_invalid_rate": float(config["external_anchor_max_invalid_rate"]),
+            "minus_no_write_accuracy": (
+                float(external["hard_accuracy"]) - float(no_write["hard_accuracy"])
+            ),
+            "category_accuracies": external_category_accuracies,
+        },
     }
 
 
 def _gate_status(
     contrast: dict[str, Any],
     margin: float,
+    suite_quality: dict[str, Any],
 ) -> dict[str, Any]:
     hard_ci = [float(value) for value in contrast["hard_accuracy_ci95"]]
-    resilience_ci = [
-        float(value) for value in contrast["resilience_ci95"]
-    ]
+    resilience_ci = [float(value) for value in contrast["resilience_ci95"]]
     safeguards = {
         "hard_advantage_ci_positive": hard_ci[0] > 0.0,
         "resilience_noninferior": resilience_ci[0] >= -margin,
-        "positive_seed_count_at_least_2": (
-            int(contrast["positive_seed_count"]) >= 2
-        ),
+        "positive_seed_count_at_least_2": (int(contrast["positive_seed_count"]) >= 2),
         "both_lesson_types_positive": all(
-            float(value) > 0.0
-            for value in contrast["lesson_type_mean_differences"].values()
+            float(value) > 0.0 for value in contrast["lesson_type_mean_differences"].values()
         ),
-        "leave_largest_out_positive": (
-            float(contrast["leave_largest_out_mean"]) > 0.0
-        ),
+        "leave_largest_out_positive": (float(contrast["leave_largest_out_mean"]) > 0.0),
     }
     if all(safeguards.values()):
         status = "hard_locus_robust"
-        next_action = (
+        comparison_next_action = (
             "Review the hard-probe failures, then freeze either a late narrow "
             "scan or a separate multi-mapping training-complexity experiment; "
             "do not start either automatically."
         )
     elif hard_ci[1] <= 0.0 or resilience_ci[1] < -margin:
         status = "shortcut_hypothesis_supported"
-        next_action = (
+        comparison_next_action = (
             "Freeze a separate multi-mapping training-complexity experiment "
             "before any late-layer narrow scan."
         )
     else:
         status = "mixed_or_inconclusive"
-        next_action = (
+        comparison_next_action = (
             "Inspect category, seed, lesson-type, and failure-case results; "
             "revise the hard suite or add lessons before freezing the next run."
+        )
+    if suite_quality["ready_for_next_stage"]:
+        next_stage_status = (
+            "eligible_for_reviewed_followup" if status == "hard_locus_robust" else status
+        )
+        next_action = comparison_next_action
+    else:
+        next_stage_status = "suite_repair_required"
+        next_action = (
+            "Do not start a narrow scan or multi-mapping training yet. "
+            "Repair the failed prompt-token, external-anchor, or common-floor "
+            "suite checks in a new evaluation-only attempt."
         )
     return {
         "run_valid": True,
         "decision_status": status,
+        "next_stage_status": next_stage_status,
+        "suite_quality_status": suite_quality["status"],
         "resilience_margin": margin,
         "late_vs_full": contrast,
         "safeguards": safeguards,
@@ -876,10 +958,7 @@ def _gate_status(
 def _index(
     rows: list[dict[str, Any]],
 ) -> dict[tuple[str, str], dict[str, Any]]:
-    return {
-        (str(row["condition_id"]), str(row["lesson_id"])): row
-        for row in rows
-    }
+    return {(str(row["condition_id"]), str(row["lesson_id"])): row for row in rows}
 
 
 def _render_main_table(
@@ -909,8 +988,7 @@ def _render_main_table(
     lines.extend(
         [
             "",
-            "| Contrast | Hard difference [95% CI] | "
-            "Resilience difference [95% CI] | W/T/L |",
+            "| Contrast | Hard difference [95% CI] | Resilience difference [95% CI] | W/T/L |",
             "|---|---:|---:|---:|",
         ]
     )

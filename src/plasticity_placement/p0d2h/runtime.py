@@ -47,8 +47,18 @@ from plasticity_placement.p0d2h.probes import (
     PROBES_PER_LESSON,
     write_hard_probe_bank,
 )
+from plasticity_placement.p0d2h.prompting import (
+    EXTERNAL_PROMPT_RENDERER_VERSION,
+    EXTERNAL_PROMPT_VARIANT,
+    PLAIN_PROMPT_VARIANT,
+    PromptTokenAudit,
+    audit_prompt,
+    render_evaluation_probe,
+)
+from plasticity_placement.training.model_utils import load_tokenizer
 
 ACTIVE_ADAPTER_NAME = "p0d2h_active"
+PromptAuditIndex = dict[tuple[str, str, str], PromptTokenAudit]
 
 
 def _progress(message: str) -> None:
@@ -57,38 +67,27 @@ def _progress(message: str) -> None:
 
 def _source_validation_progress(index: int, total: int, key: str) -> None:
     if index == 1 or index == total or index % 25 == 0:
-        _progress(
-            f"source integrity CPU/Drive {index}/{total}: {key}"
-        )
+        _progress(f"source integrity CPU/Drive {index}/{total}: {key}")
 
 
 def _require_cuda_runtime() -> None:
     try:
         import torch
     except ImportError as error:
-        raise RuntimeError(
-            "P0-D2H requires PyTorch with CUDA support"
-        ) from error
+        raise RuntimeError("P0-D2H requires PyTorch with CUDA support") from error
     if not torch.cuda.is_available():
         raise RuntimeError(
             "P0-D2H formal evaluation requires CUDA; "
             "select a GPU runtime and reinstall dependencies"
         )
-    _progress(
-        f"CUDA ready: {torch.cuda.get_device_name(0)} "
-        f"(torch CUDA {torch.version.cuda})"
-    )
+    _progress(f"CUDA ready: {torch.cuda.get_device_name(0)} (torch CUDA {torch.version.cuda})")
 
 
 def _require_cuda_bundle(bundle: ModelBundle) -> None:
     device = next(bundle.model.parameters()).device
     if getattr(device, "type", None) != "cuda":
-        raise RuntimeError(
-            f"P0-D2H model loaded on {device}, expected a CUDA device"
-        )
-    _progress(
-        f"reusable model loaded on {device}; evaluation_precision={bundle.precision}"
-    )
+        raise RuntimeError(f"P0-D2H model loaded on {device}, expected a CUDA device")
+    _progress(f"reusable model loaded on {device}; evaluation_precision={bundle.precision}")
 
 
 def resolve_request(
@@ -134,9 +133,7 @@ def resolve_request(
 
     summary_path = source_dir / "results" / "aggregate" / "summary.json"
     if not summary_path.exists():
-        raise FileNotFoundError(
-            f"missing P0-D2 source aggregate summary: {summary_path}"
-        )
+        raise FileNotFoundError(f"missing P0-D2 source aggregate summary: {summary_path}")
     summary_bytes = summary_path.read_bytes()
     summary = json.loads(summary_bytes)
     if (
@@ -152,8 +149,7 @@ def resolve_request(
         )
     ):
         raise ValueError(
-            "P0-D2 source aggregate is not complete, run-valid, and "
-            "late-matched eligible"
+            "P0-D2 source aggregate is not complete, run-valid, and late-matched eligible"
         )
 
     hard_probe_hashes, hard_probe_bank = write_hard_probe_bank(
@@ -178,23 +174,141 @@ def resolve_request(
         source_run_id=str(source["run_id"]),
         source_summary_sha256=sha256(summary_bytes).hexdigest(),
         source_compiler_hashes={
-            str(key): str(value)
-            for key, value in source_compiler_hashes.items()
+            str(key): str(value) for key, value in source_compiler_hashes.items()
         },
         selected_lesson_ids=selected_ids,
         model_name=model_name,
         model_revision=model_revision,
         use_4bit=bool(source_config["use_4bit"]),
-        max_length=int(source_config["max_length"]),
+        source_training_max_length=int(source_config["max_length"]),
+        evaluation_max_length=request.evaluation_max_length,
         max_new_tokens=int(source_config["max_new_tokens"]),
-        training_seeds=tuple(
-            int(seed) for seed in source_config["training_seeds"]
-        ),
+        training_seeds=tuple(int(seed) for seed in source_config["training_seeds"]),
         conditions=conditions,
         hard_probe_hashes=hard_probe_hashes,
         resilience_margin=request.resilience_margin,
+        external_anchor_min_accuracy=(request.external_anchor_min_accuracy),
+        external_anchor_max_invalid_rate=(request.external_anchor_max_invalid_rate),
+        common_floor_tolerance=request.common_floor_tolerance,
     )
     return resolved, hard_probe_bank, selected
+
+
+def audit_request(request: P0D2HRequest) -> Path:
+    config, hard_probe_bank, selected = resolve_request(
+        request,
+        deep_source_validation=False,
+    )
+    path, _, _, _ = _prepare_prompt_token_audit(
+        config,
+        hard_probe_bank,
+        selected,
+    )
+    return path
+
+
+def _prepare_prompt_token_audit(
+    config: ResolvedP0D2HConfig,
+    hard_probe_bank: dict[str, tuple[P0CProbe, ...]],
+    selected: tuple[CompiledLesson, ...],
+) -> tuple[Path, str, PromptAuditIndex, dict[str, Any]]:
+    _progress(
+        "prompt token audit loading the frozen tokenizer on CPU; "
+        f"evaluation_max_length={config.evaluation_max_length}"
+    )
+    tokenizer = load_tokenizer(config.model_name, config.model_revision)
+    audits: PromptAuditIndex = {}
+    records: list[dict[str, Any]] = []
+    for item in selected:
+        lesson_id = item.lesson.lesson_id
+        for external_note in (None, item.external_note):
+            for probe in hard_probe_bank[lesson_id]:
+                rendered, variant, rendering_version = render_evaluation_probe(
+                    probe,
+                    external_note=external_note,
+                )
+                audit = audit_prompt(
+                    tokenizer,
+                    rendered,
+                    prompt_variant=variant,
+                    prompt_rendering_version=rendering_version,
+                    evaluation_max_length=config.evaluation_max_length,
+                )
+                key = _prompt_audit_key(
+                    lesson_id,
+                    probe.probe_id,
+                    variant,
+                )
+                if key in audits:
+                    raise ValueError(f"duplicate prompt-token audit key: {key}")
+                audits[key] = audit
+                records.append(audit.to_dict())
+    truncated = [record for record in records if bool(record["input_truncated"])]
+    missing_instruction = [
+        record for record in records if not bool(record["output_instruction_preserved"])
+    ]
+    report = {
+        "schema_version": "p0d2h-prompt-token-audit-v1",
+        "source_training_max_length": config.source_training_max_length,
+        "evaluation_max_length": config.evaluation_max_length,
+        "external_prompt_renderer_version": (EXTERNAL_PROMPT_RENDERER_VERSION),
+        "prompt_count": len(records),
+        "input_truncated_count": len(truncated),
+        "output_instruction_missing_count": len(missing_instruction),
+        "all_prompts_fit": not truncated and not missing_instruction,
+        "max_untruncated_input_tokens": max(
+            int(record["untruncated_input_tokens"]) for record in records
+        ),
+        "max_untruncated_input_tokens_by_variant": {
+            variant: max(
+                int(record["untruncated_input_tokens"])
+                for record in records
+                if record["prompt_variant"] == variant
+            )
+            for variant in (
+                PLAIN_PROMPT_VARIANT,
+                EXTERNAL_PROMPT_VARIANT,
+            )
+        },
+        "records": records,
+    }
+    payload = (json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
+    path = config.output_dir / "preflight" / "prompt_token_audit.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        if path.read_bytes() != payload:
+            raise ValueError("prompt-token audit changed; use a new P0-D2H attempt")
+    else:
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_bytes(payload)
+        temporary.replace(path)
+    audit_sha256 = sha256(payload).hexdigest()
+    _progress(
+        "prompt token audit complete: "
+        f"max={report['max_untruncated_input_tokens']} "
+        f"truncated={report['input_truncated_count']} "
+        f"instruction_missing={report['output_instruction_missing_count']}"
+    )
+    return path, audit_sha256, audits, report
+
+
+def _require_prompt_audit_ready(report: dict[str, Any]) -> None:
+    if report.get("all_prompts_fit") is not True:
+        raise RuntimeError(
+            "P0-D2H prompt-token audit failed before inference: "
+            f"truncated={report.get('input_truncated_count')} "
+            "output_instruction_missing="
+            f"{report.get('output_instruction_missing_count')}. "
+            "Increase --evaluation-max-length and use a new attempt."
+        )
+
+
+def _prompt_audit_key(
+    lesson_id: str,
+    probe_id: str,
+    prompt_variant: str,
+) -> tuple[str, str, str]:
+    return lesson_id, probe_id, prompt_variant
 
 
 def run_experiment(request: P0D2HRequest) -> Path:
@@ -203,12 +317,19 @@ def run_experiment(request: P0D2HRequest) -> Path:
         request,
         deep_source_validation=True,
     )
+    _, prompt_audit_sha256, prompt_audits, prompt_audit_report = _prepare_prompt_token_audit(
+        config,
+        hard_probe_bank,
+        selected,
+    )
+    _require_prompt_audit_ready(prompt_audit_report)
     run_id = _run_id(config)
     manifest = P0D2HManifest.load_or_create(
         config.output_dir / "manifest.json",
         run_id=run_id,
         config=config.identity_dict(),
         source_manifest_path=str(request.source_manifest),
+        prompt_token_audit_sha256=prompt_audit_sha256,
     )
     _write_environment(config.output_dir)
     _progress(
@@ -217,9 +338,7 @@ def run_experiment(request: P0D2HRequest) -> Path:
     )
     bundle: ModelBundle | None = None
     if _requires_model(config, manifest, selected):
-        _progress(
-            "loading one reusable base model for base arms and all adapters"
-        )
+        _progress("loading one reusable base model for base arms and all adapters")
         bundle = load_base_model(config)
         _require_cuda_bundle(bundle)
     try:
@@ -229,6 +348,7 @@ def run_experiment(request: P0D2HRequest) -> Path:
             manifest,
             selected,
             hard_probe_bank,
+            prompt_audits,
             bundle,
         )
         bundle = _run_adapter_units(
@@ -237,6 +357,7 @@ def run_experiment(request: P0D2HRequest) -> Path:
             manifest,
             selected,
             hard_probe_bank,
+            prompt_audits,
             bundle,
         )
     finally:
@@ -295,28 +416,22 @@ def _source_condition(
     seeds = tuple(int(seed) for seed in source["config"]["training_seeds"])
     parameter_values = {
         int(
-            source["units"][
-                source_unit_key(condition_id, lesson_id, seed)
-            ]["training_summary"]["trainable_parameters"]
+            source["units"][source_unit_key(condition_id, lesson_id, seed)]["training_summary"][
+                "trainable_parameters"
+            ]
         )
         for lesson_id in lesson_ids
         for seed in seeds
     }
     if len(parameter_values) != 1:
-        raise ValueError(
-            f"P0-D2 source condition has mixed parameter counts: {condition_id}"
-        )
+        raise ValueError(f"P0-D2 source condition has mixed parameter counts: {condition_id}")
     return StressCondition(
         condition_id=condition_id,
         layer_band=str(source_condition["layer_band"]),
-        selected_layers=tuple(
-            int(layer) for layer in source_condition["selected_layers"]
-        ),
+        selected_layers=tuple(int(layer) for layer in source_condition["selected_layers"]),
         rank=int(source_condition["rank"]),
         alpha=int(source_condition["alpha"]),
-        target_modules=tuple(
-            str(module) for module in source_condition["target_modules"]
-        ),
+        target_modules=tuple(str(module) for module in source_condition["target_modules"]),
         trainable_parameters=parameter_values.pop(),
     )
 
@@ -327,6 +442,7 @@ def _run_base_arms(
     manifest: P0D2HManifest,
     selected: tuple[CompiledLesson, ...],
     hard_probe_bank: dict[str, tuple[P0CProbe, ...]],
+    prompt_audits: PromptAuditIndex,
     bundle: ModelBundle | None,
 ) -> ModelBundle | None:
     failed = [
@@ -335,9 +451,7 @@ def _run_base_arms(
         if manifest.base_state(item.lesson.lesson_id) == "failed"
     ]
     if failed:
-        raise RuntimeError(
-            f"P0-D2H base failures are immutable; use a new attempt: {failed}"
-        )
+        raise RuntimeError(f"P0-D2H base failures are immutable; use a new attempt: {failed}")
     pending: list[CompiledLesson] = []
     for item in selected:
         lesson_id = item.lesson.lesson_id
@@ -393,22 +507,29 @@ def _run_base_arms(
         try:
             _progress(f"base evaluating lesson={lesson_id} on GPU")
             manifest.mark_base(lesson_id, "evaluating")
+            plain_probes = _rendered_probes(
+                hard_probe_bank[lesson_id],
+                external_note=None,
+            )
             no_write = evaluate_probes(
                 bundle=bundle,
-                probes=hard_probe_bank[lesson_id],
+                probes=plain_probes,
                 arm=Arm.NO_WRITE,
                 run_id=run_id,
                 config=config,
                 training_seed=None,
             )
+            external_probes = _rendered_probes(
+                hard_probe_bank[lesson_id],
+                external_note=item.external_note,
+            )
             external = evaluate_probes(
                 bundle=bundle,
-                probes=hard_probe_bank[lesson_id],
+                probes=external_probes,
                 arm=Arm.EXTERNAL,
                 run_id=run_id,
                 config=config,
                 training_seed=None,
-                external_note=item.external_note,
             )
             rows = [
                 _stress_row(
@@ -416,6 +537,17 @@ def _run_base_arms(
                     config,
                     condition_id=None,
                     source_training_precision=None,
+                    prompt_audit=prompt_audits[
+                        _prompt_audit_key(
+                            lesson_id,
+                            result.probe_id,
+                            (
+                                EXTERNAL_PROMPT_VARIANT
+                                if result.arm is Arm.EXTERNAL
+                                else PLAIN_PROMPT_VARIANT
+                            ),
+                        )
+                    ],
                 )
                 for result in [*no_write, *external]
             ]
@@ -453,12 +585,10 @@ def _run_adapter_units(
     manifest: P0D2HManifest,
     selected: tuple[CompiledLesson, ...],
     hard_probe_bank: dict[str, tuple[P0CProbe, ...]],
+    prompt_audits: PromptAuditIndex,
     bundle: ModelBundle | None,
 ) -> ModelBundle | None:
-    selected_by_id = {
-        item.lesson.lesson_id: item
-        for item in selected
-    }
+    selected_by_id = {item.lesson.lesson_id: item for item in selected}
     source_manifest = _load_frozen_source_manifest(config)
     total = config.expected_unit_count
     index = 0
@@ -473,6 +603,7 @@ def _run_adapter_units(
                     manifest,
                     selected_by_id[lesson_id],
                     hard_probe_bank[lesson_id],
+                    prompt_audits,
                     seed,
                     source_manifest,
                     bundle,
@@ -490,6 +621,7 @@ def _run_adapter_unit(
     manifest: P0D2HManifest,
     item: CompiledLesson,
     probes: tuple[P0CProbe, ...],
+    prompt_audits: PromptAuditIndex,
     seed: int,
     source_manifest: dict[str, Any],
     bundle: ModelBundle | None,
@@ -509,15 +641,9 @@ def _run_adapter_unit(
         raise RuntimeError(f"P0-D2 source unit is no longer verified: {source_key}")
     source_adapter_hash = str(source_unit["adapter_sha256"])
     adapter_dir = (
-        config.source_output_dir
-        / "adapters"
-        / condition.condition_id
-        / lesson_id
-        / f"seed-{seed}"
+        config.source_output_dir / "adapters" / condition.condition_id / lesson_id / f"seed-{seed}"
     )
-    _progress(
-        f"unit {index}/{total} validating source adapter on CPU/Drive: {key}"
-    )
+    _progress(f"unit {index}/{total} validating source adapter on CPU/Drive: {key}")
     if _adapter_hash(adapter_dir) != source_adapter_hash:
         raise RuntimeError(f"P0-D2 source adapter changed: {source_key}")
     result_path = _adapter_result_path(
@@ -526,19 +652,14 @@ def _run_adapter_unit(
         lesson_id,
         seed,
     )
-    source_training_precision = str(
-        source_unit["training_summary"]["precision"]
-    )
+    source_training_precision = str(source_unit["training_summary"]["precision"])
     if state == "verified" or result_path.exists():
         unit_metadata = manifest.payload["units"].get(key, {})
         expected_evaluation_precision = (
-            str(unit_metadata["evaluation_precision"])
-            if state == "verified"
-            else None
+            str(unit_metadata["evaluation_precision"]) if state == "verified" else None
         )
         if state == "verified" and (
-            unit_metadata.get("source_training_precision")
-            != source_training_precision
+            unit_metadata.get("source_training_precision") != source_training_precision
         ):
             raise ValueError(f"P0-D2H source training precision changed: {key}")
         evaluation_precision = _verify_rows(
@@ -583,9 +704,7 @@ def _run_adapter_unit(
             source_training_precision=source_training_precision,
         )
         if bundle is None:
-            raise RuntimeError(
-                "adapter evaluation requires the reusable CUDA model"
-            )
+            raise RuntimeError("adapter evaluation requires the reusable CUDA model")
         adapter_active = False
         try:
             activate_adapter(
@@ -595,9 +714,13 @@ def _run_adapter_unit(
             )
             adapter_active = True
             _progress(f"unit {index}/{total} evaluating on GPU: {key}")
+            rendered_probes = _rendered_probes(
+                probes,
+                external_note=None,
+            )
             parametric = evaluate_probes(
                 bundle=bundle,
-                probes=probes,
+                probes=rendered_probes,
                 arm=Arm.PARAMETRIC,
                 run_id=run_id,
                 config=config,
@@ -610,6 +733,13 @@ def _run_adapter_unit(
                     config,
                     condition_id=condition.condition_id,
                     source_training_precision=source_training_precision,
+                    prompt_audit=prompt_audits[
+                        _prompt_audit_key(
+                            lesson_id,
+                            result.probe_id,
+                            PLAIN_PROMPT_VARIANT,
+                        )
+                    ],
                 )
                 for result in parametric
             ]
@@ -660,23 +790,51 @@ def _run_adapter_unit(
     return bundle
 
 
+def _rendered_probes(
+    probes: tuple[P0CProbe, ...],
+    *,
+    external_note: str | None,
+) -> tuple[P0CProbe, ...]:
+    return tuple(
+        render_evaluation_probe(
+            probe,
+            external_note=external_note,
+        )[0]
+        for probe in probes
+    )
+
+
 def _stress_row(
     row: dict[str, Any],
     config: ResolvedP0D2HConfig,
     *,
     condition_id: str | None,
     source_training_precision: str | None,
+    prompt_audit: PromptTokenAudit,
 ) -> dict[str, Any]:
+    if (
+        str(row.get("prompt_sha256")) != prompt_audit.prompt_sha256
+        or int(row.get("input_tokens", -1)) != prompt_audit.retained_input_tokens
+    ):
+        raise ValueError(
+            f"evaluation input differs from its frozen prompt-token audit: {row.get('probe_id')}"
+        )
     return {
         **row,
         "condition_id": condition_id,
         "source_training_precision": source_training_precision,
+        "source_training_max_length": config.source_training_max_length,
+        "evaluation_max_length": config.evaluation_max_length,
+        "prompt_variant": prompt_audit.prompt_variant,
+        "prompt_rendering_version": (prompt_audit.prompt_rendering_version),
+        "untruncated_input_tokens": (prompt_audit.untruncated_input_tokens),
+        "truncated_token_count": prompt_audit.truncated_token_count,
+        "input_truncated": prompt_audit.input_truncated,
+        "output_instruction_preserved": (prompt_audit.output_instruction_preserved),
         "source_p0d2_run_id": config.source_run_id,
         "source_manifest_sha256": config.source_manifest_sha256,
         "hard_probe_compiler_version": HARD_PROBE_COMPILER_VERSION,
-        "hard_probes_sha256": config.hard_probe_hashes[
-            "hard_probes_sha256"
-        ],
+        "hard_probes_sha256": config.hard_probe_hashes["hard_probes_sha256"],
     }
 
 
@@ -698,15 +856,8 @@ def _verify_rows(
         raise FileNotFoundError(f"missing P0-D2H result: {path}")
     rows = read_probe_results(path)
     probe_by_id = {probe.probe_id: probe for probe in probes}
-    expected = {
-        (arm.value, probe.probe_id)
-        for arm in expected_arms
-        for probe in probes
-    }
-    observed = [
-        (str(row.get("arm")), str(row.get("probe_id")))
-        for row in rows
-    ]
+    expected = {(arm.value, probe.probe_id) for arm in expected_arms for probe in probes}
+    observed = [(str(row.get("arm")), str(row.get("probe_id"))) for row in rows]
     if len(observed) != len(set(observed)) or set(observed) != expected:
         raise ValueError(f"P0-D2H result matrix mismatch: {path}")
     precisions = {str(row.get("precision")) for row in rows}
@@ -725,15 +876,22 @@ def _verify_rows(
         "prompt_sha256",
         "precision",
         "source_training_precision",
+        "source_training_max_length",
+        "evaluation_max_length",
+        "prompt_variant",
+        "prompt_rendering_version",
+        "untruncated_input_tokens",
+        "truncated_token_count",
+        "input_truncated",
+        "output_instruction_preserved",
     }
     for row in rows:
         missing = required_fields - row.keys()
         if missing:
-            raise ValueError(
-                f"P0-D2H result row is missing {sorted(missing)}: {path}"
-            )
+            raise ValueError(f"P0-D2H result row is missing {sorted(missing)}: {path}")
         probe = probe_by_id[str(row["probe_id"])]
         predicted = row.get("predicted_action")
+        is_external = row.get("arm") == Arm.EXTERNAL.value
         if (
             row.get("run_id") != run_id
             or row.get("model") != config.model_name
@@ -746,30 +904,32 @@ def _verify_rows(
             or row.get("training_seed") != seed
             or row.get("condition_id") != condition_id
             or row.get("adapter_sha256") != adapter_sha256
-            or row.get("source_training_precision")
-            != source_training_precision
+            or row.get("source_training_precision") != source_training_precision
+            or int(row.get("source_training_max_length", -1)) != config.source_training_max_length
+            or int(row.get("evaluation_max_length", -1)) != config.evaluation_max_length
+            or row.get("prompt_variant")
+            != (EXTERNAL_PROMPT_VARIANT if is_external else PLAIN_PROMPT_VARIANT)
+            or row.get("prompt_rendering_version")
+            != (EXTERNAL_PROMPT_RENDERER_VERSION if is_external else "frozen_hard_probe")
             or row.get("source_p0d2_run_id") != config.source_run_id
-            or row.get("source_manifest_sha256")
-            != config.source_manifest_sha256
-            or row.get("hard_probe_compiler_version")
-            != HARD_PROBE_COMPILER_VERSION
-            or row.get("hard_probes_sha256")
-            != config.hard_probe_hashes["hard_probes_sha256"]
+            or row.get("source_manifest_sha256") != config.source_manifest_sha256
+            or row.get("hard_probe_compiler_version") != HARD_PROBE_COMPILER_VERSION
+            or row.get("hard_probes_sha256") != config.hard_probe_hashes["hard_probes_sha256"]
             or not isinstance(row.get("prompt_sha256"), str)
             or len(str(row["prompt_sha256"])) != 64
-            or parse_unique_action(str(row["generated_text"]), ACTIONS)
-            != predicted
-            or bool(row["correct"])
-            != (predicted == probe.expected_action)
+            or parse_unique_action(str(row["generated_text"]), ACTIONS) != predicted
+            or bool(row["correct"]) != (predicted == probe.expected_action)
             or bool(row["invalid"]) != (predicted is None)
             or int(row["input_tokens"]) <= 0
+            or int(row["untruncated_input_tokens"]) != int(row["input_tokens"])
+            or int(row["input_tokens"]) > config.evaluation_max_length
+            or int(row["truncated_token_count"]) != 0
+            or bool(row["input_truncated"])
+            or not bool(row["output_instruction_preserved"])
             or int(row["generated_tokens"]) < 0
             or float(row["latency_seconds"]) < 0.0
         ):
-            raise ValueError(
-                f"P0-D2H result provenance mismatch: "
-                f"{path}/{row.get('probe_id')}"
-            )
+            raise ValueError(f"P0-D2H result provenance mismatch: {path}/{row.get('probe_id')}")
     return next(iter(precisions))
 
 
@@ -796,11 +956,4 @@ def _adapter_result_path(
     lesson_id: str,
     seed: int,
 ) -> Path:
-    return (
-        output_dir
-        / "results"
-        / "adapters"
-        / condition_id
-        / lesson_id
-        / f"seed-{seed}.jsonl"
-    )
+    return output_dir / "results" / "adapters" / condition_id / lesson_id / f"seed-{seed}.jsonl"

@@ -9,7 +9,8 @@ from typing import Any
 from plasticity_placement.p0c.compiler import ACTIONS
 from plasticity_placement.p0c.domain import CompiledLesson, P0CProbe
 
-HARD_PROBE_COMPILER_VERSION = "p0d2h-hard-probes-v1"
+HARD_PROBE_COMPILER_VERSION = "p0d2h-hard-probes-v2"
+OUTPUT_INSTRUCTION_PREFIX = "\nOnly output one action token from:"
 HARD_CATEGORIES = (
     "binding_decoys",
     "conflict_stack",
@@ -54,19 +55,14 @@ def compile_hard_probes(item: CompiledLesson) -> tuple[P0CProbe, ...]:
                 )
             )
     if len(probes) != PROBES_PER_LESSON:
-        raise AssertionError(
-            f"expected {PROBES_PER_LESSON} hard probes, got {len(probes)}"
-        )
+        raise AssertionError(f"expected {PROBES_PER_LESSON} hard probes, got {len(probes)}")
     return tuple(probes)
 
 
 def compile_hard_probe_bank(
     items: Iterable[CompiledLesson],
 ) -> dict[str, tuple[P0CProbe, ...]]:
-    return {
-        item.lesson.lesson_id: compile_hard_probes(item)
-        for item in items
-    }
+    return {item.lesson.lesson_id: compile_hard_probes(item) for item in items}
 
 
 def audit_hard_probe_bank(
@@ -86,8 +82,7 @@ def audit_hard_probe_bank(
         probes = bank[lesson_id]
         if len(probes) != PROBES_PER_LESSON:
             raise ValueError(
-                f"{lesson_id} has {len(probes)} hard probes, expected "
-                f"{PROBES_PER_LESSON}"
+                f"{lesson_id} has {len(probes)} hard probes, expected {PROBES_PER_LESSON}"
             )
         category_counts = {
             category: sum(probe.category == category for probe in probes)
@@ -96,22 +91,14 @@ def audit_hard_probe_bank(
         if set(probe.category for probe in probes) != set(HARD_CATEGORIES) or set(
             category_counts.values()
         ) != {VARIANTS_PER_CATEGORY}:
-            raise ValueError(
-                f"{lesson_id} hard categories are not frozen: {category_counts}"
-            )
+            raise ValueError(f"{lesson_id} hard categories are not frozen: {category_counts}")
 
         training_prompts = {row.prompt for row in item.training_rows}
         lesson_max_overlap = 0.0
         for category in HARD_CATEGORIES:
-            category_probes = [
-                probe for probe in probes if probe.category == category
-            ]
-            if {
-                probe.action_choices[0] for probe in category_probes
-            } != set(ACTIONS):
-                raise ValueError(
-                    f"{lesson_id}/{category} action-choice positions are unbalanced"
-                )
+            category_probes = [probe for probe in probes if probe.category == category]
+            if {probe.action_choices[0] for probe in category_probes} != set(ACTIONS):
+                raise ValueError(f"{lesson_id}/{category} action-choice positions are unbalanced")
         for probe in probes:
             if probe.probe_id in seen_ids:
                 raise ValueError(f"duplicate hard probe ID: {probe.probe_id}")
@@ -133,13 +120,10 @@ def audit_hard_probe_bank(
                 raise ValueError(f"target condition missing from {probe.probe_id}")
             if item.lesson.desired_action in statement:
                 raise ValueError(f"target action leaked in {probe.probe_id}")
-            distractor_count = sum(
-                action in statement for action in item.lesson.distractor_actions
-            )
+            distractor_count = sum(action in statement for action in item.lesson.distractor_actions)
             if distractor_count < 2:
                 raise ValueError(
-                    f"hard probe has fewer than two distractor actions: "
-                    f"{probe.probe_id}"
+                    f"hard probe has fewer than two distractor actions: {probe.probe_id}"
                 )
             if probe.prompt in training_prompts:
                 exact_training_overlaps.append(probe.probe_id)
@@ -152,12 +136,9 @@ def audit_hard_probe_bank(
         max_training_ngram_jaccard[lesson_id] = lesson_max_overlap
 
     if exact_training_overlaps:
-        raise ValueError(
-            "hard probes exactly overlap training prompts: "
-            f"{exact_training_overlaps}"
-        )
+        raise ValueError(f"hard probes exactly overlap training prompts: {exact_training_overlaps}")
     return {
-        "schema_version": "p0d2h-hard-probe-audit-v1",
+        "schema_version": "p0d2h-hard-probe-audit-v2",
         "compiler_version": HARD_PROBE_COMPILER_VERSION,
         "lesson_count": len(selected),
         "probe_count": len(seen_ids),
@@ -166,9 +147,7 @@ def audit_hard_probe_bank(
         "target_action_leak_count": 0,
         "exact_training_overlap_count": len(exact_training_overlaps),
         "max_prompt_chars": max_prompt_chars,
-        "max_training_token_3gram_jaccard_by_lesson": (
-            max_training_ngram_jaccard
-        ),
+        "max_training_token_3gram_jaccard_by_lesson": (max_training_ngram_jaccard),
     }
 
 
@@ -193,12 +172,9 @@ def write_hard_probe_bank(
         for probe in bank[lesson_id]
     ]
     probes_bytes = "".join(
-        json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
-        for row in rows
+        json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows
     ).encode()
-    audit_bytes = (
-        json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    ).encode()
+    audit_bytes = (json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
     _write_immutable(probes_path, probes_bytes)
     _write_immutable(audit_path, audit_bytes)
     hashes = {
@@ -228,10 +204,7 @@ def load_hard_probe_bank(
                 raise ValueError("hard-probe compiler version mismatch")
             probe = P0CProbe.from_dict(row)
             by_lesson.setdefault(probe.lesson_id, []).append(probe)
-    return {
-        lesson_id: tuple(probes)
-        for lesson_id, probes in by_lesson.items()
-    }
+    return {lesson_id: tuple(probes) for lesson_id, probes in by_lesson.items()}
 
 
 def verify_hard_probe_hashes(
@@ -242,9 +215,7 @@ def verify_hard_probe_hashes(
     observed = {
         "compiler_version": HARD_PROBE_COMPILER_VERSION,
         "hard_probes_sha256": _file_hash(compiled_dir / "hard_probes.jsonl"),
-        "hard_probe_audit_sha256": _file_hash(
-            compiled_dir / "hard_probe_audit.json"
-        ),
+        "hard_probe_audit_sha256": _file_hash(compiled_dir / "hard_probe_audit.json"),
     }
     if observed != expected:
         raise ValueError("P0-D2H compiled hard-probe artifacts changed")
@@ -255,20 +226,22 @@ def _binding_decoys(item: CompiledLesson, variant: int) -> str:
     distractors = _rotated_distractors(item, variant)
     archive_lines = [
         (
-            f"ARCHIVED-{index}: workspace {_decoy_context(lesson.lesson_id, variant, index)} "
-            f"has an obsolete visible rule proposing {action}."
+            f"[ARCHIVED-{index} — INVALID] workspace "
+            f"{_decoy_context(lesson.lesson_id, variant, index)} has an obsolete "
+            f"record naming {action}; never execute an archived record."
         )
         for index, action in enumerate(distractors, start=1)
     ]
     target = (
-        f"ACTIVE: workspace {lesson.context_id}; condition: {lesson.condition}. "
-        "Its action must be recalled from the previously verified local mapping."
+        f"[ACTIVE — EXECUTE] workspace {lesson.context_id}; condition: "
+        f"{lesson.condition}. Retrieve its action from the verified local mapping."
     )
     records = archive_lines.copy()
     records.insert((variant - 1) % 4, target)
     return (
-        "A triage packet contains one ACTIVE record and three ARCHIVED records. "
-        "Execute only the ACTIVE record; archived actions are decoys.\n"
+        "Status labels are authoritative. First discard every ARCHIVED record, "
+        "including each action named inside it. Then answer only for the single "
+        "ACTIVE record by retrieving its verified mapping.\n"
         + "\n".join(records)
         + "\nWhich action applies to the ACTIVE record?"
     )
@@ -381,22 +354,20 @@ def _decision_prompt(
     action_choices: tuple[str, ...],
 ) -> str:
     choices = ", ".join(action_choices)
-    return f"{statement}\nOnly output one action token from: {choices}.\nAction:"
+    return f"{statement}{OUTPUT_INSTRUCTION_PREFIX} {choices}.\nAction:"
 
 
 def _statement(prompt: str) -> str:
-    marker = "\nOnly output one action token from:"
-    if marker not in prompt:
+    if OUTPUT_INSTRUCTION_PREFIX not in prompt:
         raise ValueError("hard probe is missing the strict output instruction")
-    return prompt.split(marker, maxsplit=1)[0]
+    return prompt.split(OUTPUT_INSTRUCTION_PREFIX, maxsplit=1)[0]
 
 
 def _ngram_jaccard(left: str, right: str, size: int = 3) -> float:
     def ngrams(value: str) -> set[tuple[str, ...]]:
         tokens = value.casefold().split()
         return {
-            tuple(tokens[index : index + size])
-            for index in range(max(0, len(tokens) - size + 1))
+            tuple(tokens[index : index + size]) for index in range(max(0, len(tokens) - size + 1))
         }
 
     left_ngrams = ngrams(left)

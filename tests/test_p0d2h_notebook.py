@@ -6,11 +6,7 @@ import json
 from pathlib import Path
 from types import ModuleType
 
-NOTEBOOK_DIR = (
-    Path(__file__).resolve().parents[1]
-    / "notebooks"
-    / "p0d2_hard_probe"
-)
+NOTEBOOK_DIR = Path(__file__).resolve().parents[1] / "notebooks" / "p0d2_hard_probe"
 
 
 def _load_generator() -> ModuleType:
@@ -35,8 +31,7 @@ def test_p0d2h_notebook_matches_generator_and_has_valid_python() -> None:
     assert (
         "https://colab.research.google.com/github/donleaveher/"
         "plasticity-placement/blob/agent%2Fadd-lora-evaluation/"
-        "notebooks/p0d2_hard_probe/p0d2_hard_probe_colab.ipynb"
-        in opening
+        "notebooks/p0d2_hard_probe/p0d2_hard_probe_colab.ipynb" in opening
     )
     for index, cell in enumerate(notebook["cells"]):
         if cell["cell_type"] == "code":
@@ -48,17 +43,15 @@ def test_p0d2h_notebook_matches_generator_and_has_valid_python() -> None:
 
 def test_p0d2h_notebook_is_read_only_and_uses_independent_namespace() -> None:
     notebook = json.loads(
-        (NOTEBOOK_DIR / "p0d2_hard_probe_colab.ipynb").read_text(
-            encoding="utf-8"
-        )
+        (NOTEBOOK_DIR / "p0d2_hard_probe_colab.ipynb").read_text(encoding="utf-8")
     )
     source = "\n".join(
-        "".join(cell["source"])
-        for cell in notebook["cells"]
-        if cell["cell_type"] == "code"
+        "".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"
     )
     assert source.count("RUN_FORMAL_EVALUATION = True") == 1
-    assert "P0D2H_PIPELINE_ATTEMPT = 'pipeline-a2'" in source
+    assert "P0D2H_PIPELINE_ATTEMPT = 'pipeline-r1'" in source
+    assert "HARD_PROBE_ATTEMPT = 'r1'" in source
+    assert "EVALUATION_MAX_LENGTH = 512" in source
     assert "/plasticity-p0d/hard-probe/v1/pipelines" in source
     assert "budget_match-" in source
     assert "'plasticity-p0d2h', action" in source
@@ -69,20 +62,21 @@ def test_p0d2h_notebook_is_read_only_and_uses_independent_namespace() -> None:
     assert "automatic_training_started" not in source
     assert "environment.get('cuda_available') is not True" in source
     assert "p0d2h_command('run')" in source
+    assert "p0d2h_command('audit')" in source
     assert "PREFLIGHT COMPLETE" in source
+    assert "TOKEN AUDIT COMPLETE" in source
     assert "FORMAL RUN STARTING" in source
     assert "AGGREGATE STARTING" in source
 
     markdown = "\n".join(
-        "".join(cell["source"])
-        for cell in notebook["cells"]
-        if cell["cell_type"] == "markdown"
+        "".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "markdown"
     )
     for heading in (
         "## 4. Metadata preflight",
-        "## 5. Formal run",
-        "## 6. Verify recovery manifest",
-        "## 7. Aggregate",
-        "## 8. Review results and decision gate",
+        "## 5. Prompt-token capacity audit",
+        "## 6. Formal run",
+        "## 7. Verify recovery manifest",
+        "## 8. Aggregate",
+        "## 9. Review results and decision gates",
     ):
         assert heading in markdown

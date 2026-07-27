@@ -1,8 +1,8 @@
-# P0-D2H Hard-Probe Stress Protocol
+# P0-D2H-R Hard-Probe Stress Protocol
 
 ## 1. Status and question
 
-- **Protocol status:** frozen design / implementation complete
+- **Protocol status:** repaired design / implementation complete
 - **Results status:** TBD
 - **Source:** one complete verified P0-D2 budget-match run with `late-matched`
   in `eligible_locus_conditions`
@@ -32,6 +32,8 @@ The P0-D2H run identity covers:
 - hard-probe compiler version and compiled-bank hashes;
 - model name and immutable revision;
 - inference length limits and current code hash.
+- source-training and repaired evaluation length limits separately;
+- prompt-token audit hash and external prompt-rendering version.
 
 Any source adapter, manifest, source aggregate, compiled artifact, probe bank, or
 configuration change requires a new attempt.
@@ -42,11 +44,19 @@ The notebook keeps setup costs and GPU work explicit:
 
 1. checkout/install verifies `torch.cuda.is_available()` and records the GPU;
 2. metadata preflight validates the frozen matrix without scanning adapter files;
-3. formal run performs exactly one complete 504-adapter source-integrity scan on
+3. a CPU tokenizer audit checks every plain/external prompt without truncation,
+   verifies the strict output suffix, and freezes `prompt_token_audit.json`;
+4. formal run performs exactly one complete 504-adapter source-integrity scan on
    CPU/Drive, with progress every 25 units;
-4. one base model/tokenizer remains resident on CUDA while the 288 read-only
+5. one base model/tokenizer remains resident on CUDA while the 288 read-only
    adapters are activated and removed sequentially;
-5. manifest verification and aggregate run in separate CPU/Drive blocks.
+6. manifest verification and aggregate run in separate CPU/Drive blocks.
+
+The repaired run preserves the source training limit (`256`) as provenance but
+uses an independent default evaluation limit (`512`). Any prompt longer than the
+evaluation limit fails before inference; silent truncation is not permitted.
+Verified external memory is rendered immediately before the strict action-choice
+suffix so long-context distractors cannot displace the answer instruction.
 
 Source training precision and current evaluation precision are distinct provenance
 fields. A valid adapter trained with `nf4-bfloat16` may therefore be evaluated with
@@ -91,7 +101,7 @@ line.
 
 | Category | Difficulty mechanism | Failure interpretation |
 | --- | --- | --- |
-| `binding_decoys` | Select the active target record among three archived records carrying distractor actions | weak context–condition binding |
+| `binding_decoys` | Select the explicitly status-labelled active target among three archived-invalid records carrying distractor actions | weak context–condition binding |
 | `conflict_stack` | Reject three mutually inconsistent, explicitly unverified target-context suggestions | surface-level action steering |
 | `conditional_route` | Apply a simple routing rule before retrieving the selected target mapping | failure under two-step composition |
 | `long_context` | Retrieve the target after a longer audit trail containing all distractor actions | context dilution / recency shortcut |
@@ -170,6 +180,19 @@ All other valid outcomes are `mixed_or_inconclusive`.
 
 These are diagnostic labels, not universal mechanism claims. P0-D2H never
 automatically selects layers, starts a narrow scan, or starts new training.
+
+The repaired aggregate also emits a separate suite-quality status. Next-stage
+entry requires all of the following:
+
+- zero truncated result rows and complete preservation of every output instruction;
+- external hard accuracy at least `0.75`;
+- external invalid rate at most `0.05`;
+- external accuracy above chance plus `0.05` in every category;
+- no hard category where every parameter-matched condition remains at or below
+  chance plus `0.05`.
+
+A provenance-valid run may retain its frozen locus label while still receiving
+`suite_repair_required`; in that case no later-stage experiment is eligible.
 
 ## 7. Entry to genuinely harder training
 

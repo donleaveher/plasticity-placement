@@ -24,8 +24,17 @@ from plasticity_placement.p0d2.analysis import (
 )
 from plasticity_placement.p0d2.config import P0D2Request
 from plasticity_placement.p0d2.runtime import run_experiment as run_source
-from plasticity_placement.p0d2h.analysis import aggregate_experiment
+from plasticity_placement.p0d2h.analysis import (
+    _suite_quality,
+    aggregate_experiment,
+)
 from plasticity_placement.p0d2h.config import P0D2HRequest
+from plasticity_placement.p0d2h.prompting import (
+    EXTERNAL_PROMPT_VARIANT,
+    PLAIN_PROMPT_VARIANT,
+    PromptTokenAudit,
+    render_evaluation_probe,
+)
 from plasticity_placement.p0d2h.runtime import run_experiment
 from plasticity_placement.training.config import select_layers
 from plasticity_placement.training.lora import TrainingSummary
@@ -73,9 +82,7 @@ def test_fake_hard_probe_run_resumes_and_aggregates(
     aggregate_source(p0d2_dir, bootstrap_samples=20)
     source_adapter_mtimes = {
         path: path.stat().st_mtime_ns
-        for path in p0d2_dir.glob(
-            "adapters/*/*/seed-*/adapter_model.safetensors"
-        )
+        for path in p0d2_dir.glob("adapters/*/*/seed-*/adapter_model.safetensors")
     }
     assert len(source_adapter_mtimes) == 504
 
@@ -96,20 +103,12 @@ def test_fake_hard_probe_run_resumes_and_aggregates(
     assert len(manifest["selected_lessons"]) == 24
     assert len(manifest["conditions"]) == 4
     assert len(manifest["units"]) == 288
-    assert {
-        value["state"] for value in manifest["base_arms"].values()
-    } == {"verified"}
-    assert {
-        value["state"] for value in manifest["units"].values()
-    } == {"verified"}
-    assert {
-        value["source_training_precision"]
-        for value in manifest["units"].values()
-    } == {"float32"}
-    assert {
-        value["evaluation_precision"]
-        for value in manifest["units"].values()
-    } == {"float16"}
+    assert {value["state"] for value in manifest["base_arms"].values()} == {"verified"}
+    assert {value["state"] for value in manifest["units"].values()} == {"verified"}
+    assert {value["source_training_precision"] for value in manifest["units"].values()} == {
+        "float32"
+    }
+    assert {value["evaluation_precision"] for value in manifest["units"].values()} == {"float16"}
     assert {
         path: path.stat().st_mtime_ns for path in source_adapter_mtimes
     } == source_adapter_mtimes
@@ -126,9 +125,7 @@ def test_fake_hard_probe_run_resumes_and_aggregates(
         "adapter_deactivations": 288,
         "releases": 1,
     }
-    assert {
-        path: path.stat().st_mtime_ns for path in result_mtimes
-    } == result_mtimes
+    assert {path: path.stat().st_mtime_ns for path in result_mtimes} == result_mtimes
 
     summary_path = aggregate_experiment(
         output_dir,
@@ -137,17 +134,15 @@ def test_fake_hard_probe_run_resumes_and_aggregates(
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["adapter_unit_count"] == 288
     assert summary["probe_row_count"] == 5_376
-    assert (
-        summary["condition_summary"]["late-matched"]["hard_accuracy"]
-        == 1.0
-    )
+    assert summary["condition_summary"]["late-matched"]["hard_accuracy"] == 1.0
     assert summary["condition_summary"]["full-base"]["hard_accuracy"] == 0.0
     assert summary["gates"]["decision_status"] == "hard_locus_robust"
+    assert summary["suite_quality"]["status"] == "ready"
+    assert summary["gates"]["next_stage_status"] == "eligible_for_reviewed_followup"
+    assert summary["prompt_token_audit"]["max_untruncated_input_tokens"] == 160
     assert summary["gates"]["automatic_training_started"] is False
 
-    first_result = next(
-        output_dir.glob("results/adapters/*/*/seed-*.jsonl")
-    )
+    first_result = next(output_dir.glob("results/adapters/*/*/seed-*.jsonl"))
     original_result = first_result.read_bytes()
     first_result.write_bytes(original_result.splitlines(keepends=True)[0])
     with pytest.raises(ValueError, match="result matrix"):
@@ -191,6 +186,16 @@ def test_reusable_model_is_released_when_evaluation_fails(
         lambda *args, **kwargs: manifest,
     )
     monkeypatch.setattr(stress_runtime, "_write_environment", lambda output: None)
+    monkeypatch.setattr(
+        stress_runtime,
+        "_prepare_prompt_token_audit",
+        lambda *args: (
+            config.output_dir / "preflight" / "prompt_token_audit.json",
+            "audit",
+            {},
+            {"all_prompts_fit": True},
+        ),
+    )
     monkeypatch.setattr(stress_runtime, "_requires_model", lambda *args: True)
     monkeypatch.setattr(stress_runtime, "load_base_model", lambda value: bundle)
     monkeypatch.setattr(stress_runtime, "_require_cuda_bundle", lambda value: None)
@@ -215,11 +220,61 @@ def test_reusable_model_is_released_when_evaluation_fails(
     assert released == [bundle]
 
 
+def test_suite_quality_blocks_external_failure_and_common_floor() -> None:
+    categories = (
+        "binding_decoys",
+        "conflict_stack",
+        "conditional_route",
+        "long_context",
+    )
+    condition_summary = {
+        condition_id: {
+            "hard_accuracy": 0.5 if condition_id == "late-matched" else 0.4,
+            "invalid_rate": 0.0,
+            "categories": {
+                category: {"accuracy": (0.25 if category == "binding_decoys" else 0.6)}
+                for category in categories
+            },
+        }
+        for condition_id in (
+            "full-base",
+            "early-matched",
+            "middle-matched",
+            "late-matched",
+            "no_write",
+        )
+    }
+    condition_summary["external"] = {
+        "hard_accuracy": 0.31,
+        "invalid_rate": 1.0 / 3.0,
+        "categories": {
+            category: {"accuracy": 0.0 if category == "long_context" else 0.25}
+            for category in categories
+        },
+    }
+    quality = _suite_quality(
+        condition_summary,
+        [
+            {
+                "input_truncated": False,
+                "output_instruction_preserved": True,
+            }
+        ],
+        {
+            "common_floor_tolerance": 0.05,
+            "external_anchor_min_accuracy": 0.75,
+            "external_anchor_max_invalid_rate": 0.05,
+        },
+    )
+    assert quality["status"] == "suite_repair_required"
+    assert quality["common_floor_categories"] == ["binding_decoys"]
+    assert quality["checks"]["external_accuracy_at_least_threshold"] is False
+    assert quality["checks"]["external_invalid_rate_at_most_threshold"] is False
+
+
 def _write_p0c_source(source_dir: Path) -> Path:
     hashes = write_compiled_bank(source_dir)
-    selected = [
-        item for item in compile_bank() if item.lesson.split == "confirmatory"
-    ]
+    selected = [item for item in compile_bank() if item.lesson.split == "confirmatory"]
     lesson_ids = [item.lesson.lesson_id for item in selected]
     seeds = [41, 42, 43]
     manifest = {
@@ -241,9 +296,7 @@ def _write_p0c_source(source_dir: Path) -> Path:
         },
         "compiler_hashes": hashes,
         "selected_lessons": lesson_ids,
-        "base_arms": {
-            lesson_id: "verified" for lesson_id in lesson_ids
-        },
+        "base_arms": {lesson_id: "verified" for lesson_id in lesson_ids},
         "units": {
             f"{lesson_id}::seed-{seed}": {
                 "state": "verified",
@@ -386,7 +439,68 @@ def _patch_stress_backend(
         "evaluate_probes",
         _fake_stress_evaluate,
     )
+    monkeypatch.setattr(
+        stress_runtime,
+        "_prepare_prompt_token_audit",
+        _fake_prompt_token_audit,
+    )
     return calls
+
+
+def _fake_prompt_token_audit(
+    config,
+    hard_probe_bank,
+    selected,
+):
+    audits = {}
+    records = []
+    for item in selected:
+        lesson_id = item.lesson.lesson_id
+        for external_note in (None, item.external_note):
+            for probe in hard_probe_bank[lesson_id]:
+                rendered, variant, rendering_version = render_evaluation_probe(
+                    probe,
+                    external_note=external_note,
+                )
+                audit = PromptTokenAudit(
+                    lesson_id=lesson_id,
+                    probe_id=probe.probe_id,
+                    category=probe.category,
+                    prompt_variant=variant,
+                    prompt_rendering_version=rendering_version,
+                    prompt_sha256=sha256(rendered.prompt.encode()).hexdigest(),
+                    untruncated_input_tokens=160,
+                    retained_input_tokens=160,
+                    truncated_token_count=0,
+                    input_truncated=False,
+                    output_instruction_preserved=True,
+                    evaluation_max_length=config.evaluation_max_length,
+                )
+                audits[(lesson_id, probe.probe_id, variant)] = audit
+                records.append(audit.to_dict())
+    report = {
+        "schema_version": "p0d2h-prompt-token-audit-v1",
+        "source_training_max_length": config.source_training_max_length,
+        "evaluation_max_length": config.evaluation_max_length,
+        "external_prompt_renderer_version": (
+            config.identity_dict()["external_prompt_renderer_version"]
+        ),
+        "prompt_count": len(records),
+        "input_truncated_count": 0,
+        "output_instruction_missing_count": 0,
+        "all_prompts_fit": True,
+        "max_untruncated_input_tokens": 160,
+        "max_untruncated_input_tokens_by_variant": {
+            PLAIN_PROMPT_VARIANT: 160,
+            EXTERNAL_PROMPT_VARIANT: 160,
+        },
+        "records": records,
+    }
+    payload = (json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
+    path = config.output_dir / "preflight" / "prompt_token_audit.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(payload)
+    return path, sha256(payload).hexdigest(), audits, report
 
 
 def _fake_train_lora(config) -> TrainingSummary:
@@ -412,17 +526,13 @@ def _fake_train_lora(config) -> TrainingSummary:
         peak_memory_bytes=1_000,
         adapter_bytes=trainable_parameters,
         model_revision=config.model_revision,
-        training_data_sha256=sha256(
-            config.data_path.read_bytes()
-        ).hexdigest(),
+        training_data_sha256=sha256(config.data_path.read_bytes()).hexdigest(),
         config_sha256=source_runtime._json_hash(config.to_dict()),
         adapter_sha256=adapter_hash,
         precision="float32",
     )
     (config.output_dir / "training_metadata.json").write_text(
-        json.dumps(
-            {"config": config.to_dict(), "summary": asdict(summary)}
-        ),
+        json.dumps({"config": config.to_dict(), "summary": asdict(summary)}),
         encoding="utf-8",
     )
     return summary
@@ -438,17 +548,12 @@ def _fake_source_evaluate(**kwargs: Any) -> list[P0CProbeResult]:
         if arm is Arm.EXTERNAL:
             correct = True
         elif arm is Arm.PARAMETRIC:
-            correct = (
-                not target
-                or condition_id in {"full-base", "late-matched"}
-            )
+            correct = not target or condition_id in {"full-base", "late-matched"}
         elif arm in {Arm.NO_WRITE, Arm.ROLLBACK}:
             correct = not target
         else:
             raise AssertionError(arm)
-        results.append(
-            _probe_result(kwargs, probe, arm, correct)
-        )
+        results.append(_probe_result(kwargs, probe, arm, correct))
     return results
 
 
@@ -463,10 +568,7 @@ def _fake_stress_evaluate(**kwargs: Any) -> list[P0CProbeResult]:
         correct = False
     else:
         raise AssertionError(arm)
-    return [
-        _probe_result(kwargs, probe, arm, correct)
-        for probe in kwargs["probes"]
-    ]
+    return [_probe_result(kwargs, probe, arm, correct) for probe in kwargs["probes"]]
 
 
 def _probe_result(
@@ -478,11 +580,7 @@ def _probe_result(
     predicted = (
         probe.expected_action
         if correct
-        else next(
-            action
-            for action in ACTIONS
-            if action != probe.expected_action
-        )
+        else next(action for action in ACTIONS if action != probe.expected_action)
     )
     return P0CProbeResult(
         run_id=kwargs["run_id"],

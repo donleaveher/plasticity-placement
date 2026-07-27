@@ -34,12 +34,7 @@ def test_hard_probes_are_deterministic_balanced_and_leak_free() -> None:
         assert item.lesson.context_id in body
         assert item.lesson.condition in body
         assert item.lesson.desired_action not in body
-        assert (
-            sum(
-                action in body for action in item.lesson.distractor_actions
-            )
-            >= 2
-        )
+        assert sum(action in body for action in item.lesson.distractor_actions) >= 2
         assert probe.expected_action == item.lesson.desired_action
         assert probe.retrieval_relevant is True
         assert probe.split == "hard_evaluation"

@@ -63,14 +63,18 @@ P0D2_PIPELINE_ROOT = (
     / P0D2_PIPELINE_ATTEMPT
 )
 
-P0D2H_PIPELINE_ATTEMPT = 'pipeline-a2'
-HARD_PROBE_ATTEMPT = 'a1'
+P0D2H_PIPELINE_ATTEMPT = 'pipeline-r1'
+HARD_PROBE_ATTEMPT = 'r1'
 P0D2H_PIPELINE_ROOT = (
     Path('/content/drive/MyDrive/plasticity-p0d/hard-probe/v1/pipelines')
     / P0D2H_PIPELINE_ATTEMPT
 )
 
 RESILIENCE_MARGIN = 0.05
+EVALUATION_MAX_LENGTH = 512
+EXTERNAL_ANCHOR_MIN_ACCURACY = 0.75
+EXTERNAL_ANCHOR_MAX_INVALID_RATE = 0.05
+COMMON_FLOOR_TOLERANCE = 0.05
 RUN_FORMAL_EVALUATION = True
 
 for name, value in {{
@@ -83,6 +87,8 @@ for name, value in {{
         raise ValueError(f'{{name}} contains unsafe path characters: {{value!r}}')
 if not 0.0 <= RESILIENCE_MARGIN <= 1.0:
     raise ValueError('RESILIENCE_MARGIN must be between 0 and 1')
+if EVALUATION_MAX_LENGTH <= 0:
+    raise ValueError('EVALUATION_MAX_LENGTH must be positive')
 print(
     'Execution mode:',
     'FORMAL GPU RUN' if RUN_FORMAL_EVALUATION else 'PREFLIGHT ONLY',
@@ -247,13 +253,17 @@ LOG_DIR = PROVENANCE_ROOT / 'logs'
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 frozen_context = {
-    'schema_version': 1,
-    'pipeline_version': 'p0d2h-hard-probe-v1',
+    'schema_version': 2,
+    'pipeline_version': 'p0d2h-hard-probe-repair-v1',
     'code_sha256': CODE_HASH,
     'source_manifest_sha256': SOURCE_MANIFEST_HASH,
     'source_summary_sha256': SOURCE_SUMMARY_HASH,
     'source_run_id': source_manifest['run_id'],
     'resilience_margin': RESILIENCE_MARGIN,
+    'evaluation_max_length': EVALUATION_MAX_LENGTH,
+    'external_anchor_min_accuracy': EXTERNAL_ANCHOR_MIN_ACCURACY,
+    'external_anchor_max_invalid_rate': EXTERNAL_ANCHOR_MAX_INVALID_RATE,
+    'common_floor_tolerance': COMMON_FLOOR_TOLERANCE,
     'stage': 'hard_probe',
 }
 STAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -330,10 +340,16 @@ def p0d2h_command(action):
         'uv', 'run', 'plasticity-p0d2h', action,
         '--output', str(STAGE_DIR),
     ]
-    if action in {'plan', 'run'}:
+    if action in {'plan', 'audit', 'run'}:
         command.extend([
             '--source-manifest', str(SOURCE_P0D2_MANIFEST),
             '--resilience-margin', str(RESILIENCE_MARGIN),
+            '--evaluation-max-length', str(EVALUATION_MAX_LENGTH),
+            '--external-anchor-min-accuracy',
+            str(EXTERNAL_ANCHOR_MIN_ACCURACY),
+            '--external-anchor-max-invalid-rate',
+            str(EXTERNAL_ANCHOR_MAX_INVALID_RATE),
+            '--common-floor-tolerance', str(COMMON_FLOOR_TOLERANCE),
         ])
     return command
 """
@@ -366,7 +382,28 @@ if (
 ):
     raise RuntimeError('Unexpected P0-D2H preflight plan')
 display(plan)
-print('PREFLIGHT COMPLETE: formal run is the next block.')
+print('PREFLIGHT COMPLETE: prompt-token audit is the next block.')
+"""
+
+
+TOKEN_AUDIT_SOURCE = """
+print(
+    'TOKEN AUDIT: loads only the frozen tokenizer on CPU and checks every '
+    'plain/external hard prompt before model inference.'
+)
+token_audit_result = run_json(p0d2h_command('audit'))
+token_audit = token_audit_result['audit']
+if (
+    token_audit['all_prompts_fit'] is not True
+    or token_audit['input_truncated_count'] != 0
+    or token_audit['output_instruction_missing_count'] != 0
+):
+    raise RuntimeError(
+        'Prompt-token audit failed. Increase EVALUATION_MAX_LENGTH and use '
+        'a new P0D2H_PIPELINE_ATTEMPT/HARD_PROBE_ATTEMPT.'
+    )
+display(token_audit)
+print('TOKEN AUDIT COMPLETE: every prompt and output instruction is retained.')
 """
 
 
@@ -468,6 +505,7 @@ if summary_path.exists():
     display(summary['condition_summary'])
     display(summary['degradation_vs_original_tg'])
     display(summary['contrasts'])
+    display(summary['suite_quality'])
     display(summary['gates'])
     print(
         'Next-stage decision:',
@@ -486,11 +524,12 @@ def build_notebook() -> dict[str, Any]:
             src="https://colab.research.google.com/assets/colab-badge.svg"
             alt="Open In Colab"/></a>
 
-            # P0-D2H: Read-Only Hard-Probe Stress Test
+            # P0-D2H-R: Repaired Read-Only Hard-Probe Stress Test
 
-            Evaluate verified P0-D2 adapters on four frozen difficulty dimensions.
-            This notebook never retrains adapters, modifies P0-D2 outputs, starts a
-            narrow scan, or starts a multi-mapping experiment.
+            Evaluate verified P0-D2 adapters with token-capacity auditing, repaired
+            external-memory placement, and an explicit suite-quality gate. This
+            notebook never retrains adapters, modifies P0-D2/P0-D2H outputs, starts
+            a narrow scan, or starts a multi-mapping experiment.
             """
         ),
         _markdown(
@@ -502,8 +541,9 @@ def build_notebook() -> dict[str, Any]:
             performs the complete experiment. Set it to `False` only when you want
             metadata preflight without inference.
 
-            This repaired workflow defaults to a new `pipeline-a2` namespace because
-            `pipeline-a1` is code-locked to the earlier runtime.
+            This repair defaults to the new `pipeline-r1 / hard_probe-r1`
+            namespace. The previous `pipeline-a2 / hard_probe-a1` result remains
+            immutable.
             """
         ),
         _code(CONFIGURATION_SOURCE),
@@ -538,7 +578,18 @@ def build_notebook() -> dict[str, Any]:
         _code(PREFLIGHT_SOURCE),
         _markdown(
             """
-            ## 5. Formal run
+            ## 5. Prompt-token capacity audit
+
+            This CPU-only block tokenizes every plain and external prompt without
+            truncation, verifies the strict output suffix survives, and writes a
+            hash-frozen audit. It fails before inference when 512 tokens are
+            insufficient.
+            """
+        ),
+        _code(TOKEN_AUDIT_SOURCE),
+        _markdown(
+            """
+            ## 6. Formal run
 
             Phase A performs one complete source-integrity scan over 504 P0-D2
             adapters on CPU/Drive, with visible progress. GPU memory may remain zero
@@ -547,18 +598,18 @@ def build_notebook() -> dict[str, Any]:
             """
         ),
         _code(FORMAL_RUN_SOURCE),
-        _markdown("## 6. Verify recovery manifest"),
+        _markdown("## 7. Verify recovery manifest"),
         _code(VERIFY_SOURCE),
         _markdown(
             """
-            ## 7. Aggregate
+            ## 8. Aggregate
 
             Aggregation is a CPU/Drive verification and statistics block. It does not
             need GPU memory.
             """
         ),
         _code(AGGREGATE_SOURCE),
-        _markdown("## 8. Review results and decision gate"),
+        _markdown("## 9. Review results and decision gates"),
         _code(RESULTS_SOURCE),
         _markdown(
             """
