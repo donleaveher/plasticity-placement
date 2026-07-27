@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from collections.abc import Callable
 from hashlib import sha256
 from pathlib import Path
 from statistics import mean
@@ -117,7 +118,8 @@ def aggregate_experiment(output_dir: Path, bootstrap_samples: int = 10_000) -> P
     return summary_path
 
 
-def _validate_manifest(output_dir: Path, manifest: dict[str, Any]) -> None:
+def _validate_manifest_metadata(manifest: dict[str, Any]) -> None:
+    """Validate frozen P0-D2 structure and manifest-resident provenance."""
     if manifest.get("schema_version") != "p0d2-manifest-v1":
         raise ValueError("not a P0-D2 v1 manifest")
     required = {
@@ -178,57 +180,12 @@ def _validate_manifest(output_dir: Path, manifest: dict[str, Any]) -> None:
         condition_id = str(unit["condition_id"])
         lesson_id = str(unit["lesson_id"])
         seed = int(unit["seed"])
-        adapter_dir = (
-            output_dir
-            / "adapters"
-            / condition_id
-            / lesson_id
-            / f"seed-{seed}"
-        )
-        if _adapter_hash(adapter_dir) != unit.get("adapter_sha256"):
-            raise ValueError(f"P0-D2 adapter bundle changed after verification: {key}")
-        metadata_path = adapter_dir / "training_metadata.json"
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        if not isinstance(metadata, dict) or metadata.get("summary") != summary:
-            raise ValueError(f"P0-D2 training metadata changed after verification: {key}")
-        training_config = metadata.get("config")
-        if not isinstance(training_config, dict):
-            raise ValueError(f"P0-D2 training config is missing: {key}")
-        if summary["config_sha256"] != _json_hash(training_config):
-            raise ValueError(f"P0-D2 training config hash changed: {key}")
-        data_path = output_dir / "compiled" / "training" / f"{lesson_id}.jsonl"
-        if summary["training_data_sha256"] != sha256(data_path.read_bytes()).hexdigest():
-            raise ValueError(f"P0-D2 training data hash changed: {key}")
+        if key != unit_key(condition_id, lesson_id, seed):
+            raise ValueError(f"P0-D2 unit identity changed: {key}")
         if summary["model_revision"] != config["model_revision"]:
             raise ValueError(f"P0-D2 training model revision changed: {key}")
 
         condition = manifest["conditions"][condition_id]
-        expected_training_fields = {
-            "model_name": config["model_name"],
-            "model_revision": config["model_revision"],
-            "layer_band": condition["layer_band"],
-            "explicit_layers": [],
-            "target_modules": condition["target_modules"],
-            "rank": condition["rank"],
-            "alpha": condition["alpha"],
-            "dropout": 0.0,
-            "learning_rate": config["learning_rate"],
-            "max_steps": config["max_steps"],
-            "max_length": config["max_length"],
-            "seed": seed,
-            "use_4bit": config["use_4bit"],
-            "use_chat_template": True,
-            "save_tokenizer": False,
-        }
-        mismatches = {
-            name: (training_config.get(name), expected)
-            for name, expected in expected_training_fields.items()
-            if training_config.get(name) != expected
-        }
-        if mismatches:
-            raise ValueError(
-                f"P0-D2 training config provenance mismatch for {key}: {mismatches}"
-            )
         observed_layers = summary["selected_layers"]
         normalized = list(range(num_layers) if observed_layers is None else observed_layers)
         if normalized != condition["selected_layers"]:
@@ -263,6 +220,75 @@ def _validate_manifest(output_dir: Path, manifest: dict[str, Any]) -> None:
     }
     if mixed:
         raise ValueError(f"P0-D2 condition trainable parameters are mixed: {mixed}")
+
+
+def _validate_manifest(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    *,
+    progress: Callable[[int, int, str], None] | None = None,
+) -> None:
+    """Deep-validate every frozen P0-D2 adapter and its source files."""
+    _validate_manifest_metadata(manifest)
+    config = manifest["config"]
+    units = list(manifest["units"].items())
+    total = len(units)
+    for index, (key, unit) in enumerate(units, start=1):
+        if progress is not None:
+            progress(index, total, key)
+        summary = unit["training_summary"]
+        condition_id = str(unit["condition_id"])
+        lesson_id = str(unit["lesson_id"])
+        seed = int(unit["seed"])
+        adapter_dir = (
+            output_dir
+            / "adapters"
+            / condition_id
+            / lesson_id
+            / f"seed-{seed}"
+        )
+        if _adapter_hash(adapter_dir) != unit.get("adapter_sha256"):
+            raise ValueError(f"P0-D2 adapter bundle changed after verification: {key}")
+        metadata_path = adapter_dir / "training_metadata.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if not isinstance(metadata, dict) or metadata.get("summary") != summary:
+            raise ValueError(f"P0-D2 training metadata changed after verification: {key}")
+        training_config = metadata.get("config")
+        if not isinstance(training_config, dict):
+            raise ValueError(f"P0-D2 training config is missing: {key}")
+        if summary["config_sha256"] != _json_hash(training_config):
+            raise ValueError(f"P0-D2 training config hash changed: {key}")
+        data_path = output_dir / "compiled" / "training" / f"{lesson_id}.jsonl"
+        if summary["training_data_sha256"] != sha256(data_path.read_bytes()).hexdigest():
+            raise ValueError(f"P0-D2 training data hash changed: {key}")
+
+        condition = manifest["conditions"][condition_id]
+        expected_training_fields = {
+            "model_name": config["model_name"],
+            "model_revision": config["model_revision"],
+            "layer_band": condition["layer_band"],
+            "explicit_layers": [],
+            "target_modules": condition["target_modules"],
+            "rank": condition["rank"],
+            "alpha": condition["alpha"],
+            "dropout": 0.0,
+            "learning_rate": config["learning_rate"],
+            "max_steps": config["max_steps"],
+            "max_length": config["max_length"],
+            "seed": seed,
+            "use_4bit": config["use_4bit"],
+            "use_chat_template": True,
+            "save_tokenizer": False,
+        }
+        mismatches = {
+            name: (training_config.get(name), expected)
+            for name, expected in expected_training_fields.items()
+            if training_config.get(name) != expected
+        }
+        if mismatches:
+            raise ValueError(
+                f"P0-D2 training config provenance mismatch for {key}: {mismatches}"
+            )
 
 
 def _contrasts(

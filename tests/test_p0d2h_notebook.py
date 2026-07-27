@@ -57,7 +57,8 @@ def test_p0d2h_notebook_is_read_only_and_uses_independent_namespace() -> None:
         for cell in notebook["cells"]
         if cell["cell_type"] == "code"
     )
-    assert source.count("RUN_HARD_PROBE = False") == 1
+    assert source.count("RUN_FORMAL_EVALUATION = True") == 1
+    assert "P0D2H_PIPELINE_ATTEMPT = 'pipeline-a2'" in source
     assert "/plasticity-p0d/hard-probe/v1/pipelines" in source
     assert "budget_match-" in source
     assert "'plasticity-p0d2h', action" in source
@@ -66,3 +67,22 @@ def test_p0d2h_notebook_is_read_only_and_uses_independent_namespace() -> None:
     assert "plan['expected_unit_count'] != 288" in source
     assert "plan['expected_probe_row_count'] != 5376" in source
     assert "automatic_training_started" not in source
+    assert "environment.get('cuda_available') is not True" in source
+    assert "p0d2h_command('run')" in source
+    assert "PREFLIGHT COMPLETE" in source
+    assert "FORMAL RUN STARTING" in source
+    assert "AGGREGATE STARTING" in source
+
+    markdown = "\n".join(
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "markdown"
+    )
+    for heading in (
+        "## 4. Metadata preflight",
+        "## 5. Formal run",
+        "## 6. Verify recovery manifest",
+        "## 7. Aggregate",
+        "## 8. Review results and decision gate",
+    ):
+        assert heading in markdown

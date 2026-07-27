@@ -63,7 +63,7 @@ P0D2_PIPELINE_ROOT = (
     / P0D2_PIPELINE_ATTEMPT
 )
 
-P0D2H_PIPELINE_ATTEMPT = 'pipeline-a1'
+P0D2H_PIPELINE_ATTEMPT = 'pipeline-a2'
 HARD_PROBE_ATTEMPT = 'a1'
 P0D2H_PIPELINE_ROOT = (
     Path('/content/drive/MyDrive/plasticity-p0d/hard-probe/v1/pipelines')
@@ -71,7 +71,7 @@ P0D2H_PIPELINE_ROOT = (
 )
 
 RESILIENCE_MARGIN = 0.05
-RUN_HARD_PROBE = False
+RUN_FORMAL_EVALUATION = True
 
 for name, value in {{
     'P0D2_PIPELINE_ATTEMPT': P0D2_PIPELINE_ATTEMPT,
@@ -83,6 +83,10 @@ for name, value in {{
         raise ValueError(f'{{name}} contains unsafe path characters: {{value!r}}')
 if not 0.0 <= RESILIENCE_MARGIN <= 1.0:
     raise ValueError('RESILIENCE_MARGIN must be between 0 and 1')
+print(
+    'Execution mode:',
+    'FORMAL GPU RUN' if RUN_FORMAL_EVALUATION else 'PREFLIGHT ONLY',
+)
 """
 
 
@@ -146,11 +150,7 @@ subprocess.run(
     cwd=REPO_DIR,
     check=True,
 )
-print('Checked out P0-D2H code:', CODE_REVISION)
-"""
 
-
-PROVENANCE_SOURCE = """
 def run_json(command):
     completed = subprocess.run(
         command,
@@ -170,6 +170,25 @@ def run_json(command):
         raise RuntimeError(f'Command returned no JSON: {shlex.join(command)}')
     return json.loads(lines[-1])
 
+environment_context = run_json(
+    ['uv', 'run', 'plasticity-p0d2h', 'environment']
+)
+environment = environment_context['environment']
+if environment.get('cuda_available') is not True:
+    raise RuntimeError(
+        'PyTorch cannot access CUDA. Select a GPU runtime, restart, and rerun.'
+    )
+print(json.dumps({
+    'cuda_available': environment['cuda_available'],
+    'cuda_version': environment['cuda_version'],
+    'gpu': environment['gpu'],
+    'packages': environment['packages'],
+}, ensure_ascii=False, indent=2))
+print('Checked out P0-D2H code:', CODE_REVISION)
+"""
+
+
+PROVENANCE_SOURCE = """
 source_matches = sorted(
     P0D2_PIPELINE_ROOT.glob(
         'runs/*/budget_match-'
@@ -216,10 +235,6 @@ if (
 
 SOURCE_MANIFEST_HASH = sha256(SOURCE_P0D2_MANIFEST.read_bytes()).hexdigest()
 SOURCE_SUMMARY_HASH = sha256(source_summary_path.read_bytes()).hexdigest()
-environment_context = run_json(
-    ['uv', 'run', 'plasticity-p0d2h', 'environment']
-)
-environment = environment_context['environment']
 ENVIRONMENT_FINGERPRINT = environment_context['fingerprint']
 CODE_HASH = environment['code_sha256']
 
@@ -324,7 +339,11 @@ def p0d2h_command(action):
 """
 
 
-RUN_SOURCE = """
+PREFLIGHT_SOURCE = """
+print(
+    'PREFLIGHT: metadata and frozen-shape checks only; '
+    'this block does not load a model.'
+)
 plan = run_json(p0d2h_command('plan'))
 expected_conditions = [
     'full-base',
@@ -347,7 +366,31 @@ if (
 ):
     raise RuntimeError('Unexpected P0-D2H preflight plan')
 display(plan)
+print('PREFLIGHT COMPLETE: formal run is the next block.')
+"""
 
+
+FORMAL_RUN_SOURCE = """
+if RUN_FORMAL_EVALUATION:
+    print('FORMAL RUN STARTING')
+    print(
+        'Phase A: one complete 504-adapter source integrity scan on CPU/Drive. '
+        'GPU memory may remain at 0 during this phase.'
+    )
+    print(
+        'Phase B: one reusable base model is loaded on CUDA, then 288 adapters '
+        'are activated sequentially.'
+    )
+    run_checked('p0d2h-hard-probe', p0d2h_command('run'))
+else:
+    print(
+        'FORMAL RUN SKIPPED: RUN_FORMAL_EVALUATION=False. '
+        'Set it to True in Block 1 and rerun Block 1 plus this block.'
+    )
+"""
+
+
+VERIFY_SOURCE = """
 def manifest_status():
     path = STAGE_DIR / 'manifest.json'
     if not path.exists():
@@ -368,10 +411,12 @@ def manifest_status():
         'errors': manifest.get('errors', [])[-10:],
     }
 
-if RUN_HARD_PROBE:
-    run_checked('p0d2h-hard-probe', p0d2h_command('run'))
+status = manifest_status()
+print(json.dumps(status, ensure_ascii=False, indent=2))
+FORMAL_RUN_COMPLETE = False
+if status['exists']:
     manifest = json.loads((STAGE_DIR / 'manifest.json').read_text())
-    if (
+    FORMAL_RUN_COMPLETE = not (
         len(manifest.get('selected_lessons', [])) != 24
         or len(manifest.get('conditions', {})) != 4
         or len(manifest.get('units', {})) != 288
@@ -384,8 +429,19 @@ if RUN_HARD_PROBE:
             for value in manifest.get('units', {}).values()
         )
         or manifest.get('errors')
-    ):
-        raise RuntimeError('P0-D2H manifest is incomplete or invalid')
+    )
+if RUN_FORMAL_EVALUATION and not FORMAL_RUN_COMPLETE:
+    raise RuntimeError('P0-D2H manifest is incomplete or invalid')
+print('Formal run complete:', FORMAL_RUN_COMPLETE)
+"""
+
+
+AGGREGATE_SOURCE = """
+if FORMAL_RUN_COMPLETE:
+    print(
+        'AGGREGATE STARTING: CPU/Drive verification and statistical '
+        'aggregation; GPU use is not expected in this block.'
+    )
     run_checked(
         'p0d2h-hard-probe-aggregate',
         [
@@ -394,8 +450,12 @@ if RUN_HARD_PROBE:
             '--bootstrap-samples', '10000',
         ],
     )
+else:
+    print('AGGREGATE SKIPPED: no complete formal run is available.')
+"""
 
-print(json.dumps(manifest_status(), ensure_ascii=False, indent=2))
+
+RESULTS_SOURCE = """
 summary_path = STAGE_DIR / 'results' / 'aggregate' / 'summary.json'
 if summary_path.exists():
     summary = json.loads(summary_path.read_text())
@@ -414,7 +474,7 @@ if summary_path.exists():
         STAGE_DIR / 'results' / 'aggregate' / 'next_stage_decision.json',
     )
 else:
-    print('Dry preflight complete. Set RUN_HARD_PROBE = True to evaluate.')
+    print('No aggregate summary exists yet.')
 """
 
 
@@ -438,17 +498,68 @@ def build_notebook() -> dict[str, Any]:
             ## 1. Configuration
 
             Select a GPU runtime. Point the P0-D2 attempt labels at the complete
-            verified budget-match run. Keep `RUN_HARD_PROBE = False` for the first
-            preflight.
+            verified budget-match run. `RUN_FORMAL_EVALUATION = True` means Run all
+            performs the complete experiment. Set it to `False` only when you want
+            metadata preflight without inference.
+
+            This repaired workflow defaults to a new `pipeline-a2` namespace because
+            `pipeline-a1` is code-locked to the earlier runtime.
             """
         ),
         _code(CONFIGURATION_SOURCE),
-        _markdown("## 2. Checkout and install frozen code"),
+        _markdown(
+            """
+            ## 2. Checkout, install, and verify CUDA
+
+            This block installs the frozen revision, then fails immediately unless
+            PyTorch can see the selected GPU. Installation itself does not allocate
+            model memory.
+            """
+        ),
         _code(CHECKOUT_SOURCE),
-        _markdown("## 3. Resolve source provenance and recovery directory"),
+        _markdown(
+            """
+            ## 3. Resolve source provenance and recovery directory
+
+            This block locates the unique verified P0-D2 source and freezes the
+            source/code/environment identity. It performs no model inference.
+            """
+        ),
         _code(PROVENANCE_SOURCE),
-        _markdown("## 4. Preflight, evaluate, verify, and aggregate"),
-        _code(RUN_SOURCE),
+        _markdown(
+            """
+            ## 4. Metadata preflight
+
+            Fast structure checks only: four selected stress conditions, 288 adapter
+            units, 16 probes per lesson, and 5,376 result rows. No full adapter scan
+            and no GPU model load occur in this block.
+            """
+        ),
+        _code(PREFLIGHT_SOURCE),
+        _markdown(
+            """
+            ## 5. Formal run
+
+            Phase A performs one complete source-integrity scan over 504 P0-D2
+            adapters on CPU/Drive, with visible progress. GPU memory may remain zero
+            during Phase A. Phase B loads one reusable base model on CUDA and switches
+            the 288 read-only adapters without reloading the base weights.
+            """
+        ),
+        _code(FORMAL_RUN_SOURCE),
+        _markdown("## 6. Verify recovery manifest"),
+        _code(VERIFY_SOURCE),
+        _markdown(
+            """
+            ## 7. Aggregate
+
+            Aggregation is a CPU/Drive verification and statistics block. It does not
+            need GPU memory.
+            """
+        ),
+        _code(AGGREGATE_SOURCE),
+        _markdown("## 8. Review results and decision gate"),
+        _code(RESULTS_SOURCE),
         _markdown(
             """
             ## Recovery and interpretation

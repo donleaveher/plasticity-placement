@@ -8,8 +8,10 @@ from typing import Any
 from plasticity_placement.p0c.compiler import ACTIONS, load_compiled_bank
 from plasticity_placement.p0c.domain import Arm, CompiledLesson, P0CProbe
 from plasticity_placement.p0c.modeling import (
+    ModelBundle,
+    activate_adapter,
+    deactivate_adapter,
     evaluate_probes,
-    load_adapter_model,
     load_base_model,
     parse_unique_action,
     read_probe_results,
@@ -26,7 +28,12 @@ from plasticity_placement.p0d.runtime import (
     _json_hash,
     _write_environment,
 )
-from plasticity_placement.p0d2.analysis import _validate_manifest as _validate_p0d2
+from plasticity_placement.p0d2.analysis import (
+    _validate_manifest as _validate_p0d2,
+)
+from plasticity_placement.p0d2.analysis import (
+    _validate_manifest_metadata as _validate_p0d2_metadata,
+)
 from plasticity_placement.p0d2.manifest import unit_key as source_unit_key
 from plasticity_placement.p0d2h.config import (
     STRESS_CONDITION_IDS,
@@ -41,13 +48,53 @@ from plasticity_placement.p0d2h.probes import (
     write_hard_probe_bank,
 )
 
+ACTIVE_ADAPTER_NAME = "p0d2h_active"
+
 
 def _progress(message: str) -> None:
     print(f"[p0d2h] {message}", flush=True)
 
 
+def _source_validation_progress(index: int, total: int, key: str) -> None:
+    if index == 1 or index == total or index % 25 == 0:
+        _progress(
+            f"source integrity CPU/Drive {index}/{total}: {key}"
+        )
+
+
+def _require_cuda_runtime() -> None:
+    try:
+        import torch
+    except ImportError as error:
+        raise RuntimeError(
+            "P0-D2H requires PyTorch with CUDA support"
+        ) from error
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "P0-D2H formal evaluation requires CUDA; "
+            "select a GPU runtime and reinstall dependencies"
+        )
+    _progress(
+        f"CUDA ready: {torch.cuda.get_device_name(0)} "
+        f"(torch CUDA {torch.version.cuda})"
+    )
+
+
+def _require_cuda_bundle(bundle: ModelBundle) -> None:
+    device = next(bundle.model.parameters()).device
+    if getattr(device, "type", None) != "cuda":
+        raise RuntimeError(
+            f"P0-D2H model loaded on {device}, expected a CUDA device"
+        )
+    _progress(
+        f"reusable model loaded on {device}; evaluation_precision={bundle.precision}"
+    )
+
+
 def resolve_request(
     request: P0D2HRequest,
+    *,
+    deep_source_validation: bool = True,
 ) -> tuple[
     ResolvedP0D2HConfig,
     dict[str, tuple[P0CProbe, ...]],
@@ -61,7 +108,19 @@ def resolve_request(
         raise ValueError("P0-D2H output cannot be the source P0-D2 directory")
     source_bytes = source_path.read_bytes()
     source = json.loads(source_bytes)
-    _validate_p0d2(source_dir, source)
+    if deep_source_validation:
+        _progress(
+            "source integrity validation started: 504 adapters on CPU/Drive; "
+            "GPU memory remains idle during this block"
+        )
+        _validate_p0d2(
+            source_dir,
+            source,
+            progress=_source_validation_progress,
+        )
+        _progress("source integrity validation complete")
+    else:
+        _validate_p0d2_metadata(source)
 
     source_compiler_hashes = prepare_experiment(source_dir)
     if source_compiler_hashes != source["compiler_hashes"]:
@@ -139,7 +198,11 @@ def resolve_request(
 
 
 def run_experiment(request: P0D2HRequest) -> Path:
-    config, hard_probe_bank, selected = resolve_request(request)
+    _require_cuda_runtime()
+    config, hard_probe_bank, selected = resolve_request(
+        request,
+        deep_source_validation=True,
+    )
     run_id = _run_id(config)
     manifest = P0D2HManifest.load_or_create(
         config.output_dir / "manifest.json",
@@ -152,26 +215,73 @@ def run_experiment(request: P0D2HRequest) -> Path:
         f"starting run_id={run_id} lessons={len(selected)} "
         f"units={config.expected_unit_count} probes_per_lesson={PROBES_PER_LESSON}"
     )
-    _run_base_arms(config, run_id, manifest, selected, hard_probe_bank)
-    selected_by_id = {item.lesson.lesson_id: item for item in selected}
-    for condition in config.conditions:
-        for lesson_id in config.selected_lesson_ids:
-            for seed in config.training_seeds:
-                _run_adapter_unit(
-                    config,
-                    condition,
-                    run_id,
-                    manifest,
-                    selected_by_id[lesson_id],
-                    hard_probe_bank[lesson_id],
-                    seed,
-                )
+    bundle: ModelBundle | None = None
+    if _requires_model(config, manifest, selected):
+        _progress(
+            "loading one reusable base model for base arms and all adapters"
+        )
+        bundle = load_base_model(config)
+        _require_cuda_bundle(bundle)
+    try:
+        bundle = _run_base_arms(
+            config,
+            run_id,
+            manifest,
+            selected,
+            hard_probe_bank,
+            bundle,
+        )
+        bundle = _run_adapter_units(
+            config,
+            run_id,
+            manifest,
+            selected,
+            hard_probe_bank,
+            bundle,
+        )
+    finally:
+        if bundle is not None:
+            release_model(bundle)
     _progress(f"completed manifest={manifest.path}")
     return manifest.path
 
 
 def _run_id(config: ResolvedP0D2HConfig) -> str:
     return f"p0d2h-hard_probe-{_json_hash(config.identity_dict())[:10]}"
+
+
+def _requires_model(
+    config: ResolvedP0D2HConfig,
+    manifest: P0D2HManifest,
+    selected: tuple[CompiledLesson, ...],
+) -> bool:
+    for item in selected:
+        lesson_id = item.lesson.lesson_id
+        state = manifest.base_state(lesson_id)
+        if (
+            state not in {"verified", "failed"}
+            and not _base_result_path(config.output_dir, lesson_id).exists()
+        ):
+            return True
+    for condition in config.conditions:
+        for lesson_id in config.selected_lesson_ids:
+            for seed in config.training_seeds:
+                state = manifest.unit_state(
+                    condition.condition_id,
+                    lesson_id,
+                    seed,
+                )
+                if (
+                    state not in {"verified", "failed"}
+                    and not _adapter_result_path(
+                        config.output_dir,
+                        condition.condition_id,
+                        lesson_id,
+                        seed,
+                    ).exists()
+                ):
+                    return True
+    return False
 
 
 def _source_condition(
@@ -217,7 +327,8 @@ def _run_base_arms(
     manifest: P0D2HManifest,
     selected: tuple[CompiledLesson, ...],
     hard_probe_bank: dict[str, tuple[P0CProbe, ...]],
-) -> None:
+    bundle: ModelBundle | None,
+) -> ModelBundle | None:
     failed = [
         item.lesson.lesson_id
         for item in selected
@@ -244,11 +355,12 @@ def _run_base_arms(
                 seed=None,
                 expected_arms={Arm.NO_WRITE, Arm.EXTERNAL},
                 adapter_sha256=None,
-                expected_precision=str(base_metadata["precision"]),
+                expected_precision=str(base_metadata["evaluation_precision"]),
+                source_training_precision=None,
             )
             continue
         if path.exists():
-            _verify_rows(
+            evaluation_precision = _verify_rows(
                 config,
                 run_id,
                 path,
@@ -259,76 +371,116 @@ def _run_base_arms(
                 expected_arms={Arm.NO_WRITE, Arm.EXTERNAL},
                 adapter_sha256=None,
                 expected_precision=None,
+                source_training_precision=None,
             )
             manifest.mark_base(
                 lesson_id,
                 "verified",
                 result_path=str(path),
+                evaluation_precision=evaluation_precision,
             )
             continue
         pending.append(item)
     if not pending:
         _progress("all hard-probe base arms already verified")
-        return
+        return bundle
 
-    bundle = load_base_model(config)
-    try:
-        for item in pending:
-            lesson_id = item.lesson.lesson_id
-            path = _base_result_path(config.output_dir, lesson_id)
-            try:
-                manifest.mark_base(lesson_id, "evaluating")
-                no_write = evaluate_probes(
-                    bundle=bundle,
-                    probes=hard_probe_bank[lesson_id],
-                    arm=Arm.NO_WRITE,
-                    run_id=run_id,
-                    config=config,
-                    training_seed=None,
-                )
-                external = evaluate_probes(
-                    bundle=bundle,
-                    probes=hard_probe_bank[lesson_id],
-                    arm=Arm.EXTERNAL,
-                    run_id=run_id,
-                    config=config,
-                    training_seed=None,
-                    external_note=item.external_note,
-                )
-                rows = [
-                    _stress_row(
-                        result.to_dict(),
-                        config,
-                        condition_id=None,
-                    )
-                    for result in [*no_write, *external]
-                ]
-                write_probe_rows(path, rows)
-                _verify_rows(
+    if bundle is None:
+        raise RuntimeError("base evaluation requires the reusable CUDA model")
+    for item in pending:
+        lesson_id = item.lesson.lesson_id
+        path = _base_result_path(config.output_dir, lesson_id)
+        try:
+            _progress(f"base evaluating lesson={lesson_id} on GPU")
+            manifest.mark_base(lesson_id, "evaluating")
+            no_write = evaluate_probes(
+                bundle=bundle,
+                probes=hard_probe_bank[lesson_id],
+                arm=Arm.NO_WRITE,
+                run_id=run_id,
+                config=config,
+                training_seed=None,
+            )
+            external = evaluate_probes(
+                bundle=bundle,
+                probes=hard_probe_bank[lesson_id],
+                arm=Arm.EXTERNAL,
+                run_id=run_id,
+                config=config,
+                training_seed=None,
+                external_note=item.external_note,
+            )
+            rows = [
+                _stress_row(
+                    result.to_dict(),
                     config,
-                    run_id,
-                    path,
-                    hard_probe_bank[lesson_id],
-                    lesson_id=lesson_id,
                     condition_id=None,
-                    seed=None,
-                    expected_arms={Arm.NO_WRITE, Arm.EXTERNAL},
-                    adapter_sha256=None,
-                    expected_precision=bundle.precision,
+                    source_training_precision=None,
                 )
-                manifest.mark_base(
-                    lesson_id,
-                    "verified",
-                    result_path=str(path),
-                    precision=bundle.precision,
+                for result in [*no_write, *external]
+            ]
+            write_probe_rows(path, rows)
+            evaluation_precision = _verify_rows(
+                config,
+                run_id,
+                path,
+                hard_probe_bank[lesson_id],
+                lesson_id=lesson_id,
+                condition_id=None,
+                seed=None,
+                expected_arms={Arm.NO_WRITE, Arm.EXTERNAL},
+                adapter_sha256=None,
+                expected_precision=bundle.precision,
+                source_training_precision=None,
+            )
+            manifest.mark_base(
+                lesson_id,
+                "verified",
+                result_path=str(path),
+                evaluation_precision=evaluation_precision,
+            )
+            _progress(f"base verified lesson={lesson_id}")
+        except (RuntimeError, ValueError, OSError) as error:
+            manifest.mark_base(lesson_id, "failed")
+            manifest.record_error(f"base::{lesson_id}", error)
+            raise
+    return bundle
+
+
+def _run_adapter_units(
+    config: ResolvedP0D2HConfig,
+    run_id: str,
+    manifest: P0D2HManifest,
+    selected: tuple[CompiledLesson, ...],
+    hard_probe_bank: dict[str, tuple[P0CProbe, ...]],
+    bundle: ModelBundle | None,
+) -> ModelBundle | None:
+    selected_by_id = {
+        item.lesson.lesson_id: item
+        for item in selected
+    }
+    source_manifest = _load_frozen_source_manifest(config)
+    total = config.expected_unit_count
+    index = 0
+    for condition in config.conditions:
+        for lesson_id in config.selected_lesson_ids:
+            for seed in config.training_seeds:
+                index += 1
+                bundle = _run_adapter_unit(
+                    config,
+                    condition,
+                    run_id,
+                    manifest,
+                    selected_by_id[lesson_id],
+                    hard_probe_bank[lesson_id],
+                    seed,
+                    source_manifest,
+                    bundle,
+                    index=index,
+                    total=total,
                 )
-                _progress(f"base verified lesson={lesson_id}")
-            except (RuntimeError, ValueError, OSError) as error:
-                manifest.mark_base(lesson_id, "failed")
-                manifest.record_error(f"base::{lesson_id}", error)
-                raise
-    finally:
-        release_model(bundle)
+    _load_frozen_source_manifest(config)
+    return bundle
 
 
 def _run_adapter_unit(
@@ -339,7 +491,12 @@ def _run_adapter_unit(
     item: CompiledLesson,
     probes: tuple[P0CProbe, ...],
     seed: int,
-) -> None:
+    source_manifest: dict[str, Any],
+    bundle: ModelBundle | None,
+    *,
+    index: int,
+    total: int,
+) -> ModelBundle | None:
     lesson_id = item.lesson.lesson_id
     key = unit_key(condition.condition_id, lesson_id, seed)
     state = manifest.unit_state(condition.condition_id, lesson_id, seed)
@@ -347,7 +504,6 @@ def _run_adapter_unit(
         raise RuntimeError(f"P0-D2H unit is immutable after failure: {key}")
 
     source_key = source_unit_key(condition.condition_id, lesson_id, seed)
-    source_manifest = _load_frozen_source_manifest(config)
     source_unit = source_manifest["units"].get(source_key)
     if not isinstance(source_unit, dict) or source_unit.get("state") != "verified":
         raise RuntimeError(f"P0-D2 source unit is no longer verified: {source_key}")
@@ -359,6 +515,9 @@ def _run_adapter_unit(
         / lesson_id
         / f"seed-{seed}"
     )
+    _progress(
+        f"unit {index}/{total} validating source adapter on CPU/Drive: {key}"
+    )
     if _adapter_hash(adapter_dir) != source_adapter_hash:
         raise RuntimeError(f"P0-D2 source adapter changed: {source_key}")
     result_path = _adapter_result_path(
@@ -367,9 +526,22 @@ def _run_adapter_unit(
         lesson_id,
         seed,
     )
-    expected_precision = str(source_unit["training_summary"]["precision"])
+    source_training_precision = str(
+        source_unit["training_summary"]["precision"]
+    )
     if state == "verified" or result_path.exists():
-        _verify_rows(
+        unit_metadata = manifest.payload["units"].get(key, {})
+        expected_evaluation_precision = (
+            str(unit_metadata["evaluation_precision"])
+            if state == "verified"
+            else None
+        )
+        if state == "verified" and (
+            unit_metadata.get("source_training_precision")
+            != source_training_precision
+        ):
+            raise ValueError(f"P0-D2H source training precision changed: {key}")
+        evaluation_precision = _verify_rows(
             config,
             run_id,
             result_path,
@@ -379,7 +551,8 @@ def _run_adapter_unit(
             seed=seed,
             expected_arms={Arm.PARAMETRIC},
             adapter_sha256=source_adapter_hash,
-            expected_precision=expected_precision,
+            expected_precision=expected_evaluation_precision,
+            source_training_precision=source_training_precision,
         )
         if state != "verified":
             manifest.mark_unit(
@@ -391,12 +564,14 @@ def _run_adapter_unit(
                 source_adapter_path=str(adapter_dir),
                 source_adapter_sha256=source_adapter_hash,
                 result_path=str(result_path),
-                precision=expected_precision,
+                source_training_precision=source_training_precision,
+                evaluation_precision=evaluation_precision,
             )
-        return
+        _progress(f"unit {index}/{total} already verified: {key}")
+        return bundle
 
     try:
-        _progress(f"evaluating {key}")
+        _progress(f"unit {index}/{total} preparing GPU evaluation: {key}")
         manifest.mark_unit(
             condition.condition_id,
             lesson_id,
@@ -405,9 +580,21 @@ def _run_adapter_unit(
             source_unit_key=source_key,
             source_adapter_path=str(adapter_dir),
             source_adapter_sha256=source_adapter_hash,
+            source_training_precision=source_training_precision,
         )
-        bundle = load_adapter_model(config, adapter_dir)
+        if bundle is None:
+            raise RuntimeError(
+                "adapter evaluation requires the reusable CUDA model"
+            )
+        adapter_active = False
         try:
+            activate_adapter(
+                bundle,
+                adapter_dir,
+                adapter_name=ACTIVE_ADAPTER_NAME,
+            )
+            adapter_active = True
+            _progress(f"unit {index}/{total} evaluating on GPU: {key}")
             parametric = evaluate_probes(
                 bundle=bundle,
                 probes=probes,
@@ -422,17 +609,22 @@ def _run_adapter_unit(
                     result.to_dict(),
                     config,
                     condition_id=condition.condition_id,
+                    source_training_precision=source_training_precision,
                 )
                 for result in parametric
             ]
             write_probe_rows(result_path, rows)
         finally:
-            release_model(bundle)
+            if adapter_active:
+                deactivate_adapter(
+                    bundle,
+                    adapter_name=ACTIVE_ADAPTER_NAME,
+                )
         if _adapter_hash(adapter_dir) != source_adapter_hash:
             raise RuntimeError(
                 f"P0-D2 source adapter changed during read-only evaluation: {source_key}"
             )
-        _verify_rows(
+        evaluation_precision = _verify_rows(
             config,
             run_id,
             result_path,
@@ -442,7 +634,8 @@ def _run_adapter_unit(
             seed=seed,
             expected_arms={Arm.PARAMETRIC},
             adapter_sha256=source_adapter_hash,
-            expected_precision=expected_precision,
+            expected_precision=bundle.precision,
+            source_training_precision=source_training_precision,
         )
         manifest.mark_unit(
             condition.condition_id,
@@ -450,9 +643,10 @@ def _run_adapter_unit(
             seed,
             "verified",
             result_path=str(result_path),
-            precision=expected_precision,
+            source_training_precision=source_training_precision,
+            evaluation_precision=evaluation_precision,
         )
-        _progress(f"verified {key}")
+        _progress(f"unit {index}/{total} verified: {key}")
     except (RuntimeError, ValueError, OSError) as error:
         manifest.mark_unit(
             condition.condition_id,
@@ -463,6 +657,7 @@ def _run_adapter_unit(
         manifest.record_error(key, error)
         _progress(f"failed {key}: {type(error).__name__}: {error}")
         raise
+    return bundle
 
 
 def _stress_row(
@@ -470,10 +665,12 @@ def _stress_row(
     config: ResolvedP0D2HConfig,
     *,
     condition_id: str | None,
+    source_training_precision: str | None,
 ) -> dict[str, Any]:
     return {
         **row,
         "condition_id": condition_id,
+        "source_training_precision": source_training_precision,
         "source_p0d2_run_id": config.source_run_id,
         "source_manifest_sha256": config.source_manifest_sha256,
         "hard_probe_compiler_version": HARD_PROBE_COMPILER_VERSION,
@@ -495,7 +692,8 @@ def _verify_rows(
     expected_arms: set[Arm],
     adapter_sha256: str | None,
     expected_precision: str | None,
-) -> None:
+    source_training_precision: str | None,
+) -> str:
     if not path.exists():
         raise FileNotFoundError(f"missing P0-D2H result: {path}")
     rows = read_probe_results(path)
@@ -526,6 +724,7 @@ def _verify_rows(
         "latency_seconds",
         "prompt_sha256",
         "precision",
+        "source_training_precision",
     }
     for row in rows:
         missing = required_fields - row.keys()
@@ -547,6 +746,8 @@ def _verify_rows(
             or row.get("training_seed") != seed
             or row.get("condition_id") != condition_id
             or row.get("adapter_sha256") != adapter_sha256
+            or row.get("source_training_precision")
+            != source_training_precision
             or row.get("source_p0d2_run_id") != config.source_run_id
             or row.get("source_manifest_sha256")
             != config.source_manifest_sha256
@@ -569,6 +770,7 @@ def _verify_rows(
                 f"P0-D2H result provenance mismatch: "
                 f"{path}/{row.get('probe_id')}"
             )
+    return next(iter(precisions))
 
 
 def _load_frozen_source_manifest(

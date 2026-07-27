@@ -36,6 +36,23 @@ The P0-D2H run identity covers:
 Any source adapter, manifest, source aggregate, compiled artifact, probe bank, or
 configuration change requires a new attempt.
 
+### Colab execution blocks
+
+The notebook keeps setup costs and GPU work explicit:
+
+1. checkout/install verifies `torch.cuda.is_available()` and records the GPU;
+2. metadata preflight validates the frozen matrix without scanning adapter files;
+3. formal run performs exactly one complete 504-adapter source-integrity scan on
+   CPU/Drive, with progress every 25 units;
+4. one base model/tokenizer remains resident on CUDA while the 288 read-only
+   adapters are activated and removed sequentially;
+5. manifest verification and aggregate run in separate CPU/Drive blocks.
+
+Source training precision and current evaluation precision are distinct provenance
+fields. A valid adapter trained with `nf4-bfloat16` may therefore be evaluated with
+`nf4-float16` on a different Colab GPU without being rejected, while all result rows
+within one unit must still share the recorded evaluation precision.
+
 ## 3. Frozen conditions and scale
 
 Only the equal-budget theory comparison is carried forward:

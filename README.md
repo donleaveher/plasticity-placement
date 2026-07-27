@@ -222,6 +222,11 @@ uv run plasticity-p0d2h aggregate \
 准确率、相对原 P0-D2 TG 的退化、late-vs-full 的配对韧性以及 seed/lesson type/category
 稳定性。它不会自动启动窄扫描或多映射训练。
 
+Colab 默认执行正式评估：metadata preflight 与 formal run 分块显示；formal run 先完成
+一次带进度的 504-adapter CPU/Drive 完整性校验，再让一份常驻 CUDA 的 base model
+顺序切换 288 个只读 adapter。若只需检查路径和冻结矩阵，可把
+`RUN_FORMAL_EVALUATION` 设为 `False`。
+
 Colab 入口为
 [`notebooks/p0d2_hard_probe/p0d2_hard_probe_colab.ipynb`](notebooks/p0d2_hard_probe/p0d2_hard_probe_colab.ipynb)；
 预注册规则见

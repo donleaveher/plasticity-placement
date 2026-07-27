@@ -123,6 +123,58 @@ def load_adapter_model(config: P0CConfig, adapter_path: Path) -> ModelBundle:
     return bundle
 
 
+def activate_adapter(
+    bundle: ModelBundle,
+    adapter_path: Path,
+    *,
+    adapter_name: str,
+) -> None:
+    """Attach one read-only adapter to a reusable base-model bundle."""
+    try:
+        from peft import PeftModel
+    except ImportError as error:
+        raise RuntimeError(
+            "P0-C adapter dependencies are missing; run `uv sync --extra train`"
+        ) from error
+
+    model_device = str(next(bundle.model.parameters()).device)
+    if isinstance(bundle.model, PeftModel):
+        if adapter_name in bundle.model.peft_config:
+            raise RuntimeError(f"adapter is already active: {adapter_name}")
+        bundle.model.load_adapter(
+            adapter_path,
+            adapter_name=adapter_name,
+            is_trainable=False,
+            torch_device=model_device,
+        )
+    else:
+        bundle.model = PeftModel.from_pretrained(
+            bundle.model,
+            adapter_path,
+            adapter_name=adapter_name,
+            is_trainable=False,
+            torch_device=model_device,
+        )
+    bundle.model.set_adapter(adapter_name)
+    bundle.model.eval()
+
+
+def deactivate_adapter(bundle: ModelBundle, *, adapter_name: str) -> None:
+    """Remove one adapter while retaining the reusable base-model weights."""
+    try:
+        from peft import PeftModel
+    except ImportError as error:
+        raise RuntimeError(
+            "P0-C adapter dependencies are missing; run `uv sync --extra train`"
+        ) from error
+
+    if not isinstance(bundle.model, PeftModel):
+        raise RuntimeError("cannot deactivate an adapter from a non-PEFT model")
+    if adapter_name not in bundle.model.peft_config:
+        raise RuntimeError(f"adapter is not active: {adapter_name}")
+    bundle.model.delete_adapter(adapter_name)
+
+
 def evaluate_probes(
     *,
     bundle: ModelBundle,

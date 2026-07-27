@@ -74,7 +74,10 @@ def main() -> None:
         resilience_margin=args.resilience_margin,
     )
     if args.command == "plan":
-        config, _, _ = resolve_request(request)
+        config, _, _ = resolve_request(
+            request,
+            deep_source_validation=False,
+        )
         print(
             json.dumps(
                 {

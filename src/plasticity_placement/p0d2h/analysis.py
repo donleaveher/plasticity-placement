@@ -19,6 +19,7 @@ from plasticity_placement.p0d.analysis import (
 )
 from plasticity_placement.p0d.runtime import _adapter_hash
 from plasticity_placement.p0d2.analysis import _validate_manifest as _validate_p0d2
+from plasticity_placement.p0d2.manifest import unit_key as source_unit_key
 from plasticity_placement.p0d2h.config import STRESS_CONDITION_IDS
 from plasticity_placement.p0d2h.manifest import unit_key
 from plasticity_placement.p0d2h.probes import (
@@ -32,6 +33,15 @@ from plasticity_placement.p0d2h.runtime import (
     _adapter_result_path,
     _base_result_path,
 )
+
+
+def _source_validation_progress(index: int, total: int, key: str) -> None:
+    if index == 1 or index == total or index % 25 == 0:
+        print(
+            f"[p0d2h-aggregate] source integrity CPU/Drive "
+            f"{index}/{total}: {key}",
+            flush=True,
+        )
 
 
 def aggregate_experiment(
@@ -187,7 +197,11 @@ def _validate_and_load(
         raise ValueError("P0-D2 source manifest changed after stress freeze")
     source = json.loads(source_bytes)
     source_dir = source_path.parent
-    _validate_p0d2(source_dir, source)
+    _validate_p0d2(
+        source_dir,
+        source,
+        progress=_source_validation_progress,
+    )
     if (
         source.get("run_id") != config["source_run_id"]
         or source.get("compiler_hashes") != config["source_compiler_hashes"]
@@ -248,6 +262,8 @@ def _validate_and_load(
                 seed=None,
                 expected_arms={Arm.NO_WRITE, Arm.EXTERNAL},
                 adapter_sha256=None,
+                expected_precision=str(base["evaluation_precision"]),
+                source_training_precision=None,
             )
         )
     for condition_id in STRESS_CONDITION_IDS:
@@ -265,9 +281,18 @@ def _validate_and_load(
                     / f"seed-{seed}"
                 )
                 source_hash = str(unit["source_adapter_sha256"])
+                source_unit = source["units"][
+                    source_unit_key(condition_id, lesson_id, seed)
+                ]
+                source_training_precision = str(
+                    source_unit["training_summary"]["precision"]
+                )
+                evaluation_precision = str(unit["evaluation_precision"])
                 if (
                     str(unit.get("source_adapter_path")) != str(source_adapter)
                     or _adapter_hash(source_adapter) != source_hash
+                    or unit.get("source_training_precision")
+                    != source_training_precision
                 ):
                     raise ValueError(f"P0-D2 source adapter changed: {key}")
                 path = _adapter_result_path(
@@ -286,6 +311,8 @@ def _validate_and_load(
                         seed=seed,
                         expected_arms={Arm.PARAMETRIC},
                         adapter_sha256=source_hash,
+                        expected_precision=evaluation_precision,
+                        source_training_precision=source_training_precision,
                     )
                 )
     expected_rows = (
@@ -309,6 +336,8 @@ def _verify_result_file(
     seed: int | None,
     expected_arms: set[Arm],
     adapter_sha256: str | None,
+    expected_precision: str,
+    source_training_precision: str | None,
 ) -> list[dict[str, Any]]:
     rows = read_probe_results(path)
     probe_by_id = {probe.probe_id: probe for probe in probes}
@@ -323,6 +352,9 @@ def _verify_result_file(
     ]
     if len(observed) != len(set(observed)) or set(observed) != expected:
         raise ValueError(f"P0-D2H result matrix mismatch: {path}")
+    precisions = {str(row.get("precision")) for row in rows}
+    if precisions != {expected_precision}:
+        raise ValueError(f"P0-D2H evaluation precision mismatch: {path}")
     config = manifest["config"]
     required_fields = {
         "predicted_action",
@@ -334,6 +366,7 @@ def _verify_result_file(
         "latency_seconds",
         "prompt_sha256",
         "precision",
+        "source_training_precision",
     }
     for row in rows:
         missing = required_fields - row.keys()
@@ -355,6 +388,8 @@ def _verify_result_file(
             or row.get("training_seed") != seed
             or row.get("condition_id") != condition_id
             or row.get("adapter_sha256") != adapter_sha256
+            or row.get("source_training_precision")
+            != source_training_precision
             or row.get("source_p0d2_run_id") != config["source_run_id"]
             or row.get("source_manifest_sha256")
             != config["source_manifest_sha256"]

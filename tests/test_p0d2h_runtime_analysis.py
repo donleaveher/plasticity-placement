@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -45,9 +46,14 @@ class _FakeModel:
 
 
 class _FakeBundle:
-    def __init__(self, condition_id: str) -> None:
+    def __init__(
+        self,
+        condition_id: str,
+        *,
+        precision: str = "float32",
+    ) -> None:
         self.model = _FakeModel(condition_id)
-        self.precision = "float32"
+        self.precision = precision
 
 
 def test_fake_hard_probe_run_resumes_and_aggregates(
@@ -73,13 +79,19 @@ def test_fake_hard_probe_run_resumes_and_aggregates(
     }
     assert len(source_adapter_mtimes) == 504
 
-    _patch_stress_backend(monkeypatch)
+    stress_calls = _patch_stress_backend(monkeypatch)
     output_dir = tmp_path / "hard"
     request = P0D2HRequest(
         output_dir=output_dir,
         source_manifest=p0d2_manifest,
     )
     manifest_path = run_experiment(request)
+    assert stress_calls == {
+        "base_loads": 1,
+        "adapter_activations": 288,
+        "adapter_deactivations": 288,
+        "releases": 1,
+    }
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert len(manifest["selected_lessons"]) == 24
     assert len(manifest["conditions"]) == 4
@@ -91,6 +103,14 @@ def test_fake_hard_probe_run_resumes_and_aggregates(
         value["state"] for value in manifest["units"].values()
     } == {"verified"}
     assert {
+        value["source_training_precision"]
+        for value in manifest["units"].values()
+    } == {"float32"}
+    assert {
+        value["evaluation_precision"]
+        for value in manifest["units"].values()
+    } == {"float16"}
+    assert {
         path: path.stat().st_mtime_ns for path in source_adapter_mtimes
     } == source_adapter_mtimes
 
@@ -100,6 +120,12 @@ def test_fake_hard_probe_run_resumes_and_aggregates(
     }
     assert len(result_mtimes) == 288
     run_experiment(request)
+    assert stress_calls == {
+        "base_loads": 1,
+        "adapter_activations": 288,
+        "adapter_deactivations": 288,
+        "releases": 1,
+    }
     assert {
         path: path.stat().st_mtime_ns for path in result_mtimes
     } == result_mtimes
@@ -134,6 +160,59 @@ def test_fake_hard_probe_run_resumes_and_aggregates(
     with pytest.raises(ValueError, match="adapter bundle changed"):
         aggregate_experiment(output_dir, bootstrap_samples=10)
     first_adapter.write_bytes(original_adapter)
+
+
+def test_reusable_model_is_released_when_evaluation_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = SimpleNamespace(
+        output_dir=tmp_path / "hard",
+        expected_unit_count=288,
+        identity_dict=lambda: {"schema_version": "test"},
+    )
+    manifest = SimpleNamespace(path=config.output_dir / "manifest.json")
+    bundle = _FakeBundle("base")
+    released: list[_FakeBundle] = []
+
+    monkeypatch.setattr(
+        stress_runtime,
+        "_require_cuda_runtime",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        stress_runtime,
+        "resolve_request",
+        lambda request, *, deep_source_validation: (config, {}, ()),
+    )
+    monkeypatch.setattr(
+        stress_runtime.P0D2HManifest,
+        "load_or_create",
+        lambda *args, **kwargs: manifest,
+    )
+    monkeypatch.setattr(stress_runtime, "_write_environment", lambda output: None)
+    monkeypatch.setattr(stress_runtime, "_requires_model", lambda *args: True)
+    monkeypatch.setattr(stress_runtime, "load_base_model", lambda value: bundle)
+    monkeypatch.setattr(stress_runtime, "_require_cuda_bundle", lambda value: None)
+    monkeypatch.setattr(
+        stress_runtime,
+        "_run_base_arms",
+        lambda *args: (_ for _ in ()).throw(RuntimeError("synthetic failure")),
+    )
+    monkeypatch.setattr(
+        stress_runtime,
+        "release_model",
+        lambda value: released.append(value),
+    )
+
+    with pytest.raises(RuntimeError, match="synthetic failure"):
+        run_experiment(
+            P0D2HRequest(
+                output_dir=config.output_dir,
+                source_manifest=tmp_path / "source" / "manifest.json",
+            )
+        )
+    assert released == [bundle]
 
 
 def _write_p0c_source(source_dir: Path) -> Path:
@@ -227,7 +306,36 @@ def _patch_source_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _patch_stress_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+def _patch_stress_backend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> dict[str, int]:
+    calls = {
+        "base_loads": 0,
+        "adapter_activations": 0,
+        "adapter_deactivations": 0,
+        "releases": 0,
+    }
+
+    def load_base(config) -> _FakeBundle:
+        calls["base_loads"] += 1
+        return _FakeBundle("base", precision="float16")
+
+    def activate(bundle, path, *, adapter_name) -> None:
+        assert adapter_name == stress_runtime.ACTIVE_ADAPTER_NAME
+        assert bundle.model.condition_id == "base"
+        calls["adapter_activations"] += 1
+        bundle.model.condition_id = path.parts[-3]
+
+    def deactivate(bundle, *, adapter_name) -> None:
+        assert adapter_name == stress_runtime.ACTIVE_ADAPTER_NAME
+        assert bundle.model.condition_id != "base"
+        calls["adapter_deactivations"] += 1
+        bundle.model.condition_id = "base"
+
+    def release(bundle) -> None:
+        assert bundle.model.condition_id == "base"
+        calls["releases"] += 1
+
     monkeypatch.setattr(
         stress_runtime,
         "resolve_model_revision",
@@ -245,24 +353,40 @@ def _patch_stress_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(
         stress_runtime,
-        "load_base_model",
-        lambda config: _FakeBundle("base"),
+        "_require_cuda_runtime",
+        lambda: None,
     )
     monkeypatch.setattr(
         stress_runtime,
-        "load_adapter_model",
-        lambda config, path: _FakeBundle(path.parts[-3]),
+        "_require_cuda_bundle",
+        lambda bundle: None,
+    )
+    monkeypatch.setattr(
+        stress_runtime,
+        "load_base_model",
+        load_base,
+    )
+    monkeypatch.setattr(
+        stress_runtime,
+        "activate_adapter",
+        activate,
+    )
+    monkeypatch.setattr(
+        stress_runtime,
+        "deactivate_adapter",
+        deactivate,
     )
     monkeypatch.setattr(
         stress_runtime,
         "release_model",
-        lambda bundle: None,
+        release,
     )
     monkeypatch.setattr(
         stress_runtime,
         "evaluate_probes",
         _fake_stress_evaluate,
     )
+    return calls
 
 
 def _fake_train_lora(config) -> TrainingSummary:
@@ -364,7 +488,7 @@ def _probe_result(
         run_id=kwargs["run_id"],
         model=kwargs["config"].model_name,
         model_revision=kwargs["config"].model_revision,
-        precision="float32",
+        precision=kwargs["bundle"].precision,
         lesson_id=probe.lesson_id,
         pair_id=probe.pair_id,
         lesson_type=probe.lesson_type,
