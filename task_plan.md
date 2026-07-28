@@ -1,41 +1,46 @@
-# Task Plan: P0-D2H-R evaluation repair
+# Task Plan: P0-D2H-CAL oracle calibration
 
 ## Goal
-Implement an isolated evaluation-only repair that detects truncation, separates
-evaluation context length from source training length, validates the external
-anchor and category floors, and preserves all existing P0-D2/P0-D2H artifacts.
+Implement an independent base-only calibration experiment that compares no-write,
+verified-memory external, and answer-copy oracle prompts across one or more frozen
+model revisions without training or loading adapters.
 
 ## Phases
-- [x] Phase 1: Establish scope and inspect repository state
-- [x] Phase 2: Map the current configuration, runtime, aggregation, notebook, and tests
-- [x] Phase 3: Implement the repair with focused tests
-- [x] Phase 4: Regenerate the Colab notebook and run full verification
-- [x] Phase 5: Review changes and prepare the handoff
+- [x] Phase 1: Establish scope and preserve current worktree changes
+- [x] Phase 2: Inspect reusable P0-D2H components and freeze schemas/gates
+- [x] Phase 3: Implement package, CLI, manifest, runtime, aggregation, and tests
+- [x] Phase 4: Build the independent Colab notebook and protocol
+- [x] Phase 5: Run focused/full validation and prepare the handoff
 
 ## Key Questions
-1. How can evaluation length change without weakening source-training provenance?
-2. Which token-audit fields are required to distinguish truncation from task failure?
-3. How should suite-quality checks remain distinct from the frozen locus decision?
-4. How should a repaired attempt be isolated from `pipeline-a2`?
+1. How should answer-copy oracle prompts remain deterministic and leak only in the
+   explicitly labelled oracle arm?
+2. How should multiple model revisions share the same immutable probe bank while
+   retaining separate model-level results?
+3. Which gates distinguish output-copy failure, verified-memory-use failure, and
+   a model-scale bottleneck?
+4. How can the notebook run base-only canaries without importing any LoRA path?
 
 ## Decisions Made
-- Reuse the frozen read-only adapters; do not retrain.
-- Preserve the original paired locus gate and add explicit suite-quality diagnostics
-  instead of silently redefining the preregistered estimand.
-- Require a new pipeline/attempt namespace for the repaired evaluation.
-- Use a default evaluation context of 512 tokens while preserving the source
-  training context as separate provenance.
-- Render verified external memory immediately before the action-choice instruction
-  so long-context distractors cannot push the anchor out of the retained suffix.
-- Treat provenance validity, frozen locus status, and suite readiness as three
-  separate outputs.
+- Use a new `plasticity_placement.p0d2hc` package and `plasticity-p0d2hc` CLI.
+- Read the verified P0-D2H-R manifest/probe bank as immutable source provenance.
+- Write only to a new `hard-probe-calibration/v1` Drive namespace.
+- Keep deterministic greedy generation and lesson-clustered paired bootstrap.
+- Do not relax the existing external threshold retrospectively.
+- Treat the verified P0-D2H-R manifest, summary, hard-probe hashes, and compiled
+  source lessons as immutable inputs; calibration never reads adapter bundles.
+- Use fixed model IDs `source_model` and `scale_canary`, with the source model
+  always included and the canary optional.
+- Evaluate each model once with greedy decoding across 24 lessons × 16 probes ×
+  three arms, producing 1,152 rows per model.
+- Emit model-level diagnoses (`oracle_failed`, `oracle_pass_external_failed`, or
+  `calibrated`) and a separate cross-scale diagnosis.
 
 ## Errors Encountered
-- The first real-tokenizer smoke check used an incomplete offline Hugging Face
-  cache without `tokenizer_config.json`, so the chat template was unavailable.
-  Retrying after fetching the tokenizer completed successfully; no repository
-  change was needed.
+- Local shell `python` was unavailable; validation uses the repository-managed
+  `uv run python` environment.
 
 ## Status
-**Complete** - Implementation, notebook regeneration, real-tokenizer audit, full
-tests, lint, and handoff documentation are finished.
+**Complete** - P0-D2H-CAL implementation, generated Colab, protocol, focused tests,
+and full repository validation are complete. Formal GPU results remain to be run
+in Colab.

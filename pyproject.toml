@@ -14,6 +14,7 @@ plasticity-p0c = "plasticity_placement.p0c.cli:main"
 plasticity-p0d = "plasticity_placement.p0d.cli:main"
 plasticity-p0d2 = "plasticity_placement.p0d2.cli:main"
 plasticity-p0d2h = "plasticity_placement.p0d2h.cli:main"
+plasticity-p0d2hc = "plasticity_placement.p0d2hc.cli:main"
 
 [project.optional-dependencies]
 train = [

@@ -77,8 +77,15 @@ P0-D2H 困难 probe 诊断使用另一个独立目录：
 - [`p0d2_hard_probe/README.md`](p0d2_hard_probe/README.md)：四类 difficulty、
   5,376-row matrix、恢复和解释边界。
 
-后续 ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自创建新目录和
-notebook。
+P0-D2H-CAL oracle/scale calibration 使用第三个独立目录：
+
+- [`p0d2h_calibration/p0d2h_calibration_colab.ipynb`](p0d2h_calibration/p0d2h_calibration_colab.ipynb)：
+  base-only `no_write/external/answer_copy_oracle`，每个模型 1,152 行；
+- [`p0d2h_calibration/README.md`](p0d2h_calibration/README.md)：source/canary、
+  frozen gates、恢复和独立 Drive namespace。
+
+后续 1/4/8 mappings、ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自
+创建新目录和 notebook。
 
 ## Drive 目录规则
 
@@ -101,6 +108,9 @@ notebook。
 - P0-D2H 使用
   `/content/drive/MyDrive/plasticity-p0d/hard-probe/v1/pipelines/`，只读引用
   P0-D2 manifest/summary/adapters，不得向 P0-D2 source stage 写入文件；
+- P0-D2H-CAL 使用
+  `/content/drive/MyDrive/plasticity-p0d/hard-probe-calibration/v1/pipelines/`，
+  只读引用完整 verified P0-D2H-R manifest/summary/probe bank，不得复用 source stage；
 - 不同阶段允许由 Colab 分配不同 GPU；每次会话的 GPU、CUDA、Python、依赖版本和
   environment fingerprint 都会单独记录，不参与跨阶段目录寻址；
 - 同一阶段在相同环境中的正常断线保持 attempt 名不变即可恢复；如果同一阶段恢复时

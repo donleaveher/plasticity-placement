@@ -3,7 +3,7 @@
 ## 1. Status and question
 
 - **Protocol status:** repaired design / implementation complete
-- **Results status:** TBD
+- **Results status:** verified aggregate complete / suite-quality review complete
 - **Source:** one complete verified P0-D2 budget-match run with `late-matched`
   in `eligible_locus_conditions`
 - **Primary question:** Does the P0-D2 late-band advantage survive evaluation that
@@ -31,7 +31,7 @@ The P0-D2H run identity covers:
 - the four source condition definitions and source adapter hashes;
 - hard-probe compiler version and compiled-bank hashes;
 - model name and immutable revision;
-- inference length limits and current code hash.
+- inference length limits and current code hash;
 - source-training and repaired evaluation length limits separately;
 - prompt-token audit hash and external prompt-rendering version.
 
@@ -194,7 +194,161 @@ entry requires all of the following:
 A provenance-valid run may retain its frozen locus label while still receiving
 `suite_repair_required`; in that case no later-stage experiment is eligible.
 
-## 7. Entry to genuinely harder training
+## 7. Verified P0-D2H-R results
+
+### 7.1 Run identity and completeness
+
+The repaired aggregate was produced under:
+
+```text
+/content/drive/MyDrive/plasticity-p0d/hard-probe/v1/pipelines/
+  pipeline-r1/runs/code-00236805a5_source-2482ac01a0/
+  hard_probe-r1/
+```
+
+It contains the complete frozen matrix:
+
+- 24 lessons and three training seeds;
+- 288 read-only adapter units;
+- 5,376 hard-probe result rows;
+- four parameter-matched LoRA conditions plus `no_write` and `external`;
+- zero truncated rows;
+- output-instruction preservation rate of `1.0` in every condition;
+- invalid-action rate of `0.0` in every condition.
+
+The prompt repair therefore removed the evaluation-integrity failure observed in
+the first diagnostic attempt. External invalid rate fell from `0.3333` to `0.0`,
+and external `long_context` accuracy increased from `0.0` to `0.3229`. Because the
+hard-probe compiler, binding wording, evaluation length, and external rendering
+changed, the two attempts are diagnostic comparisons and must not be pooled.
+
+### 7.2 Main condition results
+
+Confidence intervals are 95% lesson-clustered bootstrap intervals.
+
+| Condition | Hard accuracy [95% CI] | Hard − original TG [95% CI] | Invalid | Truncated |
+| --- | ---: | ---: | ---: | ---: |
+| `late-matched` | 0.4905 [0.4227, 0.5616] | −0.4488 [−0.5191, −0.3802] | 0.0000 | 0.0000 |
+| `full-base` | 0.3828 [0.3290, 0.4410] | −0.4835 [−0.5694, −0.3872] | 0.0000 | 0.0000 |
+| `middle-matched` | 0.3003 [0.2526, 0.3498] | −0.5174 [−0.6076, −0.4149] | 0.0000 | 0.0000 |
+| `early-matched` | 0.2865 [0.2483, 0.3273] | −0.3698 [−0.4601, −0.2778] | 0.0000 | 0.0000 |
+| `external` | 0.4297 [0.3698, 0.4974] | −0.4714 [−0.5312, −0.4089] | 0.0000 | 0.0000 |
+| `no_write` | 0.2526 [0.2161, 0.2917] | 0.0078 [−0.0365, 0.0547] | 0.0000 | 0.0000 |
+
+The primary paired late-minus-full contrast was `+0.1076`, with 95% CI
+`[0.0781, 0.1380]`. Late-matched won on 20 lessons, tied on four, and lost on
+none. The mean remained `+0.1014` after removing the largest paired lesson
+effect. All three seed-specific differences were positive (`+0.0990`, `+0.1224`,
+and `+0.1016`), as were both lesson-type differences (`fact_mapping: +0.0990`;
+`procedure_recovery: +0.1163`).
+
+The late-minus-full resilience difference was `+0.0347`, with 95% CI
+`[−0.0347, 0.0938]`. It satisfies the frozen `−0.05` non-inferiority margin, but
+the interval includes zero; this supports non-inferiority, not a claim that late
+placement is strictly more resilient.
+
+### 7.3 Category results
+
+| Category | Late | Full | Late − full [95% CI] | External | No-write |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `binding_decoys` | 0.2222 | 0.1979 | +0.0243 [0.0000, 0.0521] | 0.5208 | 0.1354 |
+| `conditional_route` | 0.5104 | 0.4028 | +0.1076 [0.0521, 0.1736] | 0.3958 | 0.2812 |
+| `conflict_stack` | 0.7153 | 0.5729 | +0.1424 [0.0799, 0.2083] | 0.4792 | 0.3333 |
+| `long_context` | 0.5139 | 0.3576 | +0.1562 [0.0868, 0.2326] | 0.3229 | 0.2604 |
+
+The late-placement advantage is therefore supported on conditional routing,
+conflict rejection, and long-context retrieval. `binding_decoys` is not a usable
+confirmatory locus category: every parameter-matched condition remained below
+the frozen common-floor limit of `0.30`, and the late-minus-full interval touched
+zero.
+
+### 7.4 Frozen locus decision versus suite-quality decision
+
+The paired locus safeguards all passed:
+
+- late-minus-full hard-accuracy CI lower bound above zero;
+- resilience CI lower bound above the frozen non-inferiority margin;
+- positive effects in all three seeds;
+- positive effects in both lesson types;
+- positive leave-largest-effect-out mean.
+
+The frozen diagnostic label is therefore:
+
+```text
+decision_status = hard_locus_robust
+```
+
+This label is bounded to the verified 0.5B model, fixed cohort, fixed LoRA budget,
+and three non-floor hard categories. It is not a universal late-layer mechanism
+claim and does not imply absolute hard-task mastery: late-matched still lost
+`0.4488` accuracy relative to its original target-generalization score.
+
+The separate suite-quality gate did not pass:
+
+```text
+suite_quality_status = suite_repair_required
+next_stage_status = suite_repair_required
+```
+
+The prompt-integrity checks passed, but two quality checks failed:
+
+1. external accuracy was `0.4297`, below the frozen `0.75` threshold, although it
+   exceeded no-write by `0.1771` and produced no invalid outputs;
+2. `binding_decoys` remained a common parametric floor.
+
+The repaired result rules out silent truncation as the explanation for the
+late-minus-full advantage. At the same time, the weak external anchor shows that
+the 0.5B model often fails to use an explicitly supplied correct mapping under
+hard distractor context. This is consistent with an instruction-following,
+conflict-suppression, or model-capacity bottleneck, but it does not by itself
+identify which mechanism is responsible.
+
+### 7.5 Supported and unsupported claims
+
+The verified result supports:
+
+- at equal LoRA parameter budget, late placement outperforms full, early, and
+  middle placement on the fixed P0-D2 cohort;
+- the late-minus-full advantage survives repaired, untruncated conditional-route,
+  conflict-stack, and long-context probes;
+- the relative placement effect cannot be explained solely by the original
+  `max_length=256` evaluation bug;
+- late placement is non-inferior to full placement in hard-minus-original
+  degradation under the frozen margin.
+
+The verified result does not support:
+
+- absolute hard-task robustness or mastery;
+- a late-placement advantage on a valid non-floor binding-decoy test;
+- a working near-ceiling external anchor;
+- generalization to larger or deeper models;
+- the claim that small model size or shallow depth is the proven causal
+  explanation;
+- entry into a narrow layer scan or multi-mapping training experiment under the
+  frozen suite-quality rule.
+
+### 7.6 Recommended next action
+
+The current `pipeline-r1/hard_probe-r1` result should be frozen and archived rather
+than overwritten or repeatedly tuned. The next experiment should be a separate,
+base-only oracle calibration with no adapter loading:
+
+1. `no_write`;
+2. the current verified-memory `external`;
+3. an answer-copy oracle that places the correct action immediately before
+   `Action:`.
+
+This can distinguish failure to copy/follow the output instruction from failure to
+use verified memory under distractors. A same-family larger-model base canary may
+then test whether the weak anchor is specific to the 0.5B model. Thresholds and
+decision rules must be frozen before that run. The existing external threshold
+must not be relaxed retrospectively.
+
+This follow-up is implemented as
+[`P0-D2H-CAL`](p0d2hc-oracle-calibration-protocol.md). Its results remain pending;
+the implementation does not change the verified P0-D2H-R conclusions above.
+
+## 8. Entry to genuinely harder training
 
 A separate multi-mapping training experiment may be frozen only after P0-D2H is
 complete and reviewed. Before that experiment:
@@ -208,5 +362,5 @@ complete and reviewed. Before that experiment:
 5. the new experiment must use another package, manifest schema, Colab directory,
    and Drive namespace.
 
-No P0-D2H result currently exists. All result fields remain TBD until a verified
-aggregate is produced.
+The verified P0-D2H-R result does not yet satisfy item 1. No narrow scan or
+multi-mapping training experiment is currently eligible under the frozen protocol.

@@ -48,3 +48,46 @@
   - output instructions missing at 512: 0.
 - This confirms that the old 256-token evaluation limit could truncate some plain
   hard prompts as well as the longer external prompts.
+
+---
+
+# Notes: P0-D2H-CAL oracle calibration
+
+## Fixed scope
+
+- Base models only; no adapter discovery, activation, training, or rollback.
+- Three arms: `no_write`, `external`, and `answer_copy_oracle`.
+- Reuse the verified P0-D2H-R 24-lesson, 16-probe hard suite read-only.
+- Support a primary 0.5B model and an optional same-family larger-model canary.
+- Independent manifest schema, raw rows, aggregate schema, Colab directory, and
+  Drive namespace.
+
+## Frozen default gates
+
+- Answer-copy oracle: overall accuracy at least 0.90, every category at least
+  0.80, invalid rate at most 0.01.
+- External: overall accuracy at least 0.75 and invalid rate at most 0.05.
+- Every prompt must be untruncated and preserve the strict output instruction.
+
+## Required decisions
+
+- Oracle fails: output-copy/instruction interface bottleneck.
+- Oracle passes but external fails: verified-memory use under distractors fails.
+- 0.5B fails while larger model passes: model-scale canary supports a capacity
+  bottleneck.
+- Oracle and external pass: anchor calibration is eligible for a separately
+  frozen training-complexity experiment.
+
+## Implementation evidence
+
+- New package and CLI: `plasticity_placement.p0d2hc` /
+  `plasticity-p0d2hc`.
+- Independent Colab and Drive root:
+  `notebooks/p0d2h_calibration/` and
+  `plasticity-p0d/hard-probe-calibration/v1/`.
+- Source-only matrix: 1,152 rows; source plus canary: 2,304 rows.
+- Atomic lesson-model outputs recover normally after Colab interruption.
+- No adapter path, training command, narrow scan, or automatic next-stage action
+  is exposed by the CLI or notebook.
+- Focused tests: 10 passed. Full repository: 115 passed. Ruff and diff checks
+  passed.

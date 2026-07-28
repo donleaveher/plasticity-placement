@@ -11,6 +11,7 @@ class Arm(StrEnum):
     PARAMETRIC = "parametric"
     BOTH = "both"
     ROLLBACK = "rollback"
+    ANSWER_COPY_ORACLE = "answer_copy_oracle"
 
 
 class Tier(StrEnum):
