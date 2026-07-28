@@ -3,7 +3,7 @@
 ## 1. Purpose and status
 
 - **Implementation status:** complete
-- **Results status:** not yet run
+- **Results status:** complete; supplementary invalid-output audit pending
 - **Source:** one complete, verified, run-valid P0-D2H-R attempt
 - **Question:** Is the weak hard-suite external anchor caused by failure to follow
   the output interface, failure to use a supplied mapping under distractors, or
@@ -11,6 +11,18 @@
 
 This is a no-training calibration. It does not load P0-D2H-R adapters and does not
 start a layer scan or a multi-mapping experiment.
+
+The completed run found:
+
+- source 0.5B oracle accuracy `0.7891`, yielding `oracle_failed`;
+- scale-canary 1.5B oracle accuracy `0.9948`, passing every oracle check;
+- scale-canary external accuracy `0.6901` and invalid rate `0.2318`, failing both
+  frozen external checks;
+- `mixed_scale_result`, with no model eligible for multi-mapping training.
+
+The separate invalid-output audit determines whether the canary invalids contain
+conservatively recoverable correct action tokens; it cannot change these strict
+results.
 
 ## 2. Frozen matrix
 
@@ -126,6 +138,10 @@ resumed in the same attempt: verified rows are hash/provenance checked and skipp
 while an `evaluating` unit without a complete raw file is rerun. A recorded
 `failed` unit is immutable; preserve it for audit and use a new calibration
 attempt after fixing the cause.
+
+Strict-invalid outputs may be examined later through the separate, read-only
+[`P0-D2H-CAL invalid-output audit`](p0d2hc-invalid-output-audit.md). That analysis
+writes outside this source stage and cannot change the frozen gates.
 
 ## 7. Colab execution
 

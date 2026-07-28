@@ -19,6 +19,9 @@ from plasticity_placement.p0c.modeling import P0CProbeResult
 from plasticity_placement.p0d2h.probes import write_hard_probe_bank
 from plasticity_placement.p0d2hc.analysis import aggregate_experiment
 from plasticity_placement.p0d2hc.config import P0D2HCRequest
+from plasticity_placement.p0d2hc.invalid_audit import (
+    audit_invalid_outputs,
+)
 from plasticity_placement.p0d2hc.prompting import render_calibration_probe
 from plasticity_placement.p0d2hc.runtime import run_experiment
 
@@ -82,6 +85,42 @@ def test_fake_calibration_run_resumes_and_classifies_scale_bottleneck(
         == "training_complexity_design_eligible"
     )
     assert summary["gates"]["automatic_training_started"] is False
+
+    source_mtimes = {
+        path: path.stat().st_mtime_ns
+        for path in (
+            manifest_path,
+            *output_dir.glob("results/raw/*/*.jsonl"),
+        )
+    }
+    invalid_audit_path = audit_invalid_outputs(
+        output_dir,
+        tmp_path / "invalid-audit",
+        bootstrap_samples=20,
+    )
+    invalid_audit = json.loads(
+        invalid_audit_path.read_text(encoding="utf-8")
+    )
+    assert invalid_audit["row_count"] == 2_304
+    assert invalid_audit["invalid_record_count"] == 0
+    assert invalid_audit["strict_gate_status_changed"] is False
+    assert (
+        tmp_path / "invalid-audit" / "invalid_output_audit.md"
+    ).exists()
+    assert (
+        tmp_path / "invalid-audit" / "invalid_output_records.jsonl"
+    ).read_text(encoding="utf-8") == ""
+    assert {
+        path: path.stat().st_mtime_ns for path in source_mtimes
+    } == source_mtimes
+    assert (
+        audit_invalid_outputs(
+            output_dir,
+            tmp_path / "invalid-audit",
+            bootstrap_samples=20,
+        )
+        == invalid_audit_path
+    )
 
     first_result = next(output_dir.glob("results/raw/*/*.jsonl"))
     original = first_result.read_bytes()

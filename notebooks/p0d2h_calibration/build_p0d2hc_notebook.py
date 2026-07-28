@@ -192,12 +192,12 @@ if RUN_FORMAL_EVALUATION and environment.get('cuda_available') is not True:
     raise RuntimeError(
         'PyTorch cannot access CUDA. Select a GPU runtime, restart, and rerun.'
     )
-print(json.dumps({{
+print(json.dumps({
     'cuda_available': environment['cuda_available'],
     'cuda_version': environment['cuda_version'],
     'gpu': environment['gpu'],
     'packages': environment['packages'],
-}}, ensure_ascii=False, indent=2))
+}, ensure_ascii=False, indent=2))
 print('Checked out P0-D2H-CAL code:', CODE_REVISION)
 """
 

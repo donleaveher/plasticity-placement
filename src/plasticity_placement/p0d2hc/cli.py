@@ -17,6 +17,9 @@ from plasticity_placement.p0d2hc.config import (
     CALIBRATION_ARMS,
     P0D2HCRequest,
 )
+from plasticity_placement.p0d2hc.invalid_audit import (
+    audit_invalid_outputs,
+)
 from plasticity_placement.p0d2hc.runtime import (
     audit_request,
     resolve_request,
@@ -50,6 +53,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     aggregate.add_argument("--output", type=Path, required=True)
     aggregate.add_argument("--bootstrap-samples", type=int, default=10_000)
+    invalid_audit = subparsers.add_parser(
+        "audit-invalid",
+        help="只读分类 verified P0-D2H-CAL invalid outputs",
+    )
+    invalid_audit.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="完整 verified P0-D2H-CAL source run",
+    )
+    invalid_audit.add_argument(
+        "--audit-output",
+        type=Path,
+        required=True,
+        help="独立的 supplementary audit 输出目录",
+    )
+    invalid_audit.add_argument(
+        "--bootstrap-samples",
+        type=int,
+        default=10_000,
+    )
     return parser
 
 
@@ -139,6 +163,19 @@ def main() -> None:
     if args.command == "aggregate":
         path = aggregate_experiment(args.output, args.bootstrap_samples)
         print(json.dumps({"summary_path": str(path)}, ensure_ascii=False))
+        return
+    if args.command == "audit-invalid":
+        path = audit_invalid_outputs(
+            args.output,
+            args.audit_output,
+            args.bootstrap_samples,
+        )
+        print(
+            json.dumps(
+                {"invalid_output_audit_path": str(path)},
+                ensure_ascii=False,
+            )
+        )
         return
 
     request = _request_from_args(args)

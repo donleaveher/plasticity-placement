@@ -1,46 +1,42 @@
-# Task Plan: P0-D2H-CAL oracle calibration
+# Task Plan: P0-D2H-CAL invalid-output audit
 
 ## Goal
-Implement an independent base-only calibration experiment that compares no-write,
-verified-memory external, and answer-copy oracle prompts across one or more frozen
-model revisions without training or loading adapters.
+Implement a read-only supplementary audit that distinguishes strict output-format
+failure from semantic action-selection failure in existing P0-D2H-CAL raw rows,
+without changing frozen gates or rerunning inference.
 
 ## Phases
-- [x] Phase 1: Establish scope and preserve current worktree changes
-- [x] Phase 2: Inspect reusable P0-D2H components and freeze schemas/gates
-- [x] Phase 3: Implement package, CLI, manifest, runtime, aggregation, and tests
-- [x] Phase 4: Build the independent Colab notebook and protocol
-- [x] Phase 5: Run focused/full validation and prepare the handoff
+- [x] Phase 1: Preserve current notebook-fix changes and define audit scope
+- [x] Phase 2: Inspect raw-row/parser contracts and freeze taxonomy
+- [x] Phase 3: Implement aggregate audit artifacts and tests
+- [x] Phase 4: Add Colab review output and protocol documentation
+- [x] Phase 5: Run focused/full validation and prepare handoff
 
 ## Key Questions
-1. How should answer-copy oracle prompts remain deterministic and leak only in the
-   explicitly labelled oracle arm?
-2. How should multiple model revisions share the same immutable probe bank while
-   retaining separate model-level results?
-3. Which gates distinguish output-copy failure, verified-memory-use failure, and
-   a model-scale bottleneck?
-4. How can the notebook run base-only canaries without importing any LoRA path?
+1. Which invalid classes are mutually exclusive and reconstructable from existing
+   `generated_text` and frozen action tokens?
+2. How should semantic-recovery accuracy be reported without replacing strict
+   exact-action accuracy?
+3. Which category/model/arm breakdowns are needed to distinguish formatting from
+   mapping-use failure?
+4. How can the Colab aggregate display the audit without modifying raw rows?
 
 ## Decisions Made
-- Use a new `plasticity_placement.p0d2hc` package and `plasticity-p0d2hc` CLI.
-- Read the verified P0-D2H-R manifest/probe bank as immutable source provenance.
-- Write only to a new `hard-probe-calibration/v1` Drive namespace.
-- Keep deterministic greedy generation and lesson-clustered paired bootstrap.
-- Do not relax the existing external threshold retrospectively.
-- Treat the verified P0-D2H-R manifest, summary, hard-probe hashes, and compiled
-  source lessons as immutable inputs; calibration never reads adapter bundles.
-- Use fixed model IDs `source_model` and `scale_canary`, with the source model
-  always included and the canary optional.
-- Evaluate each model once with greedy decoding across 24 lessons × 16 probes ×
-  three arms, producing 1,152 rows per model.
-- Emit model-level diagnoses (`oracle_failed`, `oracle_pass_external_failed`, or
-  `calibrated`) and a separate cross-scale diagnosis.
+- Keep all frozen primary gates and `next_stage_status` unchanged.
+- Treat the new analysis as explicitly post-hoc and supplementary.
+- Read only verified raw rows already accepted by aggregate provenance validation.
+- Write deterministic aggregate artifacts only; do not alter raw rows or manifest.
+- Count semantic recovery only when the generated text contains exactly one
+  distinct allowed action and it is the expected action.
+- Use mutually exclusive invalid classes: empty; expected-only with extra text;
+  wrong-only with extra text; multiple including expected; multiple excluding
+  expected; no allowed action at generation limit; and no allowed action otherwise.
+- Write the audit to an independent output directory and expose it through a
+  CPU-only `audit-invalid` CLI action.
 
 ## Errors Encountered
-- Local shell `python` was unavailable; validation uses the repository-managed
-  `uv run python` environment.
+- None.
 
 ## Status
-**Complete** - P0-D2H-CAL implementation, generated Colab, protocol, focused tests,
-and full repository validation are complete. Formal GPU results remain to be run
-in Colab.
+**Complete** - Read-only invalid-output classification, independent artifacts,
+CPU-only Colab, documentation, and repository-wide validation are complete.

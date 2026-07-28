@@ -34,7 +34,8 @@ plasticity-placement/
   hard-probe compiler、`p0d2h-*` identity/manifest/raw results 和 diagnostic gates，
   不包含训练入口。
 - `p0d2hc/` 只读 verified P0-D2H-R manifest、summary 和 hard-probe bank；它只加载
-  base model，运行 `no_write/external/answer_copy_oracle`，不读取 adapter 或提供训练入口。
+  base model，运行 `no_write/external/answer_copy_oracle`，不读取 adapter 或提供训练入口；
+  其 invalid-output audit 仅重解析 verified raw text，并要求独立输出目录。
 - `notebooks/` 不保存核心业务逻辑，只调用已安装的命令行入口。
 - `data/examples/` 仅保存可公开、体积小且可复现的输入样例。
 - `artifacts/` 保存生成结果，通过 `.gitignore` 排除。

@@ -91,3 +91,54 @@
   is exposed by the CLI or notebook.
 - Focused tests: 10 passed. Full repository: 115 passed. Ruff and diff checks
   passed.
+
+---
+
+# Notes: P0-D2H-CAL invalid-output audit
+
+## Observed calibration result
+
+- Source 0.5B: oracle `0.7891`, invalid `0.0`; frozen status `oracle_failed`.
+- Scale canary 1.5B: oracle `0.9948`, invalid `0.0`; oracle gate passes.
+- Scale canary external: strict accuracy `0.6901`, invalid `0.2318`.
+- Scale canary no-write: strict accuracy `0.1276`, invalid `0.2448`.
+- The strict parser accepts only a generated string exactly equal to one frozen
+  action token; invalid does not by itself imply that no correct action was
+  mentioned.
+
+## Audit constraints
+
+- No new inference.
+- No raw-row or manifest mutation.
+- No retrospective gate or threshold change.
+- Supplementary semantic recovery must remain visibly separate from strict
+  exact-action accuracy.
+
+## Frozen taxonomy
+
+- `empty_output`
+- `expected_action_with_extra_text`
+- `wrong_action_with_extra_text`
+- `multiple_actions_including_expected`
+- `multiple_actions_excluding_expected`
+- `no_allowed_action_at_generation_limit`
+- `no_allowed_action_other`
+
+Semantic recovery is conservative: exactly one distinct allowed action must occur,
+and it must equal the expected action. Mentioning the expected action alongside a
+distractor is not counted as semantically correct.
+
+## Implemented artifacts
+
+- CLI: `plasticity-p0d2hc audit-invalid`.
+- Source module: `p0d2hc/invalid_audit.py`.
+- Independent outputs: summary JSON, Markdown report, and classified invalid
+  JSONL.
+- Summaries: model × arm and model × arm × category, including lesson-clustered
+  strict/semantic intervals and paired recovery-gain intervals.
+- Independent CPU-only Colab:
+  `notebooks/p0d2h_invalid_audit/p0d2h_invalid_output_audit_colab.ipynb`.
+- Source manifest and raw tree are hashed before and after the Colab audit.
+- Focused P0-D2H-CAL tests: 24 passed.
+- Full repository validation: 129 passed; Ruff, notebook regeneration, and diff
+  checks passed.

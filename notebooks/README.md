@@ -84,6 +84,13 @@ P0-D2H-CAL oracle/scale calibration 使用第三个独立目录：
 - [`p0d2h_calibration/README.md`](p0d2h_calibration/README.md)：source/canary、
   frozen gates、恢复和独立 Drive namespace。
 
+P0-D2H-CAL invalid-output supplementary audit 使用 CPU-only 独立目录：
+
+- [`p0d2h_invalid_audit/p0d2h_invalid_output_audit_colab.ipynb`](p0d2h_invalid_audit/p0d2h_invalid_output_audit_colab.ipynb)：
+  只读分类现有 raw rows，不重新推理、不修改 frozen gate；
+- [`p0d2h_invalid_audit/README.md`](p0d2h_invalid_audit/README.md)：semantic
+  recovery 定义、source hash 和独立分析 namespace。
+
 后续 1/4/8 mappings、ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自
 创建新目录和 notebook。
 
@@ -111,6 +118,9 @@ P0-D2H-CAL oracle/scale calibration 使用第三个独立目录：
 - P0-D2H-CAL 使用
   `/content/drive/MyDrive/plasticity-p0d/hard-probe-calibration/v1/pipelines/`，
   只读引用完整 verified P0-D2H-R manifest/summary/probe bank，不得复用 source stage；
+- P0-D2H-CAL invalid audit 使用
+  `/content/drive/MyDrive/plasticity-p0d/hard-probe-calibration-analysis/v1/pipelines/`，
+  只读引用 verified P0-D2H-CAL source raw rows，不得写入 source stage；
 - 不同阶段允许由 Colab 分配不同 GPU；每次会话的 GPU、CUDA、Python、依赖版本和
   environment fingerprint 都会单独记录，不参与跨阶段目录寻址；
 - 同一阶段在相同环境中的正常断线保持 attempt 名不变即可恢复；如果同一阶段恢复时

@@ -7,14 +7,16 @@ from pathlib import Path
 from types import ModuleType
 
 NOTEBOOK_DIR = (
-    Path(__file__).resolve().parents[1] / "notebooks" / "p0d2h_calibration"
+    Path(__file__).resolve().parents[1]
+    / "notebooks"
+    / "p0d2h_invalid_audit"
 )
 
 
 def _load_generator() -> ModuleType:
-    path = NOTEBOOK_DIR / "build_p0d2hc_notebook.py"
+    path = NOTEBOOK_DIR / "build_p0d2hc_invalid_audit_notebook.py"
     spec = importlib.util.spec_from_file_location(
-        "build_p0d2hc_notebook",
+        "build_p0d2hc_invalid_audit_notebook",
         path,
     )
     assert spec is not None and spec.loader is not None
@@ -23,9 +25,9 @@ def _load_generator() -> ModuleType:
     return module
 
 
-def test_p0d2hc_notebook_matches_generator_and_has_valid_python() -> None:
+def test_invalid_audit_notebook_matches_generator_and_parses() -> None:
     generator = _load_generator()
-    path = NOTEBOOK_DIR / "p0d2h_calibration_colab.ipynb"
+    path = NOTEBOOK_DIR / "p0d2h_invalid_output_audit_colab.ipynb"
     notebook = json.loads(path.read_text(encoding="utf-8"))
     assert notebook == generator.build_notebook()
     assert notebook["metadata"]["colab"]["name"] == path.name
@@ -33,7 +35,8 @@ def test_p0d2hc_notebook_matches_generator_and_has_valid_python() -> None:
     assert (
         "https://colab.research.google.com/github/donleaveher/"
         "plasticity-placement/blob/agent%2Fadd-lora-evaluation/"
-        "notebooks/p0d2h_calibration/p0d2h_calibration_colab.ipynb"
+        "notebooks/p0d2h_invalid_audit/"
+        "p0d2h_invalid_output_audit_colab.ipynb"
         in opening
     )
     for index, cell in enumerate(notebook["cells"]):
@@ -44,10 +47,10 @@ def test_p0d2hc_notebook_matches_generator_and_has_valid_python() -> None:
             )
 
 
-def test_p0d2hc_notebook_is_base_only_and_independently_namespaced() -> None:
+def test_invalid_audit_notebook_is_cpu_only_and_read_only() -> None:
     notebook = json.loads(
         (
-            NOTEBOOK_DIR / "p0d2h_calibration_colab.ipynb"
+            NOTEBOOK_DIR / "p0d2h_invalid_output_audit_colab.ipynb"
         ).read_text(encoding="utf-8")
     )
     code = "\n".join(
@@ -55,26 +58,23 @@ def test_p0d2hc_notebook_is_base_only_and_independently_namespaced() -> None:
         for cell in notebook["cells"]
         if cell["cell_type"] == "code"
     )
-    assert "P0D2H_PIPELINE_ATTEMPT = 'pipeline-r1'" in code
-    assert "P0D2HC_PIPELINE_ATTEMPT = 'pipeline-c1'" in code
-    assert "CALIBRATION_ATTEMPT = 'c1'" in code
-    assert "/hard-probe-calibration/v1/pipelines" in code
-    assert "'plasticity-p0d2hc', action" in code
+    assert "SOURCE_PIPELINE_ATTEMPT = 'pipeline-c1'" in code
+    assert "SOURCE_CALIBRATION_ATTEMPT = 'c1'" in code
+    assert "AUDIT_PIPELINE_ATTEMPT = 'pipeline-a1'" in code
+    assert "/hard-probe-calibration-analysis/v1/pipelines" in code
+    assert "'plasticity-p0d2hc', 'audit-invalid'" in code
+    assert "'plasticity-p0d2hc', 'run'" not in code
     assert "'plasticity-train-lora'" not in code
-    assert "'plasticity-p0d2', 'run'" not in code
-    assert "['no_write', 'external', 'answer_copy_oracle']" in code
-    assert "expected_models * 1152" in code
-    assert "0 GPU memory is expected here" in code
-    assert "FORMAL GPU RUN STARTING" in code
-    assert "p0d2hc_command('run')" in code
-    assert "p0d2hc_command('audit')" in code
-    assert "json.dumps({{" not in code
+    assert "nvidia-smi" not in code
+    assert "raw_tree_hash() != SOURCE_RAW_HASH" in code
+    assert "Source manifest changed during read-only audit" in code
+    assert "strict_gate_status_changed" in code
+    assert "next_stage_eligibility_changed" in code
 
     markdown = "\n".join(
         "".join(cell["source"])
         for cell in notebook["cells"]
         if cell["cell_type"] == "markdown"
     )
-    assert "performs no LoRA training" in markdown
-    assert "## 6. Formal base-only evaluation (GPU)" in markdown
-    assert "## 9. Review results and next-stage eligibility" in markdown
+    assert "CPU-only, read-only supplementary analysis" in markdown
+    assert "inference, changes no frozen gate" in markdown
