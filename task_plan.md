@@ -1,42 +1,40 @@
-# Task Plan: P0-D2H-CAL invalid-output audit
+# Task Plan: P0-D2H-CAL result backfill and next-session handoff
 
 ## Goal
-Implement a read-only supplementary audit that distinguishes strict output-format
-failure from semantic action-selection failure in existing P0-D2H-CAL raw rows,
-without changing frozen gates or rerunning inference.
+Record the verified calibration and invalid-output audit results in the canonical
+protocol documents, then prepare a self-contained prompt for implementing the next
+format-stable calibration in a new Codex session.
 
 ## Phases
-- [x] Phase 1: Preserve current notebook-fix changes and define audit scope
-- [x] Phase 2: Inspect raw-row/parser contracts and freeze taxonomy
-- [x] Phase 3: Implement aggregate audit artifacts and tests
-- [x] Phase 4: Add Colab review output and protocol documentation
-- [x] Phase 5: Run focused/full validation and prepare handoff
+- [x] Phase 1: Verify repository state and locate canonical result documents
+- [x] Phase 2: Reconcile supplied audit output with frozen calibration results
+- [x] Phase 3: Backfill verified tables, interpretations, and claim boundaries
+- [x] Phase 4: Write the next-session implementation prompt
+- [x] Phase 5: Review cross-document consistency and validate the diff
 
 ## Key Questions
-1. Which invalid classes are mutually exclusive and reconstructable from existing
-   `generated_text` and frozen action tokens?
-2. How should semantic-recovery accuracy be reported without replacing strict
-   exact-action accuracy?
-3. Which category/model/arm breakdowns are needed to distinguish formatting from
-   mapping-use failure?
-4. How can the Colab aggregate display the audit without modifying raw rows?
+1. Which observed failures are output-format failures versus semantic selection
+   failures?
+2. Which claims remain blocked by the frozen strict gate?
+3. What new endpoint can isolate action selection without introducing LoRA
+   training or changing the old gate?
+4. What independent package, notebook, manifest, and Drive boundaries must the
+   next implementation preserve?
 
 ## Decisions Made
-- Keep all frozen primary gates and `next_stage_status` unchanged.
-- Treat the new analysis as explicitly post-hoc and supplementary.
-- Read only verified raw rows already accepted by aggregate provenance validation.
-- Write deterministic aggregate artifacts only; do not alter raw rows or manifest.
-- Count semantic recovery only when the generated text contains exactly one
-  distinct allowed action and it is the expected action.
-- Use mutually exclusive invalid classes: empty; expected-only with extra text;
-  wrong-only with extra text; multiple including expected; multiple excluding
-  expected; no allowed action at generation limit; and no allowed action otherwise.
-- Write the audit to an independent output directory and expose it through a
-  CPU-only `audit-invalid` CLI action.
+- Treat the supplied 2,304-row audit as verified post-hoc supplementary evidence.
+- Preserve `mixed_scale_result`, `calibration_followup_required`, and an empty
+  eligible-model list from the frozen P0-D2H-CAL gate.
+- Interpret 1.5B `long_context` external failure as predominantly formatting,
+  while retaining `conditional_route` as a semantic/compositional failure.
+- Make the next stage a new base-only forced-choice candidate-scoring calibration.
+- Do not include LoRA adapters, parameter-budget conditions, training, or an
+  automatic narrow scan in the next stage.
 
 ## Errors Encountered
 - None.
 
 ## Status
-**Complete** - Read-only invalid-output classification, independent artifacts,
-CPU-only Colab, documentation, and repository-wide validation are complete.
+**Complete** - Verified results, claim boundaries, roadmap status, and the
+next-session implementation prompt are documented; local links and diff checks
+pass.

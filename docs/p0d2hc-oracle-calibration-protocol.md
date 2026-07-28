@@ -3,7 +3,7 @@
 ## 1. Purpose and status
 
 - **Implementation status:** complete
-- **Results status:** complete; supplementary invalid-output audit pending
+- **Results status:** complete, including supplementary invalid-output audit
 - **Source:** one complete, verified, run-valid P0-D2H-R attempt
 - **Question:** Is the weak hard-suite external anchor caused by failure to follow
   the output interface, failure to use a supplied mapping under distractors, or
@@ -20,9 +20,10 @@ The completed run found:
   frozen external checks;
 - `mixed_scale_result`, with no model eligible for multi-mapping training.
 
-The separate invalid-output audit determines whether the canary invalids contain
-conservatively recoverable correct action tokens; it cannot change these strict
-results.
+The separate invalid-output audit found that `87/89` canary `external` invalids
+contained exactly one allowed action and that action was correct. Its conservative
+semantic external accuracy was `0.9167 [0.8906, 0.9427]`. This supplementary
+result cannot change the frozen strict decision.
 
 ## 2. Frozen matrix
 
@@ -154,3 +155,42 @@ the explicitly labelled **Formal base-only evaluation (GPU)** cell.
 The default notebook evaluates the P0-D2H-R source model and
 `Qwen/Qwen2.5-1.5B-Instruct` as the same-family scale canary. The planning step
 resolves and freezes the canary to an immutable model commit.
+
+## 8. Completed supplementary diagnosis
+
+The read-only invalid-output audit covered all `2,304` rows and classified all
+`183` strict-invalid outputs. Its main conclusions are:
+
+- the 1.5B `external` arm rose from strict accuracy `0.6901` to conservative
+  semantic accuracy `0.9167`, a gain of `+0.2266 [0.1953, 0.2552]`;
+- `87/89` external invalids were correct actions with extra text, and none reached
+  the generation limit;
+- `long_context` rose from `0.1875` strict to `1.0000` semantic accuracy, showing
+  a predominantly format-level failure;
+- `conditional_route` rose only from `0.5729` to `0.6667`, leaving a genuine
+  semantic/compositional deficit;
+- the 0.5B model had no invalid output to recover and retained oracle accuracy
+  `0.7891`.
+
+The canonical audit tables and interpretation boundaries are in
+[`P0-D2H-CAL Invalid-Output Audit`](p0d2hc-invalid-output-audit.md).
+
+The frozen result remains `mixed_scale_result` with
+`calibration_followup_required` and no eligible model. P0-D2H-CAL and its audit
+contain no parametric/LoRA arm.
+
+## 9. Next-stage recommendation
+
+Before any new adapter training, run a separate format-stable forced-choice
+calibration that computes conditional scores for all four allowed action strings.
+The experiment should retain `no_write`, `external`, and `answer_copy_oracle`,
+reuse the two immutable base-model revisions and frozen hard-probe bank, and report
+overall plus per-category selection accuracy.
+
+The new protocol must freeze a category floor in advance, because an overall
+canary semantic score of `0.9167` masks the `conditional_route` score of `0.6667`.
+It must use independent code/provenance/output namespaces and must not
+retrospectively modify this protocol's thresholds or decisions.
+
+See the
+[`next-session implementation prompt`](p0d2h-format-stable-calibration-next-session-prompt.md).

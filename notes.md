@@ -142,3 +142,52 @@ distractor is not counted as semantically correct.
 - Focused P0-D2H-CAL tests: 24 passed.
 - Full repository validation: 129 passed; Ruff, notebook regeneration, and diff
   checks passed.
+
+---
+
+# Notes: P0-D2H-CAL verified audit interpretation and next stage
+
+## Verified audit evidence
+
+- Audit run ID: `p0d2hc-invalid-audit-95ae30ec5e`.
+- Complete source: 2 models × 24 lessons × 3 arms × 16 probes = 2,304 rows.
+- Strict-invalid rows: 183, all from the 1.5B scale canary.
+- Canary external:
+  - strict `0.6901 [0.6562, 0.7240]`;
+  - invalid `0.2318 [0.1979, 0.2630]`;
+  - conservative semantic `0.9167 [0.8906, 0.9427]`;
+  - paired semantic gain `+0.2266 [0.1953, 0.2552]`;
+  - 87 of 89 invalids were the unique correct action plus extra text.
+- Canary no-write:
+  - semantic `0.1901 [0.1406, 0.2422]`;
+  - only 24 of 94 invalids were recoverable and 70 contained a wrong action.
+- Canary external by category:
+  - binding `1.0000` semantic;
+  - conflict `1.0000` semantic;
+  - conditional `0.6667` semantic;
+  - long context `1.0000` semantic versus `0.1875` strict.
+- No invalid output reached the generation limit.
+- The 0.5B model had no formatting recovery; its oracle remained `0.7891`.
+
+## Bounded interpretation
+
+- Most of the 1.5B overall external strict failure is attributable to extra-text
+  format noncompliance.
+- The 1.5B `conditional_route` deficit remains semantic/compositional after
+  recovery.
+- The 0.5B result is not explained by invalid formatting.
+- The frozen result remains `mixed_scale_result` /
+  `calibration_followup_required`; no model is eligible for training.
+- P0-D2H-CAL and its audit contain external/no-write/oracle only, not LoRA
+  parameter conditions.
+
+## Next-stage design decision
+
+- Implement a new base-only format-stable forced-choice calibration.
+- Score all four exact action continuations with teacher-forced conditional
+  log-likelihood; use sequence sum as primary and token mean as sensitivity.
+- Preserve the same 24-lesson suite, three arms, and two immutable model revisions.
+- Require an external per-category floor so ceiling binding/conflict/long-context
+  results cannot hide conditional-route failure.
+- Keep all training, adapter loading, narrow scans, and automatic next-stage
+  actions outside this experiment.

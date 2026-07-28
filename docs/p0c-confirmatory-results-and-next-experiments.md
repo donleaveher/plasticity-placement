@@ -2,9 +2,11 @@
 
 - **结果状态：** 24-lesson、3-seed Confirmatory P0-C
 - **实验日期：** 2026-07-25
-- **解释版本：** 2026-07-26
-- **后续实验状态：** P0-D/P0-E 尚未运行；以下相关数字均为设计门限，不是实验结果
-- **主线结论：** 继续参数记忆研究；下一阶段优先定位 LoRA 写入层，GRPO/RLVR 作为后续补充
+- **解释版本：** 2026-07-28
+- **后续实验状态：** P0-D2 budget match、P0-D2H-R hard probe、
+  P0-D2H-CAL 和 invalid-output audit 已完成；P0-E 尚未进入
+- **主线结论：** 等参数 late placement 优势通过 hard-probe 配对门，但训练复杂度实验
+  仍被 calibration category gate 阻塞；下一步先做 base-only format-stable calibration
 
 ## 1. 结果来源与证据边界
 
@@ -383,7 +385,103 @@ reference policy、optimizer checkpoint 或 reward logs 写入 P0-D/P0-C 目录�
    `288` 和禁止引用 P0-C 输出目录；
 7. `pytest`、Ruff、notebook JSON validation、CLI help/load 和 `git diff --check` 全部通过。
 
-当前 P0-D runner、condition-aware manifest、严格 aggregate、两个独立 Colab 入口和
-fake-backend 288-unit 回归测试已经实现；本地测试与静态检查通过。真实 Colab GPU smoke
-和正式 band scan 尚未执行，因此状态是 `implementation complete / GPU execution
-pending`，仍不能把 layer-locus 写成已有实验结果。
+这一代码完成标准后来已经落实，并扩展为 P0-D2 参数预算匹配与 P0-D2H read-only hard
+probe。当前真实结果和新的进入边界见下一节；本节保留为实现标准和历史预注册记录。
+
+## 11. P0-D2H-CAL 完成后的路线更新
+
+### 11.1 已完成阶段
+
+| 阶段 | 当前状态 | 关键结论 |
+|---|---|---|
+| P0-D1 band scan | 完成 | 暴露出 layer locus 与 LoRA 参数量共同变化的解释混杂 |
+| P0-D2 parameter-budget match | 完成 | 冻结七条件矩阵；等参数 late/full/early/middle 条件可用于理论比较 |
+| P0-D2H-R hard probe | 完成 | late-minus-full `+0.1076 [0.0781, 0.1380]`，`hard_locus_robust`；suite quality 未通过 |
+| P0-D2H-CAL | 完成 | 0.5B `oracle_failed`；1.5B `oracle_pass_external_failed`；cross-scale 为 `mixed_scale_result` |
+| Invalid-output audit | 完成 | 1.5B external semantic `0.9167`，但 `conditional_route=0.6667` |
+| P0-E GRPO/RLVR | 未进入 | 当前 calibration gate 不允许开始 |
+
+P0-D2H-R 在同一 0.5B 模型、固定 24-lesson cohort、固定 LoRA 参数预算上得到：
+
+- `late-matched` hard accuracy `0.4905 [0.4227, 0.5616]`；
+- `full-base` hard accuracy `0.3828 [0.3290, 0.4410]`；
+- paired late-minus-full `+0.1076 [0.0781, 0.1380]`；
+- 三个 seed、两种 lesson type 和 leave-largest-effect-out safeguard 均为正；
+- `binding_decoys` 仍是共同 floor，因此 locus 主张只限于其余三个 non-floor hard
+  categories；
+- suite-quality gate 因 0.5B external `0.4297` 与 binding floor 而失败。
+
+完整结果和主张边界见
+[`P0-D2H-R Hard-Probe Stress Protocol`](p0d2h-hard-probe-stress-protocol.md)。
+
+### 11.2 Calibration 与 invalid-output diagnosis
+
+P0-D2H-CAL 只包含 base-only `no_write`、`external` 和
+`answer_copy_oracle`，没有 parametric/LoRA arm：
+
+| Model | No-write | External | Oracle | Frozen status |
+|---|---:|---:|---:|---|
+| Qwen2.5-0.5B | 0.2526 | 0.4297 | 0.7891 | `oracle_failed` |
+| Qwen2.5-1.5B | 0.1276 | 0.6901 | 0.9948 | `oracle_pass_external_failed` |
+
+冻结 cross-scale 结果是：
+
+```text
+cross_scale_status = mixed_scale_result
+next_stage_status = calibration_followup_required
+eligible_model_ids = []
+```
+
+post-hoc audit 在不重新推理、不修改 raw rows 和旧 gate 的前提下进一步发现：
+
+- 1.5B external strict accuracy `0.6901 [0.6562, 0.7240]`；
+- conservative semantic accuracy `0.9167 [0.8906, 0.9427]`；
+- semantic-minus-strict `+0.2266 [0.1953, 0.2552]`；
+- `87/89` external invalids 是唯一正确 action 加额外文本；
+- `long_context` 从 strict `0.1875` 恢复到 semantic `1.0000`；
+- `conditional_route` 只从 `0.5729` 恢复到 `0.6667`。
+
+因此 1.5B 的总体 external strict failure 主要包含格式不服从，但不能把所有错误归因于
+格式；`conditional_route` 仍有独立的语义/组合缺口。0.5B 没有 invalid row 可恢复，
+oracle 仍为 `0.7891`，所以它的失败也不是格式 parser 单独造成。
+
+详细结果见
+[`P0-D2H-CAL protocol`](p0d2hc-oracle-calibration-protocol.md)和
+[`invalid-output audit`](p0d2hc-invalid-output-audit.md)。
+
+### 11.3 当前可支持与不可支持的新增主张
+
+当前证据新增支持：
+
+1. 在等 LoRA 参数预算下，late placement 相对 full placement 的优势能通过 repaired、
+   untruncated hard-probe 配对检验；
+2. 该相对优势在 conditional routing、conflict rejection 和 long-context retrieval
+   中存在，但 binding-decoy category 仍不可用于确认性 layer-locus 主张；
+3. 1.5B base canary 能在大多数 hard external probes 中识别正确 action，而自由生成的
+   exact-token 格式会显著低估这一能力；
+4. 1.5B 的 remaining error 集中到 `conditional_route`，不能用总体 semantic 0.9167
+   掩盖。
+
+当前证据仍不支持：
+
+1. 把 late placement 称为跨模型、跨深度或跨任务的普适机制；
+2. 把 post-hoc semantic recovery 当成旧 strict gate 已通过；
+3. 声称 1.5B 已解决整个 hard suite；
+4. 立即开始 LoRA narrow scan、1/4/8 mappings-per-adapter、GRPO/RLVR 或 router；
+5. 将模型规模或 hidden-layer 深度认定为已经证明的唯一因果解释。
+
+### 11.4 更新后的推荐执行顺序
+
+1. 冻结并归档 P0-D2H-R、P0-D2H-CAL 和 invalid-audit 的 manifest、raw rows、
+   aggregate、environment 与 provenance；
+2. 新建 base-only format-stable forced-choice calibration，对四个 allowed actions
+   进行 full-string conditional scoring；
+3. 预先冻结 overall 和 every-category external gate；若
+   `conditional_route < 0.75`，即使 overall 通过也不得进入训练；
+4. 只有某个模型通过全部新 gate 后，才人工评审独立的 1/4/8
+   mappings-per-adapter 训练复杂度设计；
+5. 再用 held-out lessons 或第二个模型规模复现 parameterized layer-locus；
+6. 最后才考虑 P0-E GRPO/RLVR 和 recurrence–volatility router。
+
+下一阶段的完整实现 prompt 见
+[`P0-D2H format-stable calibration next-session prompt`](p0d2h-format-stable-calibration-next-session-prompt.md)。

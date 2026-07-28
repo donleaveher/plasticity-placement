@@ -327,7 +327,7 @@ The verified result does not support:
 - entry into a narrow layer scan or multi-mapping training experiment under the
   frozen suite-quality rule.
 
-### 7.6 Recommended next action
+### 7.6 Completed calibration follow-up and next action
 
 The current `pipeline-r1/hard_probe-r1` result should be frozen and archived rather
 than overwritten or repeatedly tuned. The next experiment should be a separate,
@@ -344,9 +344,24 @@ then test whether the weak anchor is specific to the 0.5B model. Thresholds and
 decision rules must be frozen before that run. The existing external threshold
 must not be relaxed retrospectively.
 
-This follow-up is implemented as
-[`P0-D2H-CAL`](p0d2hc-oracle-calibration-protocol.md). Its results remain pending;
-the implementation does not change the verified P0-D2H-R conclusions above.
+This follow-up was implemented as
+[`P0-D2H-CAL`](p0d2hc-oracle-calibration-protocol.md). The 0.5B source failed its
+answer-copy oracle (`0.7891`), while the 1.5B canary passed the oracle (`0.9948`)
+but failed the frozen strict external gate (`0.6901` accuracy, `0.2318` invalid).
+The resulting status was `mixed_scale_result`, with no eligible model.
+
+The post-hoc
+[`invalid-output audit`](p0d2hc-invalid-output-audit.md) then showed that `87/89`
+of the 1.5B external invalids contained the single correct action plus extra text.
+Its conservative semantic external accuracy was `0.9167`, but
+`conditional_route` remained at `0.6667`. This localizes most of the canary's
+overall failure to formatting while retaining a category-specific semantic
+deficit. Neither result changes the P0-D2H-R locus conclusion or authorizes
+adapter training.
+
+The next diagnostic should therefore use independent base-only forced-choice
+candidate scoring. Its prospectively frozen gate must include a per-category
+external floor before any 1/4/8 mappings-per-adapter design can be reviewed.
 
 ## 8. Entry to genuinely harder training
 

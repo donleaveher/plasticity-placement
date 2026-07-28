@@ -4,6 +4,8 @@
 
 - **Analysis type:** post-hoc supplementary
 - **Source:** one complete, verified P0-D2H-CAL run
+- **Results status:** complete
+- **Audit run ID:** `p0d2hc-invalid-audit-95ae30ec5e`
 - **Compute:** CPU only; no model loading or inference
 - **Primary gates:** unchanged
 - **Next-stage eligibility:** unchanged
@@ -96,12 +98,128 @@ uv run plasticity-p0d2hc audit-invalid \
 The default notebook reads the completed `pipeline-c1/oracle_calibration-c1`
 source and writes to `pipeline-a1/invalid_audit-a1`.
 
-## Interpretation boundary
+## Verified results
 
-If most invalid external rows are `expected_action_with_extra_text`, the evidence
-supports a format-adherence bottleneck conditional on the conservative recovery
-definition. It does not retrospectively pass the external gate.
+The audit covered all `2,304` calibration rows. It found `183` strict-invalid
+rows, all from the 1.5B scale canary. No invalid row was empty, ambiguous between
+multiple allowed actions, missing an allowed action, or at the generation limit.
 
-If invalid rows are dominated by wrong, multiple, or no-action classes, semantic
-memory use remains unresolved. Either outcome must be reported alongside the
+The verified source aggregate was:
+
+```text
+/content/drive/MyDrive/plasticity-p0d/hard-probe-calibration/v1/pipelines/
+  pipeline-c1/runs/code-43e278fd23_source-4fbec74d8c/
+  oracle_calibration-c1/results/aggregate/summary.json
+```
+
+### Overall strict and semantic results
+
+| Model | Arm | Strict | Invalid | Semantic | Semantic − strict | Valid-only |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 1.5B scale canary | `no_write` | 0.1276 | 0.2448 | 0.1901 | +0.0625 | 0.1690 |
+| 1.5B scale canary | `external` | 0.6901 | 0.2318 | 0.9167 | +0.2266 | 0.8983 |
+| 1.5B scale canary | `answer_copy_oracle` | 0.9948 | 0.0000 | 0.9948 | +0.0000 | 0.9948 |
+| 0.5B source | `no_write` | 0.2526 | 0.0000 | 0.2526 | +0.0000 | 0.2526 |
+| 0.5B source | `external` | 0.4297 | 0.0000 | 0.4297 | +0.0000 | 0.4297 |
+| 0.5B source | `answer_copy_oracle` | 0.7891 | 0.0000 | 0.7891 | +0.0000 | 0.7891 |
+
+For the 1.5B `external` arm, the 95% lesson-clustered intervals were:
+
+- strict accuracy `0.6901 [0.6562, 0.7240]`;
+- invalid rate `0.2318 [0.1979, 0.2630]`;
+- semantic accuracy `0.9167 [0.8906, 0.9427]`;
+- semantic recovery gain `+0.2266 [0.1953, 0.2552]`.
+
+The corresponding 1.5B `no_write` semantic accuracy was
+`0.1901 [0.1406, 0.2422]`, and its recovery gain was
+`+0.0625 [0.0443, 0.0833]`. The semantic parser therefore did not simply inflate
+every canary arm toward high accuracy.
+
+### Invalid-output taxonomy
+
+| Model | Arm | Class | Count | Share of arm invalids |
+| --- | --- | --- | ---: | ---: |
+| 1.5B scale canary | `no_write` | `expected_action_with_extra_text` | 24 | 0.2553 |
+| 1.5B scale canary | `no_write` | `wrong_action_with_extra_text` | 70 | 0.7447 |
+| 1.5B scale canary | `external` | `expected_action_with_extra_text` | 87 | 0.9775 |
+| 1.5B scale canary | `external` | `wrong_action_with_extra_text` | 2 | 0.0225 |
+
+Thus, `87/89` canary `external` invalids contained exactly one allowed action and
+that action was correct. In contrast, only `24/94` canary `no_write` invalids were
+recoverable; most contained a single wrong action.
+
+### Category localization
+
+| 1.5B arm | Category | Strict | Invalid | Semantic | Gain |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `external` | `binding_decoys` | 1.0000 | 0.0000 | 1.0000 | +0.0000 |
+| `external` | `conflict_stack` | 1.0000 | 0.0000 | 1.0000 | +0.0000 |
+| `external` | `conditional_route` | 0.5729 | 0.1146 | 0.6667 | +0.0938 |
+| `external` | `long_context` | 0.1875 | 0.8125 | 1.0000 | +0.8125 |
+| `answer_copy_oracle` | `binding_decoys` | 0.9896 | 0.0000 | 0.9896 | +0.0000 |
+| `answer_copy_oracle` | `conflict_stack` | 1.0000 | 0.0000 | 1.0000 | +0.0000 |
+| `answer_copy_oracle` | `conditional_route` | 0.9896 | 0.0000 | 0.9896 | +0.0000 |
+| `answer_copy_oracle` | `long_context` | 1.0000 | 0.0000 | 1.0000 | +0.0000 |
+
+The canary `long_context` deficit is therefore almost entirely an exact-output
+format problem under this recovery rule. `conditional_route` remains a semantic
+selection problem: recovery raises accuracy only to `0.6667`, despite the
+category oracle reaching `0.9896`.
+
+The 0.5B model produced no strict-invalid rows, so semantic recovery does not
+alter its result. Its answer-copy oracle remained weak in `binding_decoys`
+(`0.7396`) and `long_context` (`0.6146`), consistent with an interface/capacity
+limitation rather than a formatting-only explanation.
+
+## Frozen decision and claim boundary
+
+The post-hoc audit does not alter the original calibration decision:
+
+```text
+cross_scale_status = mixed_scale_result
+next_stage_status = calibration_followup_required
+eligible_model_ids = []
+automatic_training_started = false
+automatic_narrow_scan_started = false
+```
+
+The verified evidence supports the bounded claim that the 1.5B model can select
+the correct externally supplied action on most hard probes, while its unconstrained
+generation often violates the exact-token contract. It also localizes a remaining
+semantic/compositional weakness to `conditional_route`.
+
+It does not support:
+
+- retrospectively passing the frozen strict external gate;
+- treating all canary invalids as correct;
+- claiming that the complete hard suite is solved;
+- starting LoRA parameter conditions, a narrow layer scan, or 1/4/8
+  mappings-per-adapter training;
+- generalizing the result beyond the two frozen model revisions and 24-lesson
+  cohort.
+
+## Next experiment
+
+The next experiment should be an independent, base-only, format-stable
+forced-choice calibration. It should score each of the four allowed action strings
+under the frozen prompt and select the highest conditional-likelihood candidate,
+while retaining the old strict-generation result only as a referenced secondary
+format metric.
+
+This follow-up must use a new package, manifest/schema, notebook directory, and
+Drive namespace. It must not load adapters or expose training. Entry into a later
+training-complexity design should require both a strong overall external score and
+a prospectively frozen per-category floor, so that the current
+`conditional_route` deficit cannot be hidden by ceiling categories.
+
+The implementation handoff is recorded in
+[`P0-D2H format-stable calibration next-session prompt`](p0d2h-format-stable-calibration-next-session-prompt.md).
+
+## Interpretation rule applied
+
+The observed 1.5B `external` invalids are overwhelmingly
+`expected_action_with_extra_text`, so they support a format-adherence bottleneck
+under the conservative recovery definition. The remaining
+`conditional_route` error persists after recovery and therefore cannot be
+explained by exact-output formatting. Both findings must be reported beside the
 original strict result and frozen `next_stage_status`.
