@@ -91,6 +91,14 @@ P0-D2H-CAL invalid-output supplementary audit 使用 CPU-only 独立目录：
 - [`p0d2h_invalid_audit/README.md`](p0d2h_invalid_audit/README.md)：semantic
   recovery 定义、source hash 和独立分析 namespace。
 
+P0-D2H-CAL-FC format-stable forced-choice calibration 使用第四个独立目录：
+
+- [`p0d2h_forced_choice/p0d2h_forced_choice_colab.ipynb`](p0d2h_forced_choice/p0d2h_forced_choice_colab.ipynb)：
+  base-only 四候选 full-string conditional scoring，完整矩阵为 2,304 decisions /
+  9,216 candidate sequences；
+- [`p0d2h_forced_choice/README.md`](p0d2h_forced_choice/README.md)：CPU candidate-token
+  audit、GPU formal cell、冻结 gate、恢复语义和独立 Drive namespace。
+
 后续 1/4/8 mappings、ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自
 创建新目录和 notebook。
 
@@ -121,6 +129,10 @@ P0-D2H-CAL invalid-output supplementary audit 使用 CPU-only 独立目录：
 - P0-D2H-CAL invalid audit 使用
   `/content/drive/MyDrive/plasticity-p0d/hard-probe-calibration-analysis/v1/pipelines/`，
   只读引用 verified P0-D2H-CAL source raw rows，不得写入 source stage；
+- P0-D2H-CAL-FC 使用
+  `/content/drive/MyDrive/plasticity-p0d/hard-probe-forced-choice/v1/pipelines/`，
+  只读引用完整 verified P0-D2H-CAL source、raw rows 和 frozen hard-probe bank；
+  prompt/candidate-token audit 完成前不得进入 GPU formal scoring；
 - 不同阶段允许由 Colab 分配不同 GPU；每次会话的 GPU、CUDA、Python、依赖版本和
   environment fingerprint 都会单独记录，不参与跨阶段目录寻址；
 - 同一阶段在相同环境中的正常断线保持 attempt 名不变即可恢复；如果同一阶段恢复时

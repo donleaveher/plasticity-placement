@@ -191,3 +191,114 @@ distractor is not counted as semantically correct.
   results cannot hide conditional-route failure.
 - Keep all training, adapter loading, narrow scans, and automatic next-stage
   actions outside this experiment.
+
+---
+
+# Notes: P0-D2H-CAL-FC implementation
+
+## Baseline
+
+- Branch: `agent/add-lora-evaluation`.
+- Required ancestor `ba54377` is present.
+- Pre-task documentation state committed as `db185e5`.
+- Implementation must remain uncommitted and unpushed unless separately requested.
+
+## Frozen implementation constraints
+
+- New independent package, schema, manifest, CLI, notebook, outputs, and Drive
+  namespace.
+- Read-only reuse of the verified hard-probe bank and complete calibration run.
+- Exactly 2 models × 24 lessons × 3 arms × 16 probes = 2,304 decision rows.
+- Four ordered frozen candidates; candidate `sum_logprob` is primary.
+- Prompt tokens must not contribute to candidate score.
+- Ties, non-finite scores, prompt/candidate tokenization mismatches, missing rows,
+  duplicates, provenance mismatches, and silent truncation are explicit failures.
+- Gate thresholds and automatic-action false flags must be manifest identity.
+- No adapters, training, narrow scan, GRPO/RLVR, or 1/4/8 experiment execution.
+
+## Research log
+
+- P0-D2H-CAL already validates the complete P0-D2H-R source, loads the frozen hard
+  bank, renders all three arms through `render_calibration_probe`, and stores
+  48 atomic model×lesson files for two models.
+- Its canonical chat path is `chat_prompt(tokenizer, prompt)` with
+  `add_generation_prompt=True`, followed by tokenization with
+  `add_special_tokens=False`.
+- The direct P0-D2H-CAL source has a stable row key
+  `(calibration_model_id, lesson_id, arm, probe_id)` and stores the exact formatted
+  prompt hash needed for source pairing.
+- Source validation already rejects incomplete units, malformed 2,304-row
+  matrices, changed source manifests/summaries/probes, prompt audit mismatches,
+  model revision mismatches, and adapter-bearing rows.
+- Existing recovery semantics make `verified` and `failed` terminal. A complete
+  raw file left by interruption can be verified and adopted; incomplete or
+  conflicting artifacts are rejected.
+- Existing lesson-clustered bootstrap uses deterministic seed `20260726`.
+
+## Token-boundary audit
+
+- Real cached `Qwen/Qwen2.5-0.5B-Instruct` tokenizer was audited on CPU.
+- The formatted prompt ends with
+  `"<|im_end|>\n<|im_start|>assistant\n"`.
+- Appending `act_n7` preserves the complete prompt-token prefix and yields the
+  same candidate IDs as standalone tokenization: `[531, 1089, 22]`.
+- Appending `" act_n7"` is also prefix-stable but changes the first candidate
+  token. Because the source generation endpoint starts immediately after the
+  assistant-turn newline, the new endpoint freezes canonical leading whitespace
+  as the empty string.
+- A leading newline does not preserve the separately tokenized prompt prefix and
+  is therefore invalid.
+
+## Frozen P0-D2H-CAL-FC architecture
+
+- Direct source: complete verified `p0d2hc-manifest-v1` plus its 2,304 raw rows.
+- New schemas: `p0d2hfc-config-v1`, `p0d2hfc-candidate-token-audit-v1`,
+  `p0d2hfc-manifest-v1`, row v1, summary v1, and next-stage v1.
+- New package modules: config, scoring, manifest, runtime, analysis, and CLI.
+- CPU `audit` freezes prompt IDs, four candidate IDs, concatenation invariants,
+  source-row hashes, chat-template hashes, and full-sequence length checks.
+- GPU `run` requires the audit, loads each frozen base model once, and batches the
+  four candidates per prompt.
+- Primary candidate score is the sum of candidate-token log probabilities; mean
+  is diagnostic only.
+- Output rows link source manifest/run/raw-tree/file/row identities and old strict
+  correctness without redefining the strict endpoint.
+
+## Verification evidence
+
+- Focused P0-D2H-CAL-FC tests: 19 passed.
+- Focused Ruff: passed.
+- End-to-end fake-backend exercise built a complete verified P0-D2H-CAL source,
+  then validated:
+  - 2,304 direct source rows;
+  - 2,304 forced-choice decisions and 9,216 candidate sequences;
+  - 48 model×lesson atomic verified units with raw-file hashes;
+  - one model load per model on the initial run;
+  - zero model reloads and zero raw rewrites on resume;
+  - aggregation, category gates, and
+    `scale_capacity_bottleneck_supported` routing.
+- Full real-tokenizer CPU audit over both Qwen2.5 Instruct tokenizers:
+  - 1,152 decisions / 4,608 candidates per model;
+  - zero prompt-prefix, standalone-ID, decode, or length failures;
+  - maximum prompt length 303 tokens;
+  - maximum prompt-plus-candidate length 306 tokens;
+  - every action continuation uses three tokens;
+  - both chat-template SHA-256 values are
+    `cd8e9439f0570856fd70470bf8889ebd8b5d1107207f67a5efb46e342330527f`.
+- Final full repository tests: 148 passed.
+- Final full-repository Ruff: passed.
+- Generated notebook equals `build_p0d2hfc_notebook.py`; all code cells parse.
+- CLI entry point and help output execute successfully.
+- Notebook JSON validation, Python compileall, `git diff --check`, and new-file
+  trailing-whitespace scan passed.
+
+## Final scientific boundary
+
+- Implementation and CPU audits are complete; no formal 0.5B/1.5B GPU scores
+  have been generated in this workspace.
+- The old P0-D2H-CAL strict gate and invalid-output audit remain unchanged.
+- Any future `training_complexity_review_eligible` result permits manual design
+  review only. Training and narrow-scan flags remain false in config, summary,
+  decision output, CLI plan, protocol, and notebook.
+- The implementation remains uncommitted after the explicitly requested baseline
+  commit and has not been pushed.

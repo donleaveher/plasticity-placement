@@ -14,7 +14,8 @@ plasticity-placement/
 │   ├── p0d/                   # P0-D layer-locus matrix、恢复、gates 和聚合
 │   ├── p0d2/                  # P0-D2 budget-match、恢复、容量对比和聚合
 │   ├── p0d2h/                 # P0-D2H read-only hard-probe stress diagnostic
-│   └── p0d2hc/                # P0-D2H-CAL base-only oracle/scale calibration
+│   ├── p0d2hc/                # P0-D2H-CAL base-only oracle/scale calibration
+│   └── p0d2hfc/               # P0-D2H-CAL-FC full-string forced choice
 ├── tests/                     # 不依赖大模型下载的单元测试
 ├── artifacts/                 # 本地结果、适配器和检查点；不提交版本库
 ├── pyproject.toml
@@ -36,6 +37,10 @@ plasticity-placement/
 - `p0d2hc/` 只读 verified P0-D2H-R manifest、summary 和 hard-probe bank；它只加载
   base model，运行 `no_write/external/answer_copy_oracle`，不读取 adapter 或提供训练入口；
   其 invalid-output audit 仅重解析 verified raw text，并要求独立输出目录。
+- `p0d2hfc/` 只读完整 verified P0-D2H-CAL manifest、2,304 raw rows 及其传递来源；
+  它在 CPU preflight 冻结四候选 token 边界，再以 candidate-only `sum_logprob`
+  作为 primary endpoint；旧 strict generation 只作为配对 secondary metric，且该
+  package 不发现/加载 adapter、不训练、不启动 narrow scan 或下一阶段。
 - `notebooks/` 不保存核心业务逻辑，只调用已安装的命令行入口。
 - `data/examples/` 仅保存可公开、体积小且可复现的输入样例。
 - `artifacts/` 保存生成结果，通过 `.gitignore` 排除。
