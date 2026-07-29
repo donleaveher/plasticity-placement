@@ -26,6 +26,8 @@ from plasticity_placement.p0d2hcrd.runtime import (
     _load_bank_audit,
     _load_candidate_token_audit,
     _prepare_candidate_token_audit,
+    _raw_tree_hash,
+    _validate_calibration_source,
     _verify_rows,
     _write_bank_audit,
 )
@@ -197,6 +199,67 @@ def _passing_outcome(
         **rank_candidate_scores(candidates),
         "latency_seconds": 0.01,
     }
+
+
+def test_calibration_source_accepts_legacy_units_without_result_hash(
+    tmp_path: Path,
+) -> None:
+    source_dir = tmp_path / "calibration"
+    lesson_ids = tuple(f"L{index:02d}" for index in range(24))
+    units = {}
+    for model_id in ("source_model", "scale_canary"):
+        for lesson_id in lesson_ids:
+            key = f"{model_id}::{lesson_id}"
+            path = (
+                source_dir
+                / "results"
+                / "raw"
+                / model_id
+                / f"{lesson_id}.jsonl"
+            )
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps({"unit": key}) + "\n",
+                encoding="utf-8",
+            )
+            units[key] = {
+                "state": "verified",
+                "model_id": model_id,
+                "lesson_id": lesson_id,
+                "evaluation_precision": "nf4-bfloat16",
+                "result_path": f"/legacy/results/{model_id}/{lesson_id}.jsonl",
+            }
+    summary_path = source_dir / "results" / "aggregate" / "summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text('{"schema_version":"legacy"}\n', encoding="utf-8")
+    audit_path = source_dir / "preflight" / "prompt_token_audit.json"
+    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    audit_path.write_text('{"schema_version":"legacy"}\n', encoding="utf-8")
+    forced_config = {
+        "source_run_id": "calibration-run",
+        "source_summary_sha256": _file_hash(summary_path),
+        "source_prompt_token_audit_sha256": _file_hash(audit_path),
+        "source_raw_results_sha256": _raw_tree_hash(source_dir, 48),
+        "selected_lesson_ids": list(lesson_ids),
+    }
+    manifest = {
+        "schema_version": "p0d2hc-manifest-v1",
+        "run_id": "calibration-run",
+        "errors": [],
+        "units": units,
+    }
+    _validate_calibration_source(source_dir, manifest, forced_config)
+
+    path = (
+        source_dir
+        / "results"
+        / "raw"
+        / "scale_canary"
+        / f"{lesson_ids[-1]}.jsonl"
+    )
+    path.write_text('{"tampered":true}\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="raw tree changed"):
+        _validate_calibration_source(source_dir, manifest, forced_config)
 
 
 def test_cpu_audit_and_raw_row_verification_cover_complete_matrix(

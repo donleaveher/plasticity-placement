@@ -88,6 +88,11 @@ without changing prior experiments or starting training.
 - A combined plan/notes verification patch used a notes-only heading as context
   in `task_plan.md` and was rejected without changing either file. The two
   updates were applied against their actual section boundaries.
+- The first Colab `plan` exposed a legacy-schema mismatch in the CRD transitive
+  validator: P0-D2H-CAL units predate `result_sha256`, while the new validator
+  treated it as required. The validator now relies on the already-frozen exact
+  48-file raw-tree hash for legacy units and applies per-unit hashes only when
+  the optional field exists.
 
 ## Status
 **P0-D2H-CRD implementation verified; formal run not started** - The independent
@@ -167,8 +172,9 @@ for comparison.
 
 ### Verification
 
-- Focused CRD tests: 23 passed.
-- Full repository tests with train extras installed: 171 passed.
+- Focused CRD tests: 24 passed, including legacy P0-D2H-CAL manifest
+  compatibility and raw-tree tamper rejection.
+- Full repository tests with train extras installed: 172 passed.
 - Full-repository Ruff, compileall, generated-notebook equality, CLI help, and
   `git diff --check`: passed.
 - The cached frozen 1.5B tokenizer passed all 1,536 prompt and 5,376

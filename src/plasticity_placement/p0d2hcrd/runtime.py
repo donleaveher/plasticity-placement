@@ -357,11 +357,25 @@ def _validate_calibration_source(
             raise ValueError(f"P0-D2H-CAL source unit is not verified: {key}")
         model_id, lesson_id = key.split("::", maxsplit=1)
         path = source_dir / "results" / "raw" / model_id / f"{lesson_id}.jsonl"
-        _require_file_hash(
-            path,
-            str(unit["result_sha256"]),
-            f"P0-D2H-CAL raw unit {key}",
-        )
+        if (
+            unit.get("model_id") != model_id
+            or unit.get("lesson_id") != lesson_id
+            or not unit.get("evaluation_precision")
+        ):
+            raise ValueError(
+                f"P0-D2H-CAL source unit metadata changed: {key}"
+            )
+        # Legacy P0-D2H-CAL manifests predate per-unit result hashes. The
+        # exact 48-file raw-tree hash above already binds every relative path
+        # and byte. Preserve the stronger per-unit check for newer compatible
+        # manifests that do provide the optional field.
+        result_sha256 = unit.get("result_sha256")
+        if result_sha256 is not None:
+            _require_file_hash(
+                path,
+                str(result_sha256),
+                f"P0-D2H-CAL raw unit {key}",
+            )
 
 
 def _validate_forced_choice_rows(

@@ -463,8 +463,9 @@ distractor is not counted as semantically correct.
 
 ## CRD verification evidence
 
-- Focused CRD tests: 23 passed.
-- Final full repository tests with train extras installed: 171 passed.
+- Focused CRD tests: 24 passed, including legacy P0-D2H-CAL manifest
+  compatibility and raw-tree tamper rejection.
+- Final full repository tests with train extras installed: 172 passed.
 - Full-repository Ruff, Python compileall, notebook regeneration/equality, CLI
   help, and `git diff --check`: passed.
 - Complete cached real-tokenizer CPU audit for frozen
