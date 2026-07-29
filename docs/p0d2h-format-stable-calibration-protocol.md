@@ -4,7 +4,7 @@
 
 - **Protocol status:** prospectively frozen
 - **Implementation status:** in repository
-- **Results status:** not run
+- **Results status:** formal aggregate completed; gate failed
 - **Direct source:** one complete, verified P0-D2H-CAL run containing both frozen
   model revisions and all 2,304 strict-generation rows
 - **Question:** Can each base model select the correct action from the four frozen
@@ -14,6 +14,9 @@ P0-D2H-CAL-FC is an evaluation-only, base-only diagnostic. It neither discovers
 nor loads an adapter, and it exposes no training, layer scan, GRPO/RLVR, or
 1/4/8-mapping execution path. A passing result permits only a separate human
 review of a future frozen training-complexity design.
+
+The completed aggregate and bounded interpretation are recorded in
+[`P0-D2H-CAL-FC results`](p0d2h-format-stable-calibration-results.md).
 
 ## 2. Read-only source and independent namespace
 

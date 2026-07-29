@@ -15,7 +15,8 @@ plasticity-placement/
 │   ├── p0d2/                  # P0-D2 budget-match、恢复、容量对比和聚合
 │   ├── p0d2h/                 # P0-D2H read-only hard-probe stress diagnostic
 │   ├── p0d2hc/                # P0-D2H-CAL base-only oracle/scale calibration
-│   └── p0d2hfc/               # P0-D2H-CAL-FC full-string forced choice
+│   ├── p0d2hfc/               # P0-D2H-CAL-FC full-string forced choice
+│   └── p0d2hcrd/              # Base-only route/retrieval decomposition
 ├── tests/                     # 不依赖大模型下载的单元测试
 ├── artifacts/                 # 本地结果、适配器和检查点；不提交版本库
 ├── pyproject.toml
@@ -41,6 +42,11 @@ plasticity-placement/
   它在 CPU preflight 冻结四候选 token 边界，再以 candidate-only `sum_logprob`
   作为 primary endpoint；旧 strict generation 只作为配对 secondary metric，且该
   package 不发现/加载 adapter、不训练、不启动 narrow scan 或下一阶段。
+- `p0d2hcrd/` 只接受 exact completed P0-D2H-CAL-FC source，并沿其冻结 hash
+  验证 P0-D2H-CAL、P0-D2H-R hard bank 与 P0-D2 compiled bank；它以新
+  counterbalanced bank 分别运行两候选 `route_only`、四候选 `retrieval_only` 和
+  四候选 `combined`。所有 status 仅用于定位 routing/retrieval/composition，
+  `training_complexity_review_eligible` 永远为 false。
 - `notebooks/` 不保存核心业务逻辑，只调用已安装的命令行入口。
 - `data/examples/` 仅保存可公开、体积小且可复现的输入样例。
 - `artifacts/` 保存生成结果，通过 `.gitignore` 排除。

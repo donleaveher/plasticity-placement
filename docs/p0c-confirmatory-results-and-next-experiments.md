@@ -399,6 +399,9 @@ probe。当前真实结果和新的进入边界见下一节；本节保留为实
 | P0-D2H-R hard probe | 完成 | late-minus-full `+0.1076 [0.0781, 0.1380]`，`hard_locus_robust`；suite quality 未通过 |
 | P0-D2H-CAL | 完成 | 0.5B `oracle_failed`；1.5B `oracle_pass_external_failed`；cross-scale 为 `mixed_scale_result` |
 | Invalid-output audit | 完成 | 1.5B external semantic `0.9167`，但 `conditional_route=0.6667` |
+| P0-D2H-CAL-FC | 完成 | 1.5B external forced-choice `0.9089`，但 `conditional_route=0.6354`；无 eligible model |
+| Conditional-route post-hoc audit | 完成 | 34/35 external errors 在 paired oracle 正确；错误受 variant/action/order 混杂 |
+| P0-D2H-CRD route/retrieval decomposition | 实现完成、未运行 | 新 bank 分离 routing、retrieval 与 combined；所有结论仅诊断，不授权训练 |
 | P0-E GRPO/RLVR | 未进入 | 当前 calibration gate 不允许开始 |
 
 P0-D2H-R 在同一 0.5B 模型、固定 24-lesson cohort、固定 LoRA 参数预算上得到：
@@ -449,7 +452,42 @@ oracle 仍为 `0.7891`，所以它的失败也不是格式 parser 单独造成�
 [`P0-D2H-CAL protocol`](p0d2hc-oracle-calibration-protocol.md)和
 [`invalid-output audit`](p0d2hc-invalid-output-audit.md)。
 
-### 11.3 当前可支持与不可支持的新增主张
+### 11.3 Format-stable forced-choice calibration
+
+P0-D2H-CAL-FC 对四个冻结 action 做 candidate-only full-string conditional
+scoring，结果显示：
+
+- 1.5B external `0.9089 [0.8828, 0.9349]`，明显高于 no-write
+  `0.1745 [0.1276, 0.2240]`；
+- 1.5B oracle `0.9948 [0.9870, 1.0000]`，说明 forced-choice endpoint 本身
+  能稳定表达正确 action；
+- 1.5B external 的 binding、conflict、long-context 均为 `1.0000`，但
+  `conditional_route=0.6354`，低于预先冻结的 `0.75` category floor；
+- 0.5B external 只有 `0.4349 [0.3724, 0.5052]`，oracle 也只有
+  `0.7812 [0.7214, 0.8411]`；
+- 两个模型均为零 tie/error/non-finite、零 sum/mean disagreement，且
+  provenance/token audit 通过。
+
+因此新 cross-scale 状态是
+`scale_improvement_without_full_calibration`，`eligible_model_ids=[]`。1.5B
+的格式瓶颈已被显著移除，但 routing/composition 缺口仍未通过冻结 gate；0.5B 的失败
+也不能归因于自由生成格式。下一步仅允许对 1.5B external 的 96 条
+`conditional_route` row 做只读、post-hoc 误差审计，不得自动开始训练或 narrow
+scan。
+
+完整结果见
+[`P0-D2H-CAL-FC results`](p0d2h-format-stable-calibration-results.md)。
+
+随后对 1.5B external 的全部 96 条 `conditional_route` row 做只读审计。48 个
+verified unit、2,304 个 decision row、9,216 个 candidate score 的本地完整性复算
+全部通过。35 个 external error 中有 34 个在 paired oracle 正确，且 error 分布于
+20/24 lessons。最强的 post-hoc 交互是
+`procedure_recovery × variant 3 = 2/12`，同时存在 `act_v9` 过选、
+`act_p3` 少选和 candidate position 2 过选；这些因素受冻结 probe schedule 混杂，
+不能解释为单一因果机制。详细结果见
+[`conditional-route post-hoc audit`](p0d2hfc-conditional-route-posthoc-audit.md)。
+
+### 11.4 当前可支持与不可支持的新增主张
 
 当前证据新增支持：
 
@@ -457,31 +495,36 @@ oracle 仍为 `0.7891`，所以它的失败也不是格式 parser 单独造成�
    untruncated hard-probe 配对检验；
 2. 该相对优势在 conditional routing、conflict rejection 和 long-context retrieval
    中存在，但 binding-decoy category 仍不可用于确认性 layer-locus 主张；
-3. 1.5B base canary 能在大多数 hard external probes 中识别正确 action，而自由生成的
-   exact-token 格式会显著低估这一能力；
-4. 1.5B 的 remaining error 集中到 `conditional_route`，不能用总体 semantic 0.9167
-   掩盖。
+3. 1.5B base canary 在 format-stable forced-choice endpoint 上达到 external
+   `0.9089`，而自由生成的 exact-token 格式会显著低估这一能力；
+4. 1.5B 的 remaining error 集中到 `conditional_route=0.6354`，不能用总体
+   external 结果或其他三个 ceiling category 掩盖。
 
 当前证据仍不支持：
 
 1. 把 late placement 称为跨模型、跨深度或跨任务的普适机制；
 2. 把 post-hoc semantic recovery 当成旧 strict gate 已通过；
-3. 声称 1.5B 已解决整个 hard suite；
+3. 声称 1.5B 已解决整个 hard suite，或追溯放宽 `conditional_route` category gate；
 4. 立即开始 LoRA narrow scan、1/4/8 mappings-per-adapter、GRPO/RLVR 或 router；
 5. 将模型规模或 hidden-layer 深度认定为已经证明的唯一因果解释。
 
-### 11.4 更新后的推荐执行顺序
+### 11.5 更新后的推荐执行顺序
 
 1. 冻结并归档 P0-D2H-R、P0-D2H-CAL 和 invalid-audit 的 manifest、raw rows、
    aggregate、environment 与 provenance；
-2. 新建 base-only format-stable forced-choice calibration，对四个 allowed actions
-   进行 full-string conditional scoring；
-3. 预先冻结 overall 和 every-category external gate；若
-   `conditional_route < 0.75`，即使 overall 通过也不得进入训练；
-4. 只有某个模型通过全部新 gate 后，才人工评审独立的 1/4/8
-   mappings-per-adapter 训练复杂度设计；
-5. 再用 held-out lessons 或第二个模型规模复现 parameterized layer-locus；
-6. 最后才考虑 P0-E GRPO/RLVR 和 recurrence–volatility router。
+2. 归档已完成的 P0-D2H-CAL-FC formal output；其冻结结果是无 eligible model；
+3. 归档已完成的 1.5B external `conditional_route` 只读错误审计；旧 endpoint 与
+   gate 不变；
+4. 独立 base-only route/retrieval/combined diagnostic 已按新 counterbalanced bank
+   冻结并实现；若继续，只运行其 exact-source Colab，不改变旧 gate；
+5. 当前不得评审或执行 1/4/8 mappings-per-adapter 训练复杂度实验；
+6. 只有未来某个 prospectively frozen calibration 全部通过后，才人工评审训练设计；
+7. 最后才考虑 held-out layer-locus 复现、P0-E GRPO/RLVR 和
+   recurrence–volatility router。
 
-下一阶段的完整实现 prompt 见
-[`P0-D2H format-stable calibration next-session prompt`](p0d2h-format-stable-calibration-next-session-prompt.md)。
+已完成阶段的实现 prompt 保留于
+[`P0-D2H format-stable calibration next-session prompt`](p0d2h-format-stable-calibration-next-session-prompt.md)；
+正式结果与当前 follow-up 边界见
+[`P0-D2H-CAL-FC results`](p0d2h-format-stable-calibration-results.md)。
+拆分实验的冻结定义、矩阵和诊断边界见
+[`P0-D2H-CRD protocol`](p0d2h-route-retrieval-decomposition-protocol.md)。

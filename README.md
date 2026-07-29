@@ -232,6 +232,38 @@ Colab 入口为
 预注册规则见
 [`docs/p0d2h-hard-probe-stress-protocol.md`](docs/p0d2h-hard-probe-stress-protocol.md)。
 
+## P0-D2H-CRD 路由/检索拆分
+
+P0-D2H-CRD 是 base-only 诊断，不训练或加载 adapter。它只接受已冻结的
+P0-D2H-CAL-FC formal source，将 1.5B canary 的条件路由任务拆成
+`route_only`、`retrieval_only` 和 `combined`：
+
+```bash
+uv run plasticity-p0d2hcrd plan \
+  --output artifacts/p0d2h-route-decomposition \
+  --source-manifest /path/to/p0d2h-forced-choice/manifest.json
+
+uv run plasticity-p0d2hcrd audit \
+  --output artifacts/p0d2h-route-decomposition \
+  --source-manifest /path/to/p0d2h-forced-choice/manifest.json
+
+uv run plasticity-p0d2hcrd run \
+  --output artifacts/p0d2h-route-decomposition \
+  --source-manifest /path/to/p0d2h-forced-choice/manifest.json
+
+uv run plasticity-p0d2hcrd aggregate \
+  --output artifacts/p0d2h-route-decomposition
+```
+
+冻结规模为 24 个原子 lesson units、1,536 decisions 和 5,376 candidate
+sequences。所有输出 status 只定位 routing、retrieval 或 composition bottleneck；
+无论结果如何，均不授权训练、adapter scan 或自动下一阶段。
+
+Colab 入口为
+[`notebooks/p0d2h_route_decomposition/p0d2h_route_decomposition_colab.ipynb`](notebooks/p0d2h_route_decomposition/p0d2h_route_decomposition_colab.ipynb)；
+冻结协议见
+[`docs/p0d2h-route-retrieval-decomposition-protocol.md`](docs/p0d2h-route-retrieval-decomposition-protocol.md)。
+
 ## 项目结构
 
 ```text
@@ -245,7 +277,10 @@ Colab 入口为
 │   ├── p0c/                   # 真实四载体编译、运行、恢复和聚合
 │   ├── p0d/                   # LoRA layer-locus 条件、恢复和聚合
 │   ├── p0d2/                  # 参数预算匹配、容量救援和决策门
-│   └── p0d2h/                 # 只读困难 probe 编译、压力评估和诊断门
+│   ├── p0d2h/                 # 只读困难 probe 编译、压力评估和诊断门
+│   ├── p0d2hc/                # Base-only oracle/scale calibration
+│   ├── p0d2hfc/               # Full-string forced-choice calibration
+│   └── p0d2hcrd/              # Base-only routing/retrieval/composition 拆分
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```

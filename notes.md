@@ -201,7 +201,8 @@ distractor is not counted as semantically correct.
 - Branch: `agent/add-lora-evaluation`.
 - Required ancestor `ba54377` is present.
 - Pre-task documentation state committed as `db185e5`.
-- Implementation must remain uncommitted and unpushed unless separately requested.
+- The user later requested a commit; the completed implementation is commit
+  `f147fe9`. It has not been pushed.
 
 ## Frozen implementation constraints
 
@@ -300,5 +301,192 @@ distractor is not counted as semantically correct.
 - Any future `training_complexity_review_eligible` result permits manual design
   review only. Training and narrow-scan flags remain false in config, summary,
   decision output, CLI plan, protocol, and notebook.
-- The implementation remains uncommitted after the explicitly requested baseline
-  commit and has not been pushed.
+- The implementation was committed as `f147fe9` after the user explicitly
+  requested the commit. It has not been pushed.
+
+---
+
+# Notes: P0-D2H-CAL-FC formal result
+
+## Supplied aggregate
+
+- Run ID: `p0d2hfc-forced-choice-f604efe6bf`.
+- 1.5B external: `0.9089 [0.8828, 0.9349]`; oracle: `0.9948`; no-write:
+  `0.1745`.
+- 1.5B external categories: binding `1.0000`, conflict `1.0000`,
+  conditional route `0.6354`, long context `1.0000`.
+- 0.5B external: `0.4349 [0.3724, 0.5052]`; oracle: `0.7812`; no-write:
+  `0.2500`.
+- External-minus-no-write paired lower confidence bounds are positive for both
+  models.
+- Tie/error/non-finite and sum/mean disagreement rates are zero for every arm.
+
+## Gate interpretation
+
+- 1.5B passes external overall but fails the prospective every-category floor;
+  status is `category_calibration_failed`.
+- 0.5B fails oracle overall/categories and external overall/categories; status
+  is `oracle_failed`.
+- Cross-scale status is `scale_improvement_without_full_calibration`.
+- No model is eligible; training and narrow scans remain prohibited.
+
+## Next action
+
+- Preserve the outcome as negative calibration evidence.
+- The formal output tree was later supplied and all 96 1.5B external
+  `conditional_route` rows were audited descriptively.
+- Do not alter the old gate, omit failures, or promote a post-hoc subgroup.
+
+## Documentation verification
+
+- Full repository tests: 148 passed.
+- Full-repository Ruff: passed.
+- `git diff --check`: passed.
+
+---
+
+# Notes: P0-D2H-CAL-FC conditional-route post-hoc audit
+
+## Local integrity
+
+- Supplied root: `/Users/tourbillion/Downloads/forced_choice-f1/`.
+- Manifest SHA-256:
+  `89ba71ea0fde052089329e630d23c1a86652bc47a129de1921786c8e0b4dd214`.
+- Candidate audit SHA-256:
+  `d140cfb2ac0c57b4819d3793b59f5f7c767fe428336be856fc9299460731b230`;
+  it matches the manifest.
+- Local forced-choice raw-tree SHA-256:
+  `dfe9b9014966f484e988a2f6d9f8e18d4ee7a1b5f06d671ae2e973cef8a0b24a`.
+- Verified 48/48 unit hashes, 2,304 unique rows, 2,304 unique audit records,
+  9,216 candidate token/score sequences, all rankings/margins, session links,
+  and aggregate accuracies with zero inconsistency.
+- The upstream P0-D2H-CAL tree was not included, so original cross-stage source
+  files could not be independently rehashed; their stored identities agree
+  throughout the copied tree.
+
+## Target findings
+
+- 1.5B external `conditional_route`: 61/96 correct, 35 errors.
+- Paired `(no_write, external, oracle)` outcome counts:
+  `(0,0,0)=1`, `(0,0,1)=34`, `(0,1,1)=61`.
+- Thus 34/35 external errors pass oracle; the dominant deficit is external
+  record use/routing, not the final four-candidate interface.
+- Linked strict versus forced choice:
+  both wrong 32, forced-only correct 9, strict-only correct 3, both correct 52.
+- Errors occur in 20/24 lessons; only four lessons are 4/4.
+- Exploratory enrichment:
+  `procedure_recovery × variant 3 = 2/12`, versus 59/84 elsewhere.
+- Expected actions are balanced, but predictions over-select `act_v9`
+  (35 predictions) and under-select `act_p3` (14 predictions).
+- Expected option positions are balanced, but position 2 is predicted 36 times.
+- Wrong decisions have median margin 0.3751 versus 1.1250 when correct, although
+  eight wrong decisions still have margin at least 1.0.
+
+## Scientific boundary
+
+- Action identity, option position, route variant, target slot, lesson side,
+  and lesson type are observationally confounded in the frozen bank.
+- The endpoint observes only final action scores, so it cannot distinguish
+  route selection from post-route retrieval.
+- Any continuation requires a separately frozen base-only route-only versus
+  retrieval-only diagnostic on a new or held-out, fully counterbalanced bank.
+- No eligibility, training, or narrow-scan decision changes.
+
+## Final verification
+
+- Full repository tests: 148 passed.
+- Full-repository Ruff: passed.
+- `git diff --check` and local documentation-link checks: passed.
+
+---
+
+# Notes: P0-D2H-CRD route/retrieval decomposition
+
+## Frozen design
+
+- New package/stage: `p0d2hcrd` / `hard_probe_route_decomposition`.
+- Direct source: exact completed P0-D2H-CAL-FC run
+  `p0d2hfc-forced-choice-f604efe6bf`, transitively validated by the CRD
+  exact-hash source-chain loader.
+- Exact source hashes are frozen in the CRD protocol.
+- Model: only the frozen 1.5B `scale_canary`; the 0.5B answer-copy oracle failed
+  and is outside this localization question.
+- New namespace:
+  `plasticity-p0d/hard-probe-route-decomposition/v1/pipelines/`.
+- Endpoints:
+  - `route_only`: routing table and opaque slots, candidates
+    `slot_a/slot_b`, no memory or action leakage;
+  - `retrieval_only`: selected live record plus verified memory, no routing
+    decision, four action candidates;
+  - `combined`: routing table, live/archived slots, verified memory, four action
+    candidates.
+
+## Counterbalanced matrix
+
+- `route_only`: 4 route variants × 2 slot-candidate orders ×
+  2 slot-content orders = 16 rows/lesson.
+- `retrieval_only`: 4 record variants × 4 action-panel rotations =
+  16 rows/lesson.
+- `combined`: 4 route variants × 4 action-panel rotations ×
+  2 slot-content orders = 32 rows/lesson.
+- Total: 24 lessons × 64 = 1,536 decisions and 5,376 candidate sequences in
+  24 atomic units.
+- Action-panel position is fully crossed with combined route/content factors;
+  target slot, route candidate position, and slot presentation order are
+  balanced.
+
+## Diagnostic boundary
+
+- Prospective floors: route ≥0.90, retrieval ≥0.90, combined ≥0.75, and zero
+  scoring invalids.
+- Status distinguishes route, retrieval, shared-component, and composition
+  bottlenecks.
+- All statuses are diagnostic. Training-review eligibility and all automatic
+  action flags remain false.
+
+## Implemented CRD surface
+
+- Package modules: `config`, `probes`, `scoring`, `manifest`, `runtime`,
+  `analysis`, and `cli` under `p0d2hcrd`.
+- CLI: `plasticity-p0d2hcrd environment|plan|audit|run|aggregate`.
+- Source loader uses exact immutable P0-D2H-CAL-FC hashes and follows its
+  stored paths to verify P0-D2H-CAL raw/prompt artifacts, P0-D2H-R hard probes,
+  and the P0-D2 compiled bank. It does not invoke the old global-code-hash
+  validator after the new package changes the repository code identity.
+- CPU preflight writes immutable decomposition-bank and variable-candidate token
+  audits; the GPU runtime requires both before loading the one 1.5B base model.
+- Aggregate reports lesson-clustered endpoint intervals, factor summaries,
+  source-linked old accuracy, paired composition contrasts, and one of six
+  diagnostic-only statuses.
+- Generated Colab and CLI contain no adapter discovery, training, narrow scan,
+  or automatic next-stage path.
+
+## CRD verification evidence
+
+- Focused CRD tests: 23 passed.
+- Final full repository tests with train extras installed: 171 passed.
+- Full-repository Ruff, Python compileall, notebook regeneration/equality, CLI
+  help, and `git diff --check`: passed.
+- Complete cached real-tokenizer CPU audit for frozen
+  `Qwen/Qwen2.5-1.5B-Instruct` revision:
+  - 1,536 decisions and 5,376 candidate continuations;
+  - endpoint counts 384 route-only, 384 retrieval-only, 768 combined;
+  - zero prefix, standalone-ID, decode, overflow, or bank failures;
+  - maximum formatted prompt 264 tokens and maximum full input 267 tokens;
+  - action candidates use three tokens and slot candidates use two;
+  - chat-template SHA-256
+    `cd8e9439f0570856fd70470bf8889ebd8b5d1107207f67a5efb46e342330527f`.
+- Complete fake-backend exercise persisted and revalidated all 1,536 rows /
+  5,376 candidate sequences, produced the aggregate, and confirmed all
+  training/scan flags remain false.
+
+## CRD handoff boundary
+
+- No formal CRD GPU inference has been run, so there is no empirical routing,
+  retrieval, or composition result yet.
+- The local copied forced-choice tree omits its upstream source directories;
+  the exact CRD validator correctly requires those full trees. The generated
+  Colab points at the original Drive namespaces where the stored absolute
+  source paths resolve.
+- The old P0-D2H-CAL-FC gate remains unchanged and still has no eligible model.
+- No CRD status can authorize training or a narrow scan.

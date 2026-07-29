@@ -99,6 +99,15 @@ P0-D2H-CAL-FC format-stable forced-choice calibration 使用第四个独立目�
 - [`p0d2h_forced_choice/README.md`](p0d2h_forced_choice/README.md)：CPU candidate-token
   audit、GPU formal cell、冻结 gate、恢复语义和独立 Drive namespace。
 
+P0-D2H-CRD route/retrieval decomposition 使用第五个独立目录：
+
+- [`p0d2h_route_decomposition/p0d2h_route_decomposition_colab.ipynb`](p0d2h_route_decomposition/p0d2h_route_decomposition_colab.ipynb)：
+  只运行 1.5B base canary，将 1,536 个 decision 拆成 `route_only`、
+  `retrieval_only` 和 `combined`；
+- [`p0d2h_route_decomposition/README.md`](p0d2h_route_decomposition/README.md)：
+  exact source-chain 验证、counterbalanced bank、5,376 candidate sequences、
+  诊断 gate 与禁止训练边界。
+
 后续 1/4/8 mappings、ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自
 创建新目录和 notebook。
 
@@ -133,6 +142,11 @@ P0-D2H-CAL-FC format-stable forced-choice calibration 使用第四个独立目�
   `/content/drive/MyDrive/plasticity-p0d/hard-probe-forced-choice/v1/pipelines/`，
   只读引用完整 verified P0-D2H-CAL source、raw rows 和 frozen hard-probe bank；
   prompt/candidate-token audit 完成前不得进入 GPU formal scoring；
+- P0-D2H-CRD 使用
+  `/content/drive/MyDrive/plasticity-p0d/hard-probe-route-decomposition/v1/pipelines/`，
+  只读引用 exact P0-D2H-CAL-FC formal tree 及其完整上游 hash chain；bank/leakage
+  与 1,536-prompt candidate-token audit 完成前不得进入 GPU scoring，任何结果都
+  不允许自动开始 training 或 narrow scan；
 - 不同阶段允许由 Colab 分配不同 GPU；每次会话的 GPU、CUDA、Python、依赖版本和
   environment fingerprint 都会单独记录，不参与跨阶段目录寻址；
 - 同一阶段在相同环境中的正常断线保持 attempt 名不变即可恢复；如果同一阶段恢复时
