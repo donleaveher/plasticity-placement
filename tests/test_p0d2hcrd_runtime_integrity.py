@@ -15,6 +15,9 @@ from plasticity_placement.p0d2hcrd.config import (
     CRDModel,
     ResolvedP0D2HCRDConfig,
 )
+from plasticity_placement.p0d2hcrd.integrity_audit import (
+    audit_scoring_integrity,
+)
 from plasticity_placement.p0d2hcrd.manifest import P0D2HCRDManifest
 from plasticity_placement.p0d2hcrd.probes import (
     PROMPT_RENDERERS,
@@ -475,3 +478,12 @@ def test_complete_fake_backend_aggregates_diagnostic_only_result(
     assert summary["gates"]["training_complexity_review_eligible"] is False
     assert summary["gates"]["automatic_training_started"] is False
     assert summary["gates"]["automatic_narrow_scan_started"] is False
+    audit_path = audit_scoring_integrity(
+        config.output_dir,
+        tmp_path / "integrity-audit",
+    )
+    integrity_audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert integrity_audit["row_count"] == 1_536
+    assert integrity_audit["anomaly_record_count"] == 0
+    assert integrity_audit["classification"] == "no_scoring_anomalies"
+    assert integrity_audit["source_gate_status_changed"] is False

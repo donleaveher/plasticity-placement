@@ -252,6 +252,23 @@ The model loads once, remains resident for all 24 lessons, and is released after
 scoring. No adapter discovery/loading, LoRA training, layer scan, GRPO/RLVR, or
 automatic next-stage action exists.
 
+When a completed run contains an exact tie or another explicit scoring error,
+the CPU-only supplementary audit may be written to an independent directory:
+
+```bash
+uv run plasticity-p0d2hcrd audit-integrity \
+  --output <verified-crd-stage> \
+  --audit-output <independent-audit-stage>
+```
+
+The audit independently recomputes candidate/token/score/ranking invariants,
+emits every anomaly row with its complete candidate evidence, reports tie
+concentration and all-ties-correct sensitivity, and hashes the immutable source
+before and after reading it. It does not modify the source attempt, change the
+zero-tie gate, or authorize a next stage.
+
+[Open the CPU-only scoring-integrity audit in Colab](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_route_decomposition_integrity_audit/p0d2h_route_decomposition_integrity_audit_colab.ipynb)
+
 ## 9. Colab and acceptance
 
 The independent notebook is:

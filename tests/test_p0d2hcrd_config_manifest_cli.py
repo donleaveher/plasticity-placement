@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
+import sys
 from pathlib import Path
 
 import pytest
 
+import plasticity_placement.p0d2hcrd.cli as cli
 from plasticity_placement.p0d2hcrd.cli import build_parser
 from plasticity_placement.p0d2hcrd.config import (
     CRDModel,
@@ -112,7 +115,14 @@ def test_manifest_has_terminal_verified_and_failed_states(
 def test_cli_exposes_only_base_diagnostic_workflow(tmp_path: Path) -> None:
     parser = build_parser()
     help_text = parser.format_help().casefold()
-    for command in ("environment", "plan", "audit", "run", "aggregate"):
+    for command in (
+        "environment",
+        "plan",
+        "audit",
+        "run",
+        "aggregate",
+        "audit-integrity",
+    ):
         assert command in help_text
     for forbidden in ("train", "adapter", "scan", "grpo", "rlvr"):
         assert forbidden not in help_text
@@ -126,6 +136,40 @@ def test_cli_exposes_only_base_diagnostic_workflow(tmp_path: Path) -> None:
         ]
     )
     assert args.command == "plan"
+
+
+def test_integrity_audit_cli_dispatches(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    source = tmp_path / "source"
+    audit = tmp_path / "audit"
+    result = audit / "scoring_integrity_audit.json"
+    observed = []
+
+    def run(source_dir, audit_dir):
+        observed.append((source_dir, audit_dir))
+        return result
+
+    monkeypatch.setattr(cli, "audit_scoring_integrity", run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "plasticity-p0d2hcrd",
+            "audit-integrity",
+            "--output",
+            str(source),
+            "--audit-output",
+            str(audit),
+        ],
+    )
+    cli.main()
+    assert observed == [(source, audit)]
+    assert json.loads(capsys.readouterr().out) == {
+        "scoring_integrity_audit_path": str(result)
+    }
 
 
 def test_package_has_no_training_or_adapter_execution_path() -> None:
@@ -147,4 +191,3 @@ def test_package_has_no_training_or_adapter_execution_path() -> None:
         "run_narrow_scan",
     ):
         assert forbidden not in source
-

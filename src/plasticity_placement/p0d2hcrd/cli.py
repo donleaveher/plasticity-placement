@@ -10,6 +10,9 @@ from plasticity_placement.p0c.runtime import (
 )
 from plasticity_placement.p0d2hcrd.analysis import aggregate_experiment
 from plasticity_placement.p0d2hcrd.config import P0D2HCRDRequest
+from plasticity_placement.p0d2hcrd.integrity_audit import (
+    audit_scoring_integrity,
+)
 from plasticity_placement.p0d2hcrd.runtime import (
     audit_request,
     resolve_request,
@@ -39,6 +42,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     aggregate.add_argument("--output", type=Path, required=True)
     aggregate.add_argument("--bootstrap-samples", type=int, default=10_000)
+    integrity_audit = subparsers.add_parser(
+        "audit-integrity",
+        help="只读审计 completed CRD 的 exact tie 与评分一致性",
+    )
+    integrity_audit.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="完整 verified P0-D2H-CRD source run",
+    )
+    integrity_audit.add_argument(
+        "--audit-output",
+        type=Path,
+        required=True,
+        help="独立的 supplementary audit 输出目录",
+    )
     return parser
 
 
@@ -76,6 +95,15 @@ def main() -> None:
     if args.command == "aggregate":
         path = aggregate_experiment(args.output, args.bootstrap_samples)
         print(json.dumps({"summary_path": str(path)}, ensure_ascii=False))
+        return
+    if args.command == "audit-integrity":
+        path = audit_scoring_integrity(args.output, args.audit_output)
+        print(
+            json.dumps(
+                {"scoring_integrity_audit_path": str(path)},
+                ensure_ascii=False,
+            )
+        )
         return
 
     request = _request_from_args(args)
