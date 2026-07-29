@@ -120,7 +120,12 @@ def _json_hash(value: object) -> str:
     ).hexdigest()
 
 
-def _config(tmp_path: Path, bank_sha256: str) -> ResolvedP0D2HCRDConfig:
+def _config(
+    tmp_path: Path,
+    bank_sha256: str,
+    *,
+    use_4bit: bool = True,
+) -> ResolvedP0D2HCRDConfig:
     return ResolvedP0D2HCRDConfig(
         output_dir=tmp_path / "out",
         source_output_dir=tmp_path / "source",
@@ -147,7 +152,7 @@ def _config(tmp_path: Path, bank_sha256: str) -> ResolvedP0D2HCRDConfig:
             model_revision=(
                 "989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
             ),
-            use_4bit=True,
+            use_4bit=use_4bit,
         ),
         prompt_renderers=dict(PROMPT_RENDERERS),
     )
@@ -369,16 +374,26 @@ def test_cpu_audit_and_raw_row_verification_cover_complete_matrix(
         )
 
 
+@pytest.mark.parametrize(
+    ("use_4bit", "evaluation_precision"),
+    [(True, "nf4-bfloat16"), (False, "bfloat16")],
+)
 def test_complete_fake_backend_aggregates_diagnostic_only_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    use_4bit: bool,
+    evaluation_precision: str,
 ) -> None:
     selected = selected_lessons()
     bank, bank_audit = compile_decomposition_bank(
         selected,
         compile_hard_probe_bank(selected),
     )
-    config = _config(tmp_path, str(bank_audit["bank_sha256"]))
+    config = _config(
+        tmp_path,
+        str(bank_audit["bank_sha256"]),
+        use_4bit=use_4bit,
+    )
     _, bank_hash = _write_bank_audit(config, bank_audit)
     monkeypatch.setattr(
         "plasticity_placement.p0d2hcrd.runtime.load_tokenizer",
@@ -418,7 +433,7 @@ def test_complete_fake_backend_aggregates_diagnostic_only_result(
             _decision_row(
                 config,
                 "run-aggregate",
-                "nf4-bfloat16",
+                evaluation_precision,
                 probe,
                 audits[probe.probe_id],
                 source_rows[probe.source_row_key],
@@ -447,18 +462,22 @@ def test_complete_fake_backend_aggregates_diagnostic_only_result(
             lesson_id,
             "verified",
             result_path=str(path),
-            evaluation_precision="nf4-bfloat16",
+            evaluation_precision=evaluation_precision,
             result_sha256=_file_hash(path),
         )
-    monkeypatch.setattr(
-        "plasticity_placement.p0d2hcrd.analysis.resolve_request",
-        lambda request: (
+    def resolve_for_aggregate(request):
+        assert request.use_4bit is use_4bit
+        return (
             config,
             bank,
             selected,
             source_rows,
             bank_audit,
-        ),
+        )
+
+    monkeypatch.setattr(
+        "plasticity_placement.p0d2hcrd.analysis.resolve_request",
+        resolve_for_aggregate,
     )
     summary_path = aggregate_experiment(
         config.output_dir,
@@ -487,3 +506,4 @@ def test_complete_fake_backend_aggregates_diagnostic_only_result(
     assert integrity_audit["anomaly_record_count"] == 0
     assert integrity_audit["classification"] == "no_scoring_anomalies"
     assert integrity_audit["source_gate_status_changed"] is False
+    assert integrity_audit["source"]["source_experiment_code_sha256"] == "code"

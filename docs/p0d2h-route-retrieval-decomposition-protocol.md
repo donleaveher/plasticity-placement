@@ -269,6 +269,9 @@ zero-tie gate, or authorize a next stage.
 
 [Open the CPU-only scoring-integrity audit in Colab](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_route_decomposition_integrity_audit/p0d2h_route_decomposition_integrity_audit_colab.ipynb)
 
+The prospectively frozen follow-up is the
+[P0-D2H-CRD BF16 precision retry](p0d2h-route-retrieval-decomposition-bf16-retry-protocol.md).
+
 ## 9. Colab and acceptance
 
 The independent notebook is:

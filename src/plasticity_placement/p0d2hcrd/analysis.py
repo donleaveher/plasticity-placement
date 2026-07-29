@@ -170,9 +170,15 @@ def _validate_and_load(
         )
     if manifest.get("errors"):
         raise ValueError("route-decomposition manifest contains errors")
+    manifest_use_4bit = manifest.get("config", {}).get("model", {}).get(
+        "use_4bit"
+    )
+    if not isinstance(manifest_use_4bit, bool):
+        raise ValueError("route-decomposition manifest precision is missing")
     request = P0D2HCRDRequest(
         output_dir=output_dir,
         source_manifest=Path(str(manifest["source_manifest_path"])),
+        use_4bit=manifest_use_4bit,
     )
     config, bank, _, source_rows, _ = resolve_request(request)
     if manifest["config"] != config.identity_dict():

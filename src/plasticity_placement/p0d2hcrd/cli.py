@@ -69,12 +69,18 @@ def _add_request_arguments(parser: argparse.ArgumentParser) -> None:
         required=True,
         help="exact completed P0-D2H-CAL-FC manifest",
     )
+    parser.add_argument(
+        "--no-4bit",
+        action="store_true",
+        help="使用原始 BF16 权重；仅用于独立 precision-retry attempt",
+    )
 
 
 def _request_from_args(args: argparse.Namespace) -> P0D2HCRDRequest:
     return P0D2HCRDRequest(
         output_dir=args.output,
         source_manifest=args.source_manifest,
+        use_4bit=not args.no_4bit,
     )
 
 

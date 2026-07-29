@@ -62,8 +62,8 @@ class CRDModel:
             or self.model_revision != EXPECTED_MODEL_REVISION
         ):
             raise ValueError("P0-D2H-CRD scale-canary identity changed")
-        if not self.use_4bit:
-            raise ValueError("P0-D2H-CRD freezes source-compatible 4-bit evaluation")
+        if not isinstance(self.use_4bit, bool):
+            raise TypeError("P0-D2H-CRD use_4bit must be boolean")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -73,8 +73,11 @@ class CRDModel:
 class P0D2HCRDRequest:
     output_dir: Path
     source_manifest: Path
+    use_4bit: bool = True
 
     def __post_init__(self) -> None:
+        if not isinstance(self.use_4bit, bool):
+            raise TypeError("P0-D2H-CRD use_4bit must be boolean")
         try:
             output = self.output_dir.resolve()
             source = self.source_manifest.parent.resolve()

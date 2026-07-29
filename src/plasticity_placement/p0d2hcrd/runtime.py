@@ -137,7 +137,7 @@ def resolve_request(
         role="scale_canary",
         model_name=EXPECTED_MODEL_NAME,
         model_revision=EXPECTED_MODEL_REVISION,
-        use_4bit=True,
+        use_4bit=request.use_4bit,
     )
     forced_config = source.forced_choice_manifest["config"]
     config = ResolvedP0D2HCRDConfig(
@@ -866,6 +866,12 @@ def _run_model(
     )
     bundle = load_base_model(config.evaluation_config())
     _require_cuda_bundle(bundle)
+    if not config.model.use_4bit and bundle.precision != "bfloat16":
+        release_model(bundle)
+        raise RuntimeError(
+            "BF16 precision retry loaded unexpected model precision: "
+            f"{bundle.precision}"
+        )
     if bundle.model_revision != config.model.model_revision:
         release_model(bundle)
         raise RuntimeError(

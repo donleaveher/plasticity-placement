@@ -71,6 +71,25 @@ def test_config_freezes_matrix_and_never_authorizes_training(
     assert identity["automatic_narrow_scan_started"] is False
 
 
+def test_request_and_model_support_independent_bf16_retry(
+    tmp_path: Path,
+) -> None:
+    model = CRDModel(
+        model_id="scale_canary",
+        role="scale_canary",
+        model_name="Qwen/Qwen2.5-1.5B-Instruct",
+        model_revision="989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+        use_4bit=False,
+    )
+    request = P0D2HCRDRequest(
+        output_dir=tmp_path / "bf16",
+        source_manifest=tmp_path / "source" / "manifest.json",
+        use_4bit=False,
+    )
+    assert model.to_dict()["use_4bit"] is False
+    assert request.use_4bit is False
+
+
 def test_request_rejects_nested_source_and_destination(tmp_path: Path) -> None:
     source = tmp_path / "source"
     with pytest.raises(ValueError, match="independent"):
@@ -136,6 +155,19 @@ def test_cli_exposes_only_base_diagnostic_workflow(tmp_path: Path) -> None:
         ]
     )
     assert args.command == "plan"
+    assert args.no_4bit is False
+    bf16_args = parser.parse_args(
+        [
+            "plan",
+            "--output",
+            str(tmp_path / "bf16"),
+            "--source-manifest",
+            str(tmp_path / "source" / "manifest.json"),
+            "--no-4bit",
+        ]
+    )
+    assert bf16_args.no_4bit is True
+    assert cli._request_from_args(bf16_args).use_4bit is False
 
 
 def test_integrity_audit_cli_dispatches(
