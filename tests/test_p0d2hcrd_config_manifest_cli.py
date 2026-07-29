@@ -141,6 +141,8 @@ def test_cli_exposes_only_base_diagnostic_workflow(tmp_path: Path) -> None:
         "run",
         "aggregate",
         "audit-integrity",
+        "audit-fp32",
+        "aggregate-v2",
     ):
         assert command in help_text
     for forbidden in ("train", "adapter", "scan", "grpo", "rlvr"):
@@ -201,6 +203,77 @@ def test_integrity_audit_cli_dispatches(
     assert observed == [(source, audit)]
     assert json.loads(capsys.readouterr().out) == {
         "scoring_integrity_audit_path": str(result)
+    }
+
+
+def test_fp32_and_conservative_cli_dispatch(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    nf4 = tmp_path / "nf4"
+    bf16 = tmp_path / "bf16"
+    fp32_output = tmp_path / "fp32-audit"
+    conservative_output = tmp_path / "conservative"
+    fp32_result = fp32_output / "fp32_precision_audit.json"
+    conservative_result = (
+        conservative_output / "conservative_tie_summary.json"
+    )
+    observed: list[tuple[object, ...]] = []
+
+    def fp32_run(sources, output):
+        observed.append(("fp32", sources, output))
+        return fp32_result
+
+    def conservative_run(source, output, samples):
+        observed.append(("conservative", source, output, samples))
+        return conservative_result
+
+    monkeypatch.setattr(cli, "audit_fp32_precision", fp32_run)
+    monkeypatch.setattr(cli, "aggregate_conservative_ties", conservative_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "plasticity-p0d2hcrd",
+            "audit-fp32",
+            "--source-output",
+            str(nf4),
+            "--source-output",
+            str(bf16),
+            "--audit-output",
+            str(fp32_output),
+        ],
+    )
+    cli.main()
+    assert observed[-1] == ("fp32", (nf4, bf16), fp32_output)
+    assert json.loads(capsys.readouterr().out) == {
+        "fp32_precision_audit_path": str(fp32_result)
+    }
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "plasticity-p0d2hcrd",
+            "aggregate-v2",
+            "--output",
+            str(bf16),
+            "--analysis-output",
+            str(conservative_output),
+            "--bootstrap-samples",
+            "250",
+        ],
+    )
+    cli.main()
+    assert observed[-1] == (
+        "conservative",
+        bf16,
+        conservative_output,
+        250,
+    )
+    assert json.loads(capsys.readouterr().out) == {
+        "conservative_tie_summary_path": str(conservative_result)
     }
 
 

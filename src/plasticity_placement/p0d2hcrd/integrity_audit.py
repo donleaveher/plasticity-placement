@@ -49,7 +49,7 @@ def audit_scoring_integrity(
     summary_bytes = summary_path.read_bytes()
     manifest = json.loads(manifest_bytes)
     summary = json.loads(summary_bytes)
-    rows, raw_results_sha256 = _load_verified_rows(
+    rows, raw_results_sha256 = load_verified_rows(
         source_output_dir,
         manifest,
     )
@@ -85,7 +85,7 @@ def audit_scoring_integrity(
     if (
         manifest_path.read_bytes() != manifest_bytes
         or summary_path.read_bytes() != summary_bytes
-        or _raw_tree_hash(source_output_dir) != raw_results_sha256
+        or raw_tree_hash(source_output_dir) != raw_results_sha256
     ):
         raise RuntimeError("source CRD artifacts changed during integrity audit")
 
@@ -123,7 +123,7 @@ def build_scoring_integrity_audit(
     """Recompute score invariants and expose every non-ok decision row."""
     if not rows:
         raise ValueError("cannot audit an empty CRD result set")
-    evidence = [_row_evidence(row) for row in rows]
+    evidence = [row_evidence(row) for row in rows]
     probe_ids = [str(row.get("probe_id")) for row in rows]
     probe_ids_unique = len(probe_ids) == len(set(probe_ids))
     anomaly_records = [item for item in evidence if item["error_status"] != "ok"]
@@ -166,7 +166,8 @@ def build_scoring_integrity_audit(
     )
 
 
-def _row_evidence(row: dict[str, Any]) -> dict[str, Any]:
+def row_evidence(row: dict[str, Any]) -> dict[str, Any]:
+    """Return independently recomputed structural and ranking evidence."""
     candidates_value = row.get("candidates")
     candidates = candidates_value if isinstance(candidates_value, list) else []
     ordered_value = row.get("ordered_candidates")
@@ -414,10 +415,11 @@ def _interpretation(classification: str) -> str:
     )
 
 
-def _load_verified_rows(
+def load_verified_rows(
     source_output_dir: Path,
     manifest: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], str]:
+    """Load the complete immutable CRD matrix and verify every unit hash."""
     if manifest.get("schema_version") != "p0d2hcrd-manifest-v1":
         raise ValueError("not a P0-D2H-CRD manifest")
     if manifest.get("errors"):
@@ -461,10 +463,11 @@ def _load_verified_rows(
         )
     ):
         raise ValueError("source P0-D2H-CRD decision matrix changed")
-    return rows, _raw_tree_hash(source_output_dir)
+    return rows, raw_tree_hash(source_output_dir)
 
 
-def _raw_tree_hash(source_output_dir: Path) -> str:
+def raw_tree_hash(source_output_dir: Path) -> str:
+    """Hash every verified CRD raw result path and byte."""
     root = source_output_dir / "results" / "raw"
     files = sorted(root.rglob("*.jsonl"))
     if len(files) != 24:

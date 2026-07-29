@@ -85,6 +85,8 @@ def score_candidate_batch(
     bundle: Any,
     formatted_prompt: str,
     audit: dict[str, Any],
+    *,
+    expected_logits_dtype: Any | None = None,
 ) -> dict[str, Any]:
     prompt_ids = _token_ids(bundle.tokenizer, formatted_prompt)
     if sha256(formatted_prompt.encode()).hexdigest() != audit["prompt_sha256"]:
@@ -136,6 +138,11 @@ def score_candidate_batch(
             input_ids=input_ids,
             attention_mask=attention_mask,
         ).logits
+    if expected_logits_dtype is not None and logits.dtype != expected_logits_dtype:
+        raise RuntimeError(
+            "candidate-scoring logits dtype mismatch: "
+            f"{logits.dtype} != {expected_logits_dtype}"
+        )
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     latency = time.perf_counter() - started

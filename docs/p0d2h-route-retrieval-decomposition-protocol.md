@@ -272,6 +272,10 @@ zero-tie gate, or authorize a next stage.
 The prospectively frozen follow-up is the
 [P0-D2H-CRD BF16 precision retry](p0d2h-route-retrieval-decomposition-bf16-retry-protocol.md).
 
+The completed NF4/BF16 anomaly sets are subsequently compared without changing
+either source gate in the
+[strict-FP32 audit and conservative tie-policy protocol](p0d2h-route-retrieval-decomposition-precision-audit-protocol.md).
+
 ## 9. Colab and acceptance
 
 The independent notebook is:

@@ -3,7 +3,8 @@
 ## 1. Status and purpose
 
 - **Analysis type:** prospective precision intervention
-- **Execution status:** not yet run
+- **Execution status:** completed as
+  `p0d2hcrd-route-decomposition-fd812a9314`
 - **Primary question:** do the three structurally valid CRD exact ties disappear
   when the same immutable model revision is loaded from its original BF16
   weights instead of NF4?
@@ -14,6 +15,13 @@ The independent scoring-integrity audit verified that the candidate strings,
 continuations, token sequences, token log-probabilities, sums, means, ranks, and
 stored statuses were internally consistent. This protocol therefore changes
 model precision only; it does not repair or redefine scoring.
+
+The completed BF16 attempt preserved the frozen matrix and produced two new
+exact ties in `combined`. Its scoring-integrity audit classified both as
+`distinct_candidate_exact_score_ties_observed`, with every structural check
+passing. None of the BF16 tie probe IDs overlaps the three NF4 tie probe IDs.
+The BF16 source therefore remains `scoring_integrity_failed`; its route-only,
+retrieval-only, and combined point estimates are 0.6250, 1.0000, and 0.9688.
 
 ## 2. Frozen comparison
 
@@ -60,6 +68,9 @@ training_complexity_review_eligible = false
 automatic_training_started = false
 automatic_narrow_scan_started = false
 ```
+
+The follow-up mechanism and tie-policy analyses are frozen separately in the
+[strict-FP32 audit and conservative tie policy](p0d2h-route-retrieval-decomposition-precision-audit-protocol.md).
 
 ## 4. Independent namespace and recovery
 

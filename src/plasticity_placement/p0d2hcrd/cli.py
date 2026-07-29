@@ -10,8 +10,14 @@ from plasticity_placement.p0c.runtime import (
 )
 from plasticity_placement.p0d2hcrd.analysis import aggregate_experiment
 from plasticity_placement.p0d2hcrd.config import P0D2HCRDRequest
+from plasticity_placement.p0d2hcrd.conservative_analysis import (
+    aggregate_conservative_ties,
+)
 from plasticity_placement.p0d2hcrd.integrity_audit import (
     audit_scoring_integrity,
+)
+from plasticity_placement.p0d2hcrd.precision_audit import (
+    audit_fp32_precision,
 )
 from plasticity_placement.p0d2hcrd.runtime import (
     audit_request,
@@ -57,6 +63,44 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         required=True,
         help="独立的 supplementary audit 输出目录",
+    )
+    fp32_audit = subparsers.add_parser(
+        "audit-fp32",
+        help="用禁用 TF32 的完整 FP32 forward 只读复核 exact ties",
+    )
+    fp32_audit.add_argument(
+        "--source-output",
+        type=Path,
+        action="append",
+        required=True,
+        help="completed CRD source run；可重复传入 NF4 与 BF16",
+    )
+    fp32_audit.add_argument(
+        "--audit-output",
+        type=Path,
+        required=True,
+        help="独立的 FP32 supplementary audit 输出目录",
+    )
+    conservative = subparsers.add_parser(
+        "aggregate-v2",
+        help="在独立目录生成保守 exact-tie 上下界诊断",
+    )
+    conservative.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="完整 verified P0-D2H-CRD source run",
+    )
+    conservative.add_argument(
+        "--analysis-output",
+        type=Path,
+        required=True,
+        help="独立的 conservative tie analysis 输出目录",
+    )
+    conservative.add_argument(
+        "--bootstrap-samples",
+        type=int,
+        default=10_000,
     )
     return parser
 
@@ -107,6 +151,31 @@ def main() -> None:
         print(
             json.dumps(
                 {"scoring_integrity_audit_path": str(path)},
+                ensure_ascii=False,
+            )
+        )
+        return
+    if args.command == "audit-fp32":
+        path = audit_fp32_precision(
+            tuple(args.source_output),
+            args.audit_output,
+        )
+        print(
+            json.dumps(
+                {"fp32_precision_audit_path": str(path)},
+                ensure_ascii=False,
+            )
+        )
+        return
+    if args.command == "aggregate-v2":
+        path = aggregate_conservative_ties(
+            args.output,
+            args.analysis_output,
+            args.bootstrap_samples,
+        )
+        print(
+            json.dumps(
+                {"conservative_tie_summary_path": str(path)},
                 ensure_ascii=False,
             )
         )
