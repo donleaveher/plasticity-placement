@@ -144,8 +144,7 @@ def evaluate_experiment(output_dir: Path) -> Path:
         output_dir / "preflight" / "crd_bank_audit.json",
         "CRD bank audit",
     )
-    if crd_bank_audit != stored_crd_bank_audit:
-        raise ValueError("route-remediation CRD bank changed after preregistration")
+    _verify_crd_bank_audit(crd_bank_audit, stored_crd_bank_audit)
 
     fc_audits = _load_fc_audits(output_dir, config)
     crd_audits = _load_crd_audits(output_dir, config)
@@ -520,6 +519,18 @@ def _verify_audit_record(record: dict[str, Any]) -> None:
     expected = json_hash({key: value for key, value in record.items() if key != "record_sha256"})
     if observed != expected or record.get("all_candidates_valid") is not True:
         raise ValueError(f"candidate audit record changed: {record.get('probe_id')}")
+
+
+def _verify_crd_bank_audit(
+    regenerated: dict[str, Any],
+    stored: dict[str, Any],
+) -> None:
+    # Probe dataclasses retain tuple-valued candidate orders in memory, while
+    # JSON necessarily restores those arrays as lists. Compare their canonical
+    # JSON values so serialization type normalization is not mistaken for a
+    # bank change; any actual key or value change still alters the hash.
+    if json_hash(regenerated) != json_hash(stored):
+        raise ValueError("route-remediation CRD bank changed after preregistration")
 
 
 def _validate_execution_identity(
