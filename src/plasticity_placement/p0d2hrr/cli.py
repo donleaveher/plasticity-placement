@@ -10,6 +10,10 @@ from plasticity_placement.p0c.runtime import (
 )
 from plasticity_placement.p0d2hrr.analysis import aggregate_experiment
 from plasticity_placement.p0d2hrr.manifest import PilotManifest
+from plasticity_placement.p0d2hrr.paired_audit import (
+    PairedAuditRequest,
+    audit_paired_results,
+)
 from plasticity_placement.p0d2hrr.preflight import plan_experiment
 from plasticity_placement.p0d2hrr.runtime import (
     authorize_experiment,
@@ -59,6 +63,45 @@ def build_parser() -> argparse.ArgumentParser:
     aggregate.add_argument("--output", type=Path, required=True)
     aggregate.add_argument("--bootstrap-samples", type=int, default=10_000)
 
+    paired_audit = subparsers.add_parser(
+        "audit-p0",
+        help="只读执行 provenance、base↔adapter 配对与 component-cell 审计",
+    )
+    paired_audit.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="完整 verified route-remediation run",
+    )
+    paired_audit.add_argument(
+        "--base-crd-output",
+        type=Path,
+        required=True,
+        help="完整 verified NF4 base CRD run",
+    )
+    paired_audit.add_argument(
+        "--analysis-output",
+        type=Path,
+        required=True,
+        help="独立的 immutable P0 analysis 输出目录",
+    )
+    paired_audit.add_argument(
+        "--experiment-code-revision-lock",
+        type=Path,
+        help="原 RR pipeline 的 code_revision.txt；默认从 output 推导",
+    )
+    paired_audit.add_argument(
+        "--base-crd-code-revision-lock",
+        type=Path,
+        help="原 NF4 CRD pipeline 的 code_revision.txt；标准 layout 下可自动推导",
+    )
+    paired_audit.add_argument(
+        "--historical-preregistration-sha256",
+        help="可选的历史控制台 preregistration hash；仅记录，不冒充当前工件",
+    )
+    paired_audit.add_argument("--bootstrap-samples", type=int, default=10_000)
+    paired_audit.add_argument("--bootstrap-seed", type=int, default=20260730)
+
     status = subparsers.add_parser(
         "status",
         help="只读输出当前 manifest 状态",
@@ -95,6 +138,19 @@ def main() -> None:
         path = evaluate_experiment(args.output)
     elif args.command == "aggregate":
         path = aggregate_experiment(args.output, args.bootstrap_samples)
+    elif args.command == "audit-p0":
+        path = audit_paired_results(
+            PairedAuditRequest(
+                route_remediation_output=args.output,
+                base_crd_output=args.base_crd_output,
+                analysis_output=args.analysis_output,
+                experiment_code_revision_lock=args.experiment_code_revision_lock,
+                base_crd_code_revision_lock=args.base_crd_code_revision_lock,
+                historical_preregistration_sha256=(args.historical_preregistration_sha256),
+                bootstrap_samples=args.bootstrap_samples,
+                bootstrap_seed=args.bootstrap_seed,
+            )
+        )
     elif args.command == "status":
         manifest = PilotManifest.load(args.output / "manifest.json")
         print(

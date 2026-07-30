@@ -92,8 +92,35 @@ def test_cli_has_no_automatic_run_or_scan_command() -> None:
         "train",
         "evaluate",
         "aggregate",
+        "audit-p0",
         "status",
     }
+
+
+def test_cli_parses_independent_p0_audit_inputs() -> None:
+    args = build_parser().parse_args(
+        [
+            "audit-p0",
+            "--output",
+            "/rr",
+            "--base-crd-output",
+            "/base",
+            "--analysis-output",
+            "/analysis",
+            "--base-crd-code-revision-lock",
+            "/base-pipeline/code_revision.txt",
+            "--historical-preregistration-sha256",
+            "a" * 64,
+        ]
+    )
+    assert args.command == "audit-p0"
+    assert str(args.output) == "/rr"
+    assert str(args.base_crd_output) == "/base"
+    assert str(args.analysis_output) == "/analysis"
+    assert str(args.base_crd_code_revision_lock) == ("/base-pipeline/code_revision.txt")
+    assert args.bootstrap_samples == 10_000
+    assert args.bootstrap_seed == 20260730
+    assert args.historical_preregistration_sha256 == "a" * 64
 
 
 def test_aggregate_recomputes_candidate_ranking() -> None:

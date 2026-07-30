@@ -292,6 +292,32 @@ gate、`conditional_route >= 0.75`、route 改善以及 retrieval/combined 无�
 evaluation 和 aggregate 均需分别显式开启。完整协议见
 [`docs/p0d2h-route-remediation-lora-pilot-protocol.md`](docs/p0d2h-route-remediation-lora-pilot-protocol.md)。
 
+### P0 paired follow-up audit
+
+完成的 RR run 只能通过独立、只读的 P0 audit 与原 NF4 base CRD 做逐行比较：
+
+```bash
+uv run plasticity-p0d2hrr audit-p0 \
+  --output /path/to/verified-route-remediation \
+  --base-crd-output /path/to/verified-nf4-base-crd \
+  --analysis-output /independent/path/to/p0-analysis \
+  --experiment-code-revision-lock /path/to/rr-pipeline/code_revision.txt \
+  --base-crd-code-revision-lock /path/to/base-crd-pipeline/code_revision.txt \
+  --historical-preregistration-sha256 ae456ee26d9ac12c1ba35c0372574d7ae7f276eabba9800ae9af3360f6868986 \
+  --bootstrap-samples 10000 \
+  --bootstrap-seed 20260730
+```
+
+该命令验证完整 provenance，配对 1,152 条 forced-choice 和 1,536 条 CRD
+decisions，输出四格转移、signed expected-candidate margin、lesson-clustered
+bootstrap、作为次要敏感性检查的 exact McNemar/Holm、保守 tie bounds 和
+route/retrieval/combined matched-cell 分析。base 与 adapter 来自两个历史运行，
+因此这里只报告配对差异和关联，不声称 adapter 因果效应；同 session 因果重评分
+需要另行预注册。它不会修改 source、改变 gate 或授权训练。独立 CPU-only Colab 为
+[`notebooks/p0d2h_route_remediation_p0_audit/p0d2h_route_remediation_p0_audit_colab.ipynb`](notebooks/p0d2h_route_remediation_p0_audit/p0d2h_route_remediation_p0_audit_colab.ipynb)。
+该审计只能验证当前 artifact graph；若同一路径曾报告不同 preregistration hash，
+仍需外部 append-only 日志解释，不能由当前文件自洽性自动消除。
+
 ## 项目结构
 
 ```text
