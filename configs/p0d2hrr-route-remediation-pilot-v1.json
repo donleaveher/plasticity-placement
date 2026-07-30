@@ -1,0 +1,47 @@
+{
+  "allowed_external_evaluations": 1,
+  "allows_hyperparameter_search": false,
+  "allows_mappings_per_adapter_scan": false,
+  "allows_rlvr": false,
+  "data": {
+    "dev_group_count": 12,
+    "examples_per_group": 8,
+    "generator_version": "p0d2hrr-counterfactual-route-bank-v1",
+    "seed": 20260729,
+    "train_group_count": 60
+  },
+  "experiment_id": "P1-ROUTE-REMEDIATION-LORA-PILOT-v1",
+  "gates": {
+    "combined_min_accuracy": 0.9688,
+    "conditional_route_min_accuracy": 0.75,
+    "max_tie_error_nonfinite_rate": 0.0,
+    "retrieval_only_min_accuracy": 1.0,
+    "route_only_strictly_greater_than": 0.625
+  },
+  "model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+  "model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+  "official_evaluation_precision": "source_compatible",
+  "schema_version": "p0d2hrr-spec-v1",
+  "training": {
+    "alpha": 16,
+    "batch_size": 4,
+    "checkpoint_selection": "fixed_final_step",
+    "dropout": 0.0,
+    "epochs": 1,
+    "gradient_accumulation_steps": 4,
+    "gradient_checkpointing": true,
+    "layer_band": "full",
+    "learning_rate": 0.0002,
+    "max_length": 512,
+    "max_steps": 30,
+    "rank": 8,
+    "seed": 20260729,
+    "target_modules": [
+      "q_proj",
+      "v_proj"
+    ],
+    "use_4bit": true,
+    "use_chat_template": true,
+    "warmup_ratio": 0.03
+  }
+}

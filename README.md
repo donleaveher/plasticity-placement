@@ -264,6 +264,34 @@ Colab 入口为
 冻结协议见
 [`docs/p0d2h-route-retrieval-decomposition-protocol.md`](docs/p0d2h-route-retrieval-decomposition-protocol.md)。
 
+## P0-D2H-RR 路由修复 LoRA pilot
+
+P0-D2H-RR 是 P0-D2H-CRD 得到 `route_bottleneck_supported` 后的独立、预注册
+修复实验。它生成 480 条 route-only/route-and-copy counterfactual 训练样本和
+96 条 group-disjoint dev 样本，只允许一个固定的 rank-8 LoRA 配置。`plan`
+不会授权训练；`train` 必须先采纳由输出目录之外签发、绑定精确
+`preregistration_sha256` 的批准文件。
+
+```bash
+uv run plasticity-p0d2hrr plan \
+  --output artifacts/p0d2h-route-remediation \
+  --source-manifest /path/to/p0d2h-forced-choice/manifest.json \
+  --spec configs/p0d2hrr-route-remediation-pilot-v1.json
+
+uv run plasticity-p0d2hrr status \
+  --output artifacts/p0d2h-route-remediation
+```
+
+授权后，`train`、`evaluate` 和 `aggregate` 必须分步运行。正式评测完整重跑
+scale-canary forced-choice 与 CRD 两个 locked panel，并同时要求原 calibration
+gate、`conditional_route >= 0.75`、route 改善以及 retrieval/combined 无退化。
+即使通过，也只进入人工 1/4/8 training-complexity review，不会自动启动 scan
+或 RLVR。Colab 入口为
+[`notebooks/p0d2h_route_remediation/p0d2h_route_remediation_colab.ipynb`](notebooks/p0d2h_route_remediation/p0d2h_route_remediation_colab.ipynb)；
+其默认模式只运行代码/源工件锁定与 CPU preflight，授权采纳、训练、locked
+evaluation 和 aggregate 均需分别显式开启。完整协议见
+[`docs/p0d2h-route-remediation-lora-pilot-protocol.md`](docs/p0d2h-route-remediation-lora-pilot-protocol.md)。
+
 ## 项目结构
 
 ```text
@@ -280,7 +308,8 @@ Colab 入口为
 │   ├── p0d2h/                 # 只读困难 probe 编译、压力评估和诊断门
 │   ├── p0d2hc/                # Base-only oracle/scale calibration
 │   ├── p0d2hfc/               # Full-string forced-choice calibration
-│   └── p0d2hcrd/              # Base-only routing/retrieval/composition 拆分
+│   ├── p0d2hcrd/              # Base-only routing/retrieval/composition 拆分
+│   └── p0d2hrr/               # Authorized route-remediation LoRA pilot
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```

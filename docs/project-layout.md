@@ -16,7 +16,8 @@ plasticity-placement/
 │   ├── p0d2h/                 # P0-D2H read-only hard-probe stress diagnostic
 │   ├── p0d2hc/                # P0-D2H-CAL base-only oracle/scale calibration
 │   ├── p0d2hfc/               # P0-D2H-CAL-FC full-string forced choice
-│   └── p0d2hcrd/              # Base-only route/retrieval decomposition
+│   ├── p0d2hcrd/              # Base-only route/retrieval decomposition
+│   └── p0d2hrr/               # Authorized route-remediation LoRA pilot
 ├── tests/                     # 不依赖大模型下载的单元测试
 ├── artifacts/                 # 本地结果、适配器和检查点；不提交版本库
 ├── pyproject.toml
@@ -47,6 +48,13 @@ plasticity-placement/
   counterbalanced bank 分别运行两候选 `route_only`、四候选 `retrieval_only` 和
   四候选 `combined`。所有 status 仅用于定位 routing/retrieval/composition，
   `training_complexity_review_eligible` 永远为 false。
+- `p0d2hrr/` 只接受同一 exact frozen source，以独立合成 route bank 运行单一
+  固定 LoRA pilot。训练前必须采纳绑定 preregistration hash 的外部批准；正式
+  aggregate 同时要求原 forced-choice gate 与 route/retrieval/combined guardrails，
+  且永不自动启动 1/4/8 scan、narrow scan 或 RLVR。
 - `notebooks/` 不保存核心业务逻辑，只调用已安装的命令行入口。
+- `notebooks/p0d2h_route_remediation/` 以生成器维护 Colab；默认仅运行
+  preregistration/preflight，并把外部授权采纳、单次训练、locked evaluation
+  和 aggregate 分成互斥的显式阶段。
 - `data/examples/` 仅保存可公开、体积小且可复现的输入样例。
 - `artifacts/` 保存生成结果，通过 `.gitignore` 排除。
