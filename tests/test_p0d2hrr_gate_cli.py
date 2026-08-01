@@ -93,6 +93,7 @@ def test_cli_has_no_automatic_run_or_scan_command() -> None:
         "evaluate",
         "aggregate",
         "audit-p0",
+        "same-runtime-audit",
         "status",
     }
 

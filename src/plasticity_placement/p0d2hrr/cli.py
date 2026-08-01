@@ -20,6 +20,10 @@ from plasticity_placement.p0d2hrr.runtime import (
     evaluate_experiment,
     train_experiment,
 )
+from plasticity_placement.p0d2hrr.same_runtime_audit import (
+    SameRuntimeAuditRequest,
+    run_same_runtime_audit,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -102,6 +106,40 @@ def build_parser() -> argparse.ArgumentParser:
     paired_audit.add_argument("--bootstrap-samples", type=int, default=10_000)
     paired_audit.add_argument("--bootstrap-seed", type=int, default=20260730)
 
+    same_runtime = subparsers.add_parser(
+        "same-runtime-audit",
+        help="在同一已加载模型对象内逐 prompt 执行 adapter OFF→ON 配对复评",
+    )
+    same_runtime.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="完整 verified route-remediation run",
+    )
+    same_runtime.add_argument(
+        "--analysis-output",
+        type=Path,
+        required=True,
+        help="新的独立 same-runtime 输出目录",
+    )
+    same_runtime.add_argument(
+        "--experiment-code-revision-lock",
+        type=Path,
+        help="原 RR pipeline 的 code_revision.txt；默认从 output 推导",
+    )
+    same_runtime.add_argument("--bootstrap-samples", type=int, default=10_000)
+    same_runtime.add_argument("--bootstrap-seed", type=int, default=20260801)
+    same_runtime.add_argument(
+        "--combined-noninferiority-margin",
+        type=float,
+        default=0.02,
+    )
+    same_runtime.add_argument(
+        "--sentinel-score-tolerance",
+        type=float,
+        default=1e-5,
+    )
+
     status = subparsers.add_parser(
         "status",
         help="只读输出当前 manifest 状态",
@@ -149,6 +187,18 @@ def main() -> None:
                 historical_preregistration_sha256=(args.historical_preregistration_sha256),
                 bootstrap_samples=args.bootstrap_samples,
                 bootstrap_seed=args.bootstrap_seed,
+            )
+        )
+    elif args.command == "same-runtime-audit":
+        path = run_same_runtime_audit(
+            SameRuntimeAuditRequest(
+                route_remediation_output=args.output,
+                analysis_output=args.analysis_output,
+                experiment_code_revision_lock=args.experiment_code_revision_lock,
+                bootstrap_samples=args.bootstrap_samples,
+                bootstrap_seed=args.bootstrap_seed,
+                combined_noninferiority_margin=args.combined_noninferiority_margin,
+                sentinel_score_tolerance=args.sentinel_score_tolerance,
             )
         )
     elif args.command == "status":
