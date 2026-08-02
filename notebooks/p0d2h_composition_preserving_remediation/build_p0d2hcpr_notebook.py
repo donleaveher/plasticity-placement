@@ -69,8 +69,8 @@ SAME_RUNTIME_SUMMARY = Path(
 )
 
 # New CPR-v1 namespace. Change either attempt name to start a genuinely new run.
-CPR_PIPELINE_ATTEMPT = 'pipeline-cpr1'
-CPR_ATTEMPT = 'cpr1'
+CPR_PIPELINE_ATTEMPT = 'pipeline-cpr2'
+CPR_ATTEMPT = 'cpr2'
 QUALIFICATION_ATTEMPT = 'q1'
 CPR_PIPELINE_ROOT = Path(
     '/content/drive/MyDrive/plasticity-p0d/'
@@ -196,9 +196,15 @@ print('Qualification output:', QUALIFICATION_OUTPUT)
 
 PLAN = """
 def run(command):
-    completed = subprocess.run(command, cwd=REPO_DIR, check=True, capture_output=True, text=True)
+    completed = subprocess.run(command, cwd=REPO_DIR, capture_output=True, text=True)
     if completed.stdout:
         print(completed.stdout)
+    if completed.stderr:
+        print(completed.stderr, file=sys.stderr)
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f'Command failed with exit code {completed.returncode}: {command}'
+        )
     return completed
 
 if RUN_PLAN:

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
 
 from plasticity_placement.p0d2hcpr.config import ExperimentSpec, GateSpec, TrainingSpec
 from plasticity_placement.p0d2hcpr.data import compile_data
-from plasticity_placement.p0d2hcpr.preflight import _build_training_token_audit
+from plasticity_placement.p0d2hcpr.preflight import _build_training_token_audit, _spec_from_dict
 
 SPEC_PATH = (
     Path(__file__).parents[1] / "configs" / "p0d2hcpr-composition-preserving-remediation-v1.json"
@@ -46,6 +47,16 @@ def test_training_and_gate_changes_require_new_protocol() -> None:
         TrainingSpec(max_steps=73)
     with pytest.raises(ValueError, match="qualification gates"):
         GateSpec(combined_noninferiority_margin=0.03)
+
+
+def test_loading_resolved_spec_does_not_mutate_manifest_payload() -> None:
+    payload = ExperimentSpec.from_path(SPEC_PATH).to_dict()
+    expected = deepcopy(payload)
+
+    resolved = _spec_from_dict(payload)
+
+    assert payload == expected
+    assert resolved.training.target_modules == ("q_proj", "v_proj")
 
 
 class _Tokenizer:

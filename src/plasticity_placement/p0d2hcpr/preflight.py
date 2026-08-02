@@ -133,11 +133,11 @@ def _spec_from_dict(payload: dict[str, Any]) -> ExperimentSpec:
     from plasticity_placement.p0d2hcpr.config import DataSpec, GateSpec, TrainingSpec
 
     copy = dict(payload)
-    data = DataSpec(**copy.pop("data"))
-    training_payload = copy.pop("training")
+    data = DataSpec(**dict(copy.pop("data")))
+    training_payload = dict(copy.pop("training"))
     training_payload["target_modules"] = tuple(training_payload["target_modules"])
     training = TrainingSpec(**training_payload)
-    gates = GateSpec(**copy.pop("gates"))
+    gates = GateSpec(**dict(copy.pop("gates")))
     return ExperimentSpec(**copy, data=data, training=training, gates=gates)
 
 

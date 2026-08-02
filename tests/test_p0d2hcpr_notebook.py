@@ -35,6 +35,9 @@ def test_notebook_has_safe_defaults_and_complete_lifecycle() -> None:
         "".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"
     )
     assert "RUN_PLAN = True" in all_code
+    assert "CPR_PIPELINE_ATTEMPT = 'pipeline-cpr2'" in all_code
+    assert "CPR_ATTEMPT = 'cpr2'" in all_code
+    assert "completed.stderr" in all_code
     for value in ("RUN_AUTHORIZE", "RUN_TRAIN", "RUN_QUALIFY"):
         assert f"{value} = False" in all_code
     for action in ("plan", "authorize", "train", "qualify"):
