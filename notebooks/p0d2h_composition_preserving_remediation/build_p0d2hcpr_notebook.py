@@ -8,6 +8,13 @@ from typing import Any
 BRANCH = "agent/add-lora-evaluation"
 OUTPUT_DIR = Path(__file__).resolve().parent
 NOTEBOOK_NAME = "p0d2h_composition_preserving_remediation_colab.ipynb"
+COLAB_URL = (
+    "https://colab.research.google.com/github/donleaveher/"
+    "plasticity-placement/blob/"
+    f"{BRANCH.replace('/', '%2F')}/notebooks/"
+    "p0d2h_composition_preserving_remediation/"
+    f"{NOTEBOOK_NAME}"
+)
 
 
 def markdown(source: str) -> dict[str, Any]:
@@ -288,8 +295,10 @@ def build_notebook() -> dict[str, Any]:
     return {
         "cells": [
             markdown(
-                """
+                f"""
                 # P0-D2H-CPR-v1: composition-preserving remediation
+
+                [Open this notebook in Google Colab]({COLAB_URL})
 
                 This notebook runs one preregistered fresh LoRA with equal route-only,
                 retrieval-only, and combined rehearsal, followed by one locked same-runtime
@@ -329,6 +338,7 @@ def main() -> None:
     path = OUTPUT_DIR / NOTEBOOK_NAME
     path.write_text(json.dumps(build_notebook(), ensure_ascii=False, indent=1) + "\n")
     print(path)
+    print(COLAB_URL)
 
 
 if __name__ == "__main__":

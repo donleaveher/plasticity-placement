@@ -1,5 +1,7 @@
 # P0-D2H-CPR-v1 Colab
 
+[Open directly in Google Colab](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_composition_preserving_remediation/p0d2h_composition_preserving_remediation_colab.ipynb)
+
 Open `p0d2h_composition_preserving_remediation_colab.ipynb` in a GPU Colab runtime.
 The default pass performs checkout, provenance validation, data compilation, and
 preregistration only. Inspect the artifacts, then enable exactly one of authorization,

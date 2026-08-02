@@ -344,6 +344,7 @@ uv run plasticity-p0d2hcpr plan \
 通过 CPR-specific checks 也只会产生 `reading_qualification_candidate_review_required`；
 它仍需人工 review 和 formal gate recheck，不会自动授权 1/4/8。Colab 入口见
 [`notebooks/p0d2h_composition_preserving_remediation/p0d2h_composition_preserving_remediation_colab.ipynb`](notebooks/p0d2h_composition_preserving_remediation/p0d2h_composition_preserving_remediation_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_composition_preserving_remediation/p0d2h_composition_preserving_remediation_colab.ipynb)。
 协议见
 [`docs/p0d2h-composition-preserving-remediation-protocol.md`](docs/p0d2h-composition-preserving-remediation-protocol.md)。
 
