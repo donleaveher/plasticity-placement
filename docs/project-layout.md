@@ -17,7 +17,8 @@ plasticity-placement/
 │   ├── p0d2hc/                # P0-D2H-CAL base-only oracle/scale calibration
 │   ├── p0d2hfc/               # P0-D2H-CAL-FC full-string forced choice
 │   ├── p0d2hcrd/              # Base-only route/retrieval decomposition
-│   └── p0d2hrr/               # Authorized route-remediation LoRA pilot
+│   ├── p0d2hrr/               # Completed route-remediation LoRA pilot and audits
+│   └── p0d2hcpr/              # Composition-preserving remediation pilot
 ├── tests/                     # 不依赖大模型下载的单元测试
 ├── artifacts/                 # 本地结果、适配器和检查点；不提交版本库
 ├── pyproject.toml
@@ -52,6 +53,10 @@ plasticity-placement/
   固定 LoRA pilot。训练前必须采纳绑定 preregistration hash 的外部批准；正式
   aggregate 同时要求原 forced-choice gate 与 route/retrieval/combined guardrails，
   且永不自动启动 1/4/8 scan、narrow scan 或 RLVR。
+- `p0d2hcpr/` 绑定 verified RR1 与其 same-runtime 失败证据，从干净 base 运行
+  route/retrieval/combined 等权 rehearsal。资格评测在同一模型对象内逐 prompt
+  OFF→ON，使用 lesson-cluster CI 与 tie-robust bounds；即使成为 candidate 也不自动
+  授权 1/4/8。
 - `notebooks/` 不保存核心业务逻辑，只调用已安装的命令行入口。
 - `notebooks/p0d2h_route_remediation/` 以生成器维护 Colab；默认仅运行
   preregistration/preflight，并把外部授权采纳、单次训练、locked evaluation

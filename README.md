@@ -318,6 +318,35 @@ route/retrieval/combined matched-cell 分析。base 与 adapter 来自两个历�
 该审计只能验证当前 artifact graph；若同一路径曾报告不同 preregistration hash，
 仍需外部 append-only 日志解释，不能由当前文件自洽性自动消除。
 
+### Same-runtime 结论与 CPR-v1
+
+RR1 的单模型对象 OFF→ON 复评已完成。OFF replay sentinel 精确通过；adapter 将
+`route_only` 从 `0.5052` 提升到 `0.6458`，但 external `conditional_route` 仅从
+`0.6354` 到 `0.6562`，同时 `combined` 从 `0.7904` 降到 `0.7305`，其配对
+lesson-cluster 95% CI 为 `[-0.1042, -0.0182]`。retrieval-only 保持 `1.0000`。
+因此 RR1 失败，历史 gate 不变，1/4/8 继续冻结。
+
+P0-D2H-CPR-v1 是一个新的、独立授权的 composition-preserving remediation：从
+干净 base 创建 adapter，不 resume RR1；训练 bank 对 route-only、retrieval-only、
+combined 三类任务等权 rehearsal，并在每组内平衡 target slot、slot order 与 answer
+panel order。固定配置只训练一次、只保留 final checkpoint，然后在原 locked 96 条
+conditional-route 和完整 1,536 条 CRD 上做同-runtime OFF→ON 资格复评。
+
+```bash
+uv run plasticity-p0d2hcpr plan \
+  --output /new/path/composition-remediation-cpr1 \
+  --source-output /path/to/verified-route-remediation-rr1 \
+  --same-runtime-summary /path/to/same-runtime-sr1/summary.json \
+  --source-code-revision-lock /path/to/rr-pipeline/code_revision.txt \
+  --spec configs/p0d2hcpr-composition-preserving-remediation-v1.json
+```
+
+通过 CPR-specific checks 也只会产生 `reading_qualification_candidate_review_required`；
+它仍需人工 review 和 formal gate recheck，不会自动授权 1/4/8。Colab 入口见
+[`notebooks/p0d2h_composition_preserving_remediation/p0d2h_composition_preserving_remediation_colab.ipynb`](notebooks/p0d2h_composition_preserving_remediation/p0d2h_composition_preserving_remediation_colab.ipynb)，
+协议见
+[`docs/p0d2h-composition-preserving-remediation-protocol.md`](docs/p0d2h-composition-preserving-remediation-protocol.md)。
+
 ## 项目结构
 
 ```text

@@ -401,7 +401,10 @@ probe。当前真实结果和新的进入边界见下一节；本节保留为实
 | Invalid-output audit | 完成 | 1.5B external semantic `0.9167`，但 `conditional_route=0.6667` |
 | P0-D2H-CAL-FC | 完成 | 1.5B external forced-choice `0.9089`，但 `conditional_route=0.6354`；无 eligible model |
 | Conditional-route post-hoc audit | 完成 | 34/35 external errors 在 paired oracle 正确；错误受 variant/action/order 混杂 |
-| P0-D2H-CRD route/retrieval decomposition | 实现完成、未运行 | 新 bank 分离 routing、retrieval 与 combined；所有结论仅诊断，不授权训练 |
+| P0-D2H-CRD route/retrieval decomposition | 完成 | retrieval 正常；剩余缺口集中于 routing，精度 tie 已解释 |
+| P0-D2H-RR route remediation | 完成、失败 | route-only 提升但 conditional-route 未达 0.75，combined 退化 |
+| RR same-runtime OFF/ON audit | 完成 | sentinel 通过；adapter 的 route 增益与 combined 退化均在同一 runtime 重现 |
+| P0-D2H-CPR composition-preserving remediation | 已实现、待授权运行 | 等权 route/retrieval/combined rehearsal；1/4/8 保持冻结 |
 | P0-E GRPO/RLVR | 未进入 | 当前 calibration gate 不允许开始 |
 
 P0-D2H-R 在同一 0.5B 模型、固定 24-lesson cohort、固定 LoRA 参数预算上得到：
@@ -515,10 +518,11 @@ verified unit、2,304 个 decision row、9,216 个 candidate score 的本地完�
 2. 归档已完成的 P0-D2H-CAL-FC formal output；其冻结结果是无 eligible model；
 3. 归档已完成的 1.5B external `conditional_route` 只读错误审计；旧 endpoint 与
    gate 不变；
-4. 独立 base-only route/retrieval/combined diagnostic 已按新 counterbalanced bank
-   冻结并实现；若继续，只运行其 exact-source Colab，不改变旧 gate；
-5. 当前不得评审或执行 1/4/8 mappings-per-adapter 训练复杂度实验；
-6. 只有未来某个 prospectively frozen calibration 全部通过后，才人工评审训练设计；
+4. 归档已完成的 CRD、RR1 与 same-runtime 证据；RR1 不得继续训练或复用 checkpoint；
+5. 若获得独立授权，只运行固定 CPR-v1：从干净 base 训练一次，并执行一次 locked
+   same-runtime qualification；
+6. 当前不得评审或执行 1/4/8 mappings-per-adapter 训练复杂度实验；即使 CPR-v1
+   成为 qualification candidate，也必须先人工 review 并重新检查 formal gate；
 7. 最后才考虑 held-out layer-locus 复现、P0-E GRPO/RLVR 和
    recurrence–volatility router。
 

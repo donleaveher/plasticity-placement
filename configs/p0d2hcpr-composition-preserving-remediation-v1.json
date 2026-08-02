@@ -1,0 +1,51 @@
+{
+  "allows_hyperparameter_search": false,
+  "allows_kl_weight_scan": false,
+  "allows_mappings_per_adapter_scan": false,
+  "data": {
+    "dev_group_count": 12,
+    "examples_per_group": 24,
+    "generator_version": "p0d2hcpr-balanced-composition-bank-v1",
+    "seed": 20260802,
+    "train_group_count": 48
+  },
+  "experiment_id": "P1-COMPOSITION-PRESERVING-ROUTE-REMEDIATION-v1",
+  "gates": {
+    "bootstrap_samples": 10000,
+    "bootstrap_seed": 20260802,
+    "combined_noninferiority_margin": 0.02,
+    "conditional_route_min_accuracy": 0.75,
+    "retrieval_only_min_accuracy": 1.0,
+    "route_delta_ci_lower_exclusive": 0.0,
+    "route_only_min_accuracy_exclusive": 0.625,
+    "sentinel_score_tolerance": 1e-05
+  },
+  "locked_qualification_limit": 1,
+  "model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+  "model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+  "schema_version": "p0d2hcpr-spec-v1",
+  "training": {
+    "alpha": 16,
+    "batch_size": 4,
+    "checkpoint_selection": "fixed_final_step",
+    "dropout": 0.0,
+    "epochs": 1,
+    "gradient_accumulation_steps": 4,
+    "gradient_checkpointing": true,
+    "layer_band": "full",
+    "learning_rate": 0.0002,
+    "max_length": 512,
+    "max_steps": 72,
+    "objective": "equal_weight_sft_route_retrieval_combined",
+    "rank": 8,
+    "seed": 20260802,
+    "target_modules": [
+      "q_proj",
+      "v_proj"
+    ],
+    "use_4bit": true,
+    "use_chat_template": true,
+    "warmup_ratio": 0.03
+  },
+  "training_run_limit": 1
+}
