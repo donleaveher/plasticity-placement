@@ -35,6 +35,8 @@ def test_recovery_notebook_is_single_use_and_cannot_train_or_scan() -> None:
         "".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"
     )
     assert "RUN_RECOVERY = False" in all_code
+    assert "REQUESTED_CODE_REVISION = None" not in all_code
+    assert "REQUESTED_CODE_REVISION = 'b4dcbdf952d519b97bbe87a6fd0e066c8a21581c'" in all_code
     assert "composition-remediation-cpr2" in all_code
     assert "--recovery-authorization" in all_code
     assert "analysis_code_sha256" in all_code

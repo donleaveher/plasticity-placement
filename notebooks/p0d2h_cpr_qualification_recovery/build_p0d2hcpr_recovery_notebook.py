@@ -50,7 +50,7 @@ from IPython.display import Markdown, display
 
 REPO_URL = 'https://github.com/donleaveher/plasticity-placement.git'
 BRANCH = '{BRANCH}'
-REQUESTED_CODE_REVISION = None
+REQUESTED_CODE_REVISION = 'b4dcbdf952d519b97bbe87a6fd0e066c8a21581c'
 REPO_DIR = Path('/content/plasticity-placement-cpr-qfix')
 
 # Exact immutable cpr2 adapter whose q1 inference completed before classification failed.
