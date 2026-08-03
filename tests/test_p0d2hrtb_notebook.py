@@ -36,6 +36,7 @@ def test_bridge_notebook_has_safe_three_pass_lifecycle() -> None:
     assert "RUN_PLAN = True" in all_code
     assert "RUN_AUTHORIZE = False" in all_code
     assert "RUN_AUDIT = False" in all_code
+    assert "REQUESTED_CODE_REVISION = 'dd004f54e39598e4b67ae525bb46a38c293378b1'" in all_code
     assert "composition-remediation-cpr2" in all_code
     assert "same-runtime-q2/summary.json" in all_code
     assert "manifest['state'] == 'complete'" in all_code

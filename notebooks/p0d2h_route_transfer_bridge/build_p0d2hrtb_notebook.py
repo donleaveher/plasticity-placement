@@ -48,7 +48,7 @@ from IPython.display import Markdown, display
 
 REPO_URL = 'https://github.com/donleaveher/plasticity-placement.git'
 BRANCH = '{BRANCH}'
-REQUESTED_CODE_REVISION = None
+REQUESTED_CODE_REVISION = 'dd004f54e39598e4b67ae525bb46a38c293378b1'
 REPO_DIR = Path('/content/plasticity-placement-route-transfer')
 
 CPR_OUTPUT = Path(
