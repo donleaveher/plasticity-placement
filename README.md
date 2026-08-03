@@ -355,6 +355,16 @@ panel 的 q2 恢复入口见
 也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_cpr_qualification_recovery/p0d2h_cpr_qualification_recovery_colab.ipynb)。
 该恢复不重训、不调参且不授权 1/4/8。
 
+q2 进一步显示 cpr2 在 route-only 上达到 `0.9922`，却使 external
+conditional-route 从 `0.6667` 降至 `0.5625`。为区分 route grammar、slot lexicon、
+external payload 与 route-to-action composition，项目新增一个冻结 adapter、只推理的
+`2×2×2` route-transfer bridge audit。Colab 入口见
+[`notebooks/p0d2h_route_transfer_bridge/p0d2h_route_transfer_bridge_colab.ipynb`](notebooks/p0d2h_route_transfer_bridge/p0d2h_route_transfer_bridge_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_route_transfer_bridge/p0d2h_route_transfer_bridge_colab.ipynb)。
+协议见
+[`docs/p0d2h-route-transfer-bridge-protocol.md`](docs/p0d2h-route-transfer-bridge-protocol.md)。
+该审计不能重开 CPR-v1、授权训练或授权 1/4/8。
+
 ## 项目结构
 
 ```text
@@ -372,7 +382,9 @@ panel 的 q2 恢复入口见
 │   ├── p0d2hc/                # Base-only oracle/scale calibration
 │   ├── p0d2hfc/               # Full-string forced-choice calibration
 │   ├── p0d2hcrd/              # Base-only routing/retrieval/composition 拆分
-│   └── p0d2hrr/               # Authorized route-remediation LoRA pilot
+│   ├── p0d2hrr/               # Authorized route-remediation LoRA pilot
+│   ├── p0d2hcpr/              # Composition-preserving remediation 与资格复评
+│   └── p0d2hrtb/              # Frozen-adapter route-transfer bridge audit
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```
