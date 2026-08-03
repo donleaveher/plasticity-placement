@@ -404,7 +404,7 @@ probe。当前真实结果和新的进入边界见下一节；本节保留为实
 | P0-D2H-CRD route/retrieval decomposition | 完成 | retrieval 正常；剩余缺口集中于 routing，精度 tie 已解释 |
 | P0-D2H-RR route remediation | 完成、失败 | route-only 提升但 conditional-route 未达 0.75，combined 退化 |
 | RR same-runtime OFF/ON audit | 完成 | sentinel 通过；adapter 的 route 增益与 combined 退化均在同一 runtime 重现 |
-| P0-D2H-CPR composition-preserving remediation | 已实现、待授权运行 | 等权 route/retrieval/combined rehearsal；1/4/8 保持冻结 |
+| P0-D2H-CPR composition-preserving remediation | cpr2 已训练；q1 因结果落盘前的分析字段错误无决策；单次 q2 恢复待运行 | 同一 immutable adapter 与 locked panel；门槛不变；1/4/8 保持冻结 |
 | P0-E GRPO/RLVR | 未进入 | 当前 calibration gate 不允许开始 |
 
 P0-D2H-R 在同一 0.5B 模型、固定 24-lesson cohort、固定 LoRA 参数预算上得到：

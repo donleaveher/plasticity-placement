@@ -348,6 +348,13 @@ uv run plasticity-p0d2hcpr plan \
 协议见
 [`docs/p0d2h-composition-preserving-remediation-protocol.md`](docs/p0d2h-composition-preserving-remediation-protocol.md)。
 
+CPR-v1 的 cpr2 已完成单次训练；第一次 q1 资格复评在完成全部评分后因分析字段契约
+错误、且在结果落盘前终止，因此没有可解释的 q1 决策。一次性、同 adapter、同 locked
+panel 的 q2 恢复入口见
+[`notebooks/p0d2h_cpr_qualification_recovery/p0d2h_cpr_qualification_recovery_colab.ipynb`](notebooks/p0d2h_cpr_qualification_recovery/p0d2h_cpr_qualification_recovery_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_cpr_qualification_recovery/p0d2h_cpr_qualification_recovery_colab.ipynb)。
+该恢复不重训、不调参且不授权 1/4/8。
+
 ## 项目结构
 
 ```text

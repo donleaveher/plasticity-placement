@@ -49,12 +49,16 @@ from plasticity_placement.p0d2hrr.same_runtime_audit import (
 )
 
 SCHEMA_VERSION = "p0d2hcpr-same-runtime-qualification-v1"
+RECOVERY_AUTHORIZATION_SCHEMA_VERSION = "p0d2hcpr-qualification-recovery-authorization-v1"
+RECOVERY_AUTHORIZATION_SCOPE = "single_post_inference_classification_failure_recovery"
+RECOVERABLE_FAILURE_SIGNATURE = "KeyError:accuracy_interval_after_complete_scoring"
 
 
 @dataclass(frozen=True, slots=True)
 class QualificationRequest:
     output_dir: Path
     analysis_output: Path
+    recovery_authorization: Path | None = None
 
 
 def run_qualification(request: QualificationRequest) -> Path:
@@ -64,7 +68,9 @@ def run_qualification(request: QualificationRequest) -> Path:
     manifest, spec, identity = load_config(output_dir)
     if manifest.state != "trained":
         raise PermissionError(f"CPR qualification requires state=trained, found {manifest.state}")
-    if current_code_hash() != identity["code_sha256"]:
+    analysis_code_sha256 = current_code_hash()
+    recovery_mode = request.recovery_authorization is not None
+    if analysis_code_sha256 != identity["code_sha256"] and not recovery_mode:
         raise ValueError("code changed after CPR preregistration")
     adapter_sha256 = _adapter_hash(output_dir / "adapter")
     if adapter_sha256 != manifest.payload["training"]["summary"]["adapter_sha256"]:
@@ -112,13 +118,22 @@ def run_qualification(request: QualificationRequest) -> Path:
         "cpr_run_id": manifest.payload["run_id"],
         "cpr_manifest_sha256": file_hash(manifest.path),
         "adapter_sha256": adapter_sha256,
-        "analysis_code_sha256": current_code_hash(),
+        "training_code_sha256": identity["code_sha256"],
+        "analysis_code_sha256": analysis_code_sha256,
+        "qualification_mode": "approved_recovery" if recovery_mode else "primary",
         "bootstrap_samples": spec.gates.bootstrap_samples,
         "bootstrap_seed": spec.gates.bootstrap_seed,
         "combined_noninferiority_margin": spec.gates.combined_noninferiority_margin,
     }
     run_id = "p0d2hcpr-qualification-" + json_hash(run_identity)[:10]
-    _claim_qualification(output_dir, analysis_output, run_id, adapter_sha256)
+    recovery_context = _claim_qualification(
+        output_dir,
+        analysis_output,
+        run_id,
+        adapter_sha256,
+        analysis_code_sha256=analysis_code_sha256,
+        recovery_authorization=request.recovery_authorization,
+    )
     before = _source_snapshot(output_dir, identity)
 
     bundle: ModelBundle | None = None
@@ -218,6 +233,7 @@ def run_qualification(request: QualificationRequest) -> Path:
             "cpr_run_id": manifest.payload["run_id"],
             "cpr_manifest_sha256": file_hash(manifest.path),
             "prior_failed_same_runtime_run_id": identity["same_runtime_run_id"],
+            "qualification_recovery": recovery_context,
         },
         "runtime_identity": runtime_identity,
         "environment": current_environment_snapshot(),
@@ -266,13 +282,12 @@ def classify_result(
         for row in pairs
         for state in ("base", "adapter")
     )
-    fc_lower = fc["tie_sensitivity"]["adapter"]["accuracy_interval"][0]
-    route_lower = route["tie_sensitivity"]["adapter"]["accuracy_interval"][0]
-    retrieval_lower = retrieval["tie_sensitivity"]["adapter"]["accuracy_interval"][0]
-    combined_worst_delta = (
-        combined["tie_sensitivity"]["adapter"]["accuracy_interval"][0]
-        - combined["tie_sensitivity"]["base"]["accuracy_interval"][1]
-    )
+    fc_lower, _ = _tie_accuracy_bounds(fc, "adapter")
+    route_lower, _ = _tie_accuracy_bounds(route, "adapter")
+    retrieval_lower, _ = _tie_accuracy_bounds(retrieval, "adapter")
+    combined_adapter_lower, _ = _tie_accuracy_bounds(combined, "adapter")
+    _, combined_base_upper = _tie_accuracy_bounds(combined, "base")
+    combined_worst_delta = combined_adapter_lower - combined_base_upper
     route_ci = route["paired_accuracy_difference"]["ci95"]
     combined_ci = combined["paired_accuracy_difference"]["ci95"]
     material_combined_regression = combined_ci[1] < -gates.combined_noninferiority_margin
@@ -323,6 +338,19 @@ def classify_result(
             else "stop_cpr_v1_and_review_before_any_new_intervention"
         ),
     }
+
+
+def _tie_accuracy_bounds(metric: dict[str, Any], state: str) -> tuple[float, float]:
+    tie = metric.get("tie_sensitivity", {}).get(state)
+    if not isinstance(tie, dict) or tie.get("bounds_valid") is not True:
+        raise ValueError(f"{state} tie-sensitivity bounds are missing or invalid")
+    lower = tie.get("all_ties_incorrect_accuracy")
+    upper = tie.get("all_ties_compatible_accuracy")
+    if not isinstance(lower, (int, float)) or not isinstance(upper, (int, float)):
+        raise ValueError(f"{state} tie-sensitivity accuracy fields are missing")
+    if not 0.0 <= float(lower) <= float(upper) <= 1.0:
+        raise ValueError(f"{state} tie-sensitivity accuracy bounds are invalid")
+    return float(lower), float(upper)
 
 
 def _stage(
@@ -411,6 +439,13 @@ def _source_snapshot(output_dir: Path, identity: dict[str, Any]) -> dict[str, An
         "prior_same_runtime_summary": Path(str(identity["same_runtime_summary"])),
         "prior_same_runtime_manifest": Path(str(identity["same_runtime_manifest"])),
     }
+    optional_paths = {
+        "qualification_recovery_authorization": (
+            output_dir / "qualification_recovery_authorization.json"
+        ),
+        "qualification_recovery_claim": output_dir / "qualification_recovery_claim.json",
+    }
+    paths.update({name: path for name, path in optional_paths.items() if path.exists()})
     snapshot = {
         name: {"path": str(path), "sha256": file_hash(path)} for name, path in paths.items()
     }
@@ -435,8 +470,20 @@ def _claim_qualification(
     analysis_output: Path,
     run_id: str,
     adapter_sha256: str,
-) -> None:
+    *,
+    analysis_code_sha256: str | None = None,
+    recovery_authorization: Path | None = None,
+) -> dict[str, Any]:
     path = output_dir / "qualification_claim.json"
+    if recovery_authorization is not None:
+        return _claim_recovery_qualification(
+            output_dir,
+            analysis_output,
+            run_id,
+            adapter_sha256,
+            recovery_authorization,
+            analysis_code_sha256 or current_code_hash(),
+        )
     if path.exists():
         raise PermissionError("CPR-v1 locked qualification has already been claimed")
     payload = {
@@ -450,6 +497,102 @@ def _claim_qualification(
     from plasticity_placement.p0d2hrr.io import immutable_json_write
 
     immutable_json_write(path, payload, "CPR qualification claim")
+    return {
+        "mode": "primary",
+        "original_claim_sha256": None,
+        "recovery_authorization_sha256": None,
+    }
+
+
+def _claim_recovery_qualification(
+    output_dir: Path,
+    analysis_output: Path,
+    run_id: str,
+    adapter_sha256: str,
+    authorization_path: Path,
+    analysis_code_sha256: str,
+) -> dict[str, Any]:
+    from datetime import datetime
+
+    from plasticity_placement.p0d2hrr.io import immutable_json_write
+
+    original_claim_path = output_dir / "qualification_claim.json"
+    recovery_claim_path = output_dir / "qualification_recovery_claim.json"
+    adopted_authorization_path = output_dir / "qualification_recovery_authorization.json"
+    if not original_claim_path.is_file():
+        raise PermissionError("recovery requires the immutable original qualification claim")
+    if recovery_claim_path.exists():
+        raise PermissionError("the single CPR qualification recovery has already been claimed")
+    original_claim = read_json_object(original_claim_path, "original qualification claim")
+    original_analysis_output = Path(str(original_claim.get("analysis_output", ""))).resolve()
+    if original_analysis_output.exists():
+        raise PermissionError("recovery is forbidden because original result artifacts exist")
+    if original_claim.get("adapter_sha256") != adapter_sha256:
+        raise ValueError("original qualification claim does not bind this adapter")
+    authorization_path = authorization_path.resolve()
+    if authorization_path == output_dir or authorization_path.is_relative_to(output_dir):
+        raise ValueError("recovery authorization must be authored outside the CPR output")
+    authorization = read_json_object(authorization_path, "qualification recovery authorization")
+    expected_claim_sha256 = file_hash(original_claim_path)
+    required = {
+        "schema_version": RECOVERY_AUTHORIZATION_SCHEMA_VERSION,
+        "decision": "approved",
+        "scope": RECOVERY_AUTHORIZATION_SCOPE,
+        "failure_signature": RECOVERABLE_FAILURE_SIGNATURE,
+        "original_claim_sha256": expected_claim_sha256,
+        "original_analysis_output": str(original_analysis_output),
+        "recovery_analysis_output": str(analysis_output),
+        "analysis_code_sha256": analysis_code_sha256,
+        "allowed_recovery_runs": 1,
+        "allows_training": False,
+        "allows_mappings_per_adapter_scan": False,
+    }
+    differences = {
+        key: {"expected": value, "observed": authorization.get(key)}
+        for key, value in required.items()
+        if authorization.get(key) != value
+    }
+    if differences:
+        raise PermissionError(f"recovery authorization differs: {differences}")
+    approver = authorization.get("approved_by")
+    approved_at = authorization.get("approved_at")
+    if not isinstance(approver, str) or not approver.strip() or approver == "TBD":
+        raise ValueError("recovery authorization requires a named approver")
+    if not isinstance(approved_at, str) or approved_at == "TBD":
+        raise ValueError("recovery authorization requires an approval timestamp")
+    datetime.fromisoformat(approved_at.replace("Z", "+00:00"))
+    if adopted_authorization_path.exists():
+        adopted_authorization = read_json_object(
+            adopted_authorization_path, "adopted qualification recovery authorization"
+        )
+        if adopted_authorization != authorization:
+            raise PermissionError("adopted recovery authorization differs from external approval")
+        authorization_sha256 = file_hash(adopted_authorization_path)
+    else:
+        authorization_sha256 = immutable_json_write(
+            adopted_authorization_path,
+            authorization,
+            "qualification recovery authorization",
+        )
+    claim = {
+        "schema_version": "p0d2hcpr-qualification-recovery-claim-v1",
+        "run_id": run_id,
+        "analysis_output": str(analysis_output),
+        "adapter_sha256": adapter_sha256,
+        "analysis_code_sha256": analysis_code_sha256,
+        "original_claim_sha256": expected_claim_sha256,
+        "recovery_authorization_sha256": authorization_sha256,
+        "allowed_recovery_runs": 1,
+        "mappings_per_adapter_authorized": False,
+    }
+    immutable_json_write(recovery_claim_path, claim, "qualification recovery claim")
+    return {
+        "mode": "approved_post_inference_classification_failure_recovery",
+        "failure_signature": RECOVERABLE_FAILURE_SIGNATURE,
+        "analysis_code_sha256": analysis_code_sha256,
+        "original_claim_sha256": expected_claim_sha256,
+        "recovery_authorization_sha256": authorization_sha256,
+    }
 
 
 def _validate_trained_artifacts(

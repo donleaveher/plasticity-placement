@@ -8,10 +8,16 @@ import pytest
 from plasticity_placement.p0d2hcpr.config import GateSpec
 from plasticity_placement.p0d2hcpr.preflight import _validate_failed_same_runtime
 from plasticity_placement.p0d2hcpr.qualification import (
+    RECOVERABLE_FAILURE_SIGNATURE,
+    RECOVERY_AUTHORIZATION_SCHEMA_VERSION,
+    RECOVERY_AUTHORIZATION_SCOPE,
     _claim_qualification,
     _source_snapshot,
+    _tie_accuracy_bounds,
     classify_result,
 )
+from plasticity_placement.p0d2hrr.io import file_hash
+from plasticity_placement.p0d2hrr.paired_audit import _tie_bounds
 
 
 def _metric(
@@ -27,8 +33,16 @@ def _metric(
         "adapter_accuracy": adapter,
         "paired_accuracy_difference": {"ci95": list(ci)},
         "tie_sensitivity": {
-            "base": {"accuracy_interval": list(base_interval or (base, base))},
-            "adapter": {"accuracy_interval": list(adapter_interval or (adapter, adapter))},
+            "base": {
+                "bounds_valid": True,
+                "all_ties_incorrect_accuracy": (base_interval or (base, base))[0],
+                "all_ties_compatible_accuracy": (base_interval or (base, base))[1],
+            },
+            "adapter": {
+                "bounds_valid": True,
+                "all_ties_incorrect_accuracy": (adapter_interval or (adapter, adapter))[0],
+                "all_ties_compatible_accuracy": (adapter_interval or (adapter, adapter))[1],
+            },
         },
     }
 
@@ -93,10 +107,139 @@ def test_combined_interval_crossing_zero_is_not_confirmed_interference() -> None
     assert decision["diagnostics"]["combined_material_regression_supported"] is False
 
 
+def test_classifier_consumes_real_paired_audit_tie_schema() -> None:
+    produced = _tie_bounds(
+        [
+            {
+                "adapter_correct": True,
+                "adapter_tie": False,
+                "adapter_tie_expected_compatible": False,
+                "adapter_error_status": "ok",
+            },
+            {
+                "adapter_correct": False,
+                "adapter_tie": True,
+                "adapter_tie_expected_compatible": True,
+                "adapter_error_status": "tie",
+            },
+        ],
+        "adapter",
+    )
+
+    assert _tie_accuracy_bounds({"tie_sensitivity": {"adapter": produced}}, "adapter") == (
+        0.5,
+        1.0,
+    )
+
+
+def test_classifier_rejects_obsolete_accuracy_interval_schema() -> None:
+    metric = {"tie_sensitivity": {"adapter": {"accuracy_interval": [0.5, 1.0]}}}
+    with pytest.raises(ValueError, match="missing or invalid"):
+        _tie_accuracy_bounds(metric, "adapter")
+
+
 def test_locked_qualification_can_only_be_claimed_once(tmp_path) -> None:
     _claim_qualification(tmp_path, tmp_path.parent / "analysis", "run", "a" * 64)
     with pytest.raises(PermissionError, match="already been claimed"):
         _claim_qualification(tmp_path, tmp_path.parent / "analysis-2", "run-2", "b" * 64)
+
+
+def test_one_recovery_can_be_claimed_with_external_code_bound_authorization(tmp_path) -> None:
+    output = tmp_path / "cpr"
+    original_output = tmp_path / "qualification-q1"
+    recovery_output = tmp_path / "qualification-q2"
+    adapter_sha256 = "a" * 64
+    analysis_code_sha256 = "b" * 64
+    _claim_qualification(output, original_output, "run-q1", adapter_sha256)
+    original_claim = output / "qualification_claim.json"
+    authorization_path = tmp_path / "approvals" / "recovery.json"
+    authorization_path.parent.mkdir()
+    authorization_path.write_text(
+        json.dumps(
+            {
+                "schema_version": RECOVERY_AUTHORIZATION_SCHEMA_VERSION,
+                "decision": "approved",
+                "scope": RECOVERY_AUTHORIZATION_SCOPE,
+                "failure_signature": RECOVERABLE_FAILURE_SIGNATURE,
+                "original_claim_sha256": file_hash(original_claim),
+                "original_analysis_output": str(original_output.resolve()),
+                "recovery_analysis_output": str(recovery_output.resolve()),
+                "analysis_code_sha256": analysis_code_sha256,
+                "allowed_recovery_runs": 1,
+                "allows_training": False,
+                "allows_mappings_per_adapter_scan": False,
+                "approved_by": "test-approver",
+                "approved_at": "2026-08-03T00:00:00+00:00",
+            }
+        )
+    )
+
+    context = _claim_qualification(
+        output,
+        recovery_output.resolve(),
+        "run-q2",
+        adapter_sha256,
+        analysis_code_sha256=analysis_code_sha256,
+        recovery_authorization=authorization_path,
+    )
+
+    assert context["mode"] == "approved_post_inference_classification_failure_recovery"
+    assert context["analysis_code_sha256"] == analysis_code_sha256
+    assert (output / "qualification_recovery_authorization.json").is_file()
+    assert (output / "qualification_recovery_claim.json").is_file()
+    with pytest.raises(PermissionError, match="already been claimed"):
+        _claim_qualification(
+            output,
+            tmp_path / "qualification-q3",
+            "run-q3",
+            adapter_sha256,
+            analysis_code_sha256=analysis_code_sha256,
+            recovery_authorization=authorization_path,
+        )
+
+
+def test_recovery_completes_claim_after_interruption_following_authorization_adoption(
+    tmp_path,
+) -> None:
+    output = tmp_path / "cpr"
+    original_output = tmp_path / "qualification-q1"
+    recovery_output = (tmp_path / "qualification-q2").resolve()
+    adapter_sha256 = "a" * 64
+    analysis_code_sha256 = "b" * 64
+    _claim_qualification(output, original_output, "run-q1", adapter_sha256)
+    original_claim = output / "qualification_claim.json"
+    authorization = {
+        "schema_version": RECOVERY_AUTHORIZATION_SCHEMA_VERSION,
+        "decision": "approved",
+        "scope": RECOVERY_AUTHORIZATION_SCOPE,
+        "failure_signature": RECOVERABLE_FAILURE_SIGNATURE,
+        "original_claim_sha256": file_hash(original_claim),
+        "original_analysis_output": str(original_output.resolve()),
+        "recovery_analysis_output": str(recovery_output),
+        "analysis_code_sha256": analysis_code_sha256,
+        "allowed_recovery_runs": 1,
+        "allows_training": False,
+        "allows_mappings_per_adapter_scan": False,
+        "approved_by": "test-approver",
+        "approved_at": "2026-08-03T00:00:00+00:00",
+    }
+    authorization_path = tmp_path / "external-recovery.json"
+    authorization_path.write_text(json.dumps(authorization))
+    adopted_path = output / "qualification_recovery_authorization.json"
+    adopted_path.write_text(json.dumps(authorization, indent=2, sort_keys=True) + "\n")
+
+    context = _claim_qualification(
+        output,
+        recovery_output,
+        "run-q2",
+        adapter_sha256,
+        analysis_code_sha256=analysis_code_sha256,
+        recovery_authorization=authorization_path,
+    )
+
+    claim = json.loads((output / "qualification_recovery_claim.json").read_text())
+    assert context["recovery_authorization_sha256"] == file_hash(adopted_path)
+    assert claim["recovery_authorization_sha256"] == file_hash(adopted_path)
 
 
 def test_prior_same_runtime_manifest_must_bind_failed_summary(tmp_path) -> None:

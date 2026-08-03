@@ -9,6 +9,23 @@ and combined changed from `0.7904` to `0.7305` (`95%` lesson-cluster CI for ONâˆ
 `[-0.1042, -0.0182]`). The OFF replay sentinel passed. Compatible ties do not change these
 directions. RR1 is therefore closed as failed and 1/4/8 remains unauthorized.
 
+### CPR-v1 execution status (2026-08-03)
+
+The cpr2 adapter completed its single authorized training run. Its primary q1 qualification
+scored all 96 external conditional-route pairs and all 1,536 CRD pairs, then failed before
+publishing any result artifact because the classifier requested the obsolete
+`tie_sensitivity.*.accuracy_interval` field. The paired-audit producer has always emitted
+`all_ties_incorrect_accuracy` and `all_ties_compatible_accuracy`; the protocol already requires
+the former pessimistic endpoint. This is an analysis-schema implementation failure, not an
+experimental outcome, and no q1 decision exists.
+
+One q2 infrastructure recovery is allowed only with an external authorization bound to the
+immutable q1 claim, the unchanged cpr2 adapter, the corrected analysis-code hash, and a new
+independent output. It repeats the same locked OFFâ†’ON panel, cannot train or scan mappings, and
+does not relax any gate. The dedicated recovery Colab is
+[`notebooks/p0d2h_cpr_qualification_recovery/p0d2h_cpr_qualification_recovery_colab.ipynb`](../notebooks/p0d2h_cpr_qualification_recovery/p0d2h_cpr_qualification_recovery_colab.ipynb).
+Until q2 completes and is reviewed, CPR remains unqualified and 1/4/8 remains unauthorized.
+
 ## Question and intervention
 
 CPR-v1 asks whether one fresh LoRA can improve conditional routing without damaging retrieval
@@ -63,6 +80,11 @@ uv run plasticity-p0d2hcpr authorize --output ... --authorization /outside/appro
 uv run plasticity-p0d2hcpr train --output ...
 uv run plasticity-p0d2hcpr qualify --output ... --analysis-output /new/independent/path
 ```
+
+The one-time cpr2 q1 recovery additionally requires
+`--recovery-authorization /outside/recovery-authorization.json`. This flag is not a general
+retry mechanism: it is accepted only when the original claim exists, its output has no result
+artifacts, no prior recovery claim exists, and every bound recovery field matches.
 
 `plan` verifies the complete RR1 artifact graph and same-runtime failure source, compiles the
 new bank, and writes a preregistration plus a pending authorization template. Authorization

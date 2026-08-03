@@ -34,6 +34,11 @@ def build_parser() -> argparse.ArgumentParser:
     qualify = subparsers.add_parser("qualify", help="同 runtime OFF→ON locked qualification")
     qualify.add_argument("--output", type=Path, required=True)
     qualify.add_argument("--analysis-output", type=Path, required=True)
+    qualify.add_argument(
+        "--recovery-authorization",
+        type=Path,
+        help="外部签发的单次 post-inference classification-failure recovery 授权",
+    )
     status = subparsers.add_parser("status", help="只读输出 manifest 状态")
     status.add_argument("--output", type=Path, required=True)
     return parser
@@ -66,7 +71,13 @@ def main() -> None:
     elif args.command == "train":
         path = train_experiment(args.output)
     elif args.command == "qualify":
-        path = run_qualification(QualificationRequest(args.output, args.analysis_output))
+        path = run_qualification(
+            QualificationRequest(
+                args.output,
+                args.analysis_output,
+                recovery_authorization=args.recovery_authorization,
+            )
+        )
     elif args.command == "status":
         manifest = Manifest.load(args.output / "manifest.json")
         print(
