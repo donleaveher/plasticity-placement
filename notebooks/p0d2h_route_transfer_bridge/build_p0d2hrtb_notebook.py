@@ -107,7 +107,7 @@ locked_revision = CODE_REVISION_LOCK.read_text().strip() if CODE_REVISION_LOCK.e
 subprocess.run(['git', '-C', str(REPO_DIR), 'fetch', 'origin', BRANCH], check=True)
 revision_ref = REQUESTED_CODE_REVISION or locked_revision or f'origin/{BRANCH}'
 CODE_REVISION = subprocess.run(
-    ['git', '-C', str(REPO_DIR), 'rev-parse', f'{{revision_ref}}^{{commit}}'],
+    ['git', '-C', str(REPO_DIR), 'rev-parse', f'{revision_ref}^{{commit}}'],
     check=True,
     capture_output=True,
     text=True,
