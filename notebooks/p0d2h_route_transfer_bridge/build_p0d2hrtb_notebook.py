@@ -276,15 +276,15 @@ def build_notebook() -> dict[str, Any]:
                 """
             ),
             code(CONFIG),
-            code(CHECKOUT),
-            code(IDENTITY),
-            code(LIFECYCLE),
+            code("\n\n".join((CHECKOUT, IDENTITY, LIFECYCLE))),
             markdown(
                 """
-                First run with safe defaults and inspect `preregistration.json`,
-                `preflight/bank_audit.json`, and `authorization.template.json`. Then set a real
-                `APPROVER`, enable only `RUN_AUTHORIZE`, and run again. Finally disable it, enable
-                only `RUN_AUDIT`, and execute the single frozen audit.
+                Run the combined setup/audit cell with safe defaults and inspect
+                `preregistration.json`, `preflight/bank_audit.json`, and
+                `authorization.template.json`. Then set a real `APPROVER` in the configuration
+                cell, enable only `RUN_AUTHORIZE`, rerun the configuration and combined cell.
+                Finally disable it, enable only `RUN_AUDIT`, and rerun both cells to execute the
+                single frozen audit.
                 """
             ),
             code(RESULTS),

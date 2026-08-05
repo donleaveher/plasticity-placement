@@ -30,8 +30,16 @@ def test_generated_bridge_notebook_is_colab_ready_and_parses(tmp_path: Path) -> 
 
 def test_bridge_notebook_has_safe_three_pass_lifecycle() -> None:
     notebook = _module().build_notebook()
-    all_code = "\n".join(
+    code_cells = [
         "".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"
+    ]
+    all_code = "\n".join(code_cells)
+    assert len(code_cells) == 3
+    combined = code_cells[1]
+    assert (
+        combined.index("CODE_REVISION = subprocess.run")
+        < combined.index("AUDIT_OUTPUT = PIPELINE_ROOT")
+        < combined.index("if RUN_PLAN:")
     )
     assert "RUN_PLAN = True" in all_code
     assert "RUN_AUTHORIZE = False" in all_code
