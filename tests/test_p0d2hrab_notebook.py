@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 NOTEBOOK_DIR = Path(__file__).parents[1] / "notebooks" / "p0d2h_receipt_action_binding"
+EXPECTED_CODE_REVISION = "25f72d5f53010b32a3b4ebb569dbd1863b7aeaa0"
 
 
 def _module():
@@ -19,6 +20,7 @@ def _module():
 
 def test_binding_notebook_is_colab_ready_parses_and_matches_builder(tmp_path: Path) -> None:
     module = _module()
+    assert module.CODE_REVISION == EXPECTED_CODE_REVISION
     checked_in = json.loads((NOTEBOOK_DIR / module.NOTEBOOK_NAME).read_text())
     assert checked_in == module.build_notebook()
     module.OUTPUT_DIR = tmp_path

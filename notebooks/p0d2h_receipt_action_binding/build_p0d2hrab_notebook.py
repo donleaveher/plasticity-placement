@@ -8,7 +8,7 @@ from typing import Any
 BRANCH = "agent/add-lora-evaluation"
 OUTPUT_DIR = Path(__file__).resolve().parent
 NOTEBOOK_NAME = "p0d2h_receipt_action_binding_colab.ipynb"
-CODE_REVISION = None
+CODE_REVISION = "25f72d5f53010b32a3b4ebb569dbd1863b7aeaa0"
 COLAB_URL = (
     "https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/"
     f"{BRANCH.replace('/', '%2F')}/notebooks/p0d2h_receipt_action_binding/{NOTEBOOK_NAME}"
