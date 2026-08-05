@@ -365,12 +365,19 @@ external payload 与 route-to-action composition，项目新增一个冻结 adap
 [`docs/p0d2h-route-transfer-bridge-protocol.md`](docs/p0d2h-route-transfer-bridge-protocol.md)。
 该审计不能重开 CPR-v1、授权训练或授权 1/4/8。
 
-RTB 第一次启动目前停留在 stale `running`，但未写出 OFF/ON rows、raw checkpoint、
-pairs、summary 或 audit manifest，因此尚无 RTB 结果。项目只允许一次外部授权的
-zero-artifact identical retry：恢复治理与原实验代码分别锁定，恢复 pass 只将同一
-manifest 还原为 `authorized`，随后必须在单独 pass 用原始实验 commit 运行。协议见
-[`docs/p0d2hrtb-zero-artifact-recovery-protocol.md`](docs/p0d2hrtb-zero-artifact-recovery-protocol.md)。
-在该审计完成并复核前，训练和 1/4/8 仍未授权。
+RTB 已通过一次外部授权的 zero-artifact identical retry 完成。严格 zero-tie gate
+因 26 个 primary tie 触发 `scoring_integrity_failed`，但全部 tie 都是
+expected-compatible、margin 为零；最坏 tie resolution 下八个 slot-readout cell 的
+adapter 增益仍全部为正。完全 external slot 从 `0.5208` 升至 `0.9896`，direct action
+却从 `0.6354` 降至 `0.5521`，而 forced-slot action 保持在 `0.9271`。
+
+下一步是独立的 route-state handoff audit：CPU replay 先绑定 RTB/q2，GPU audit 再冻结
+并评分 direct、predicted-slot chain、oracle-slot 和 wrong-slot control。Colab 入口见
+[`notebooks/p0d2h_route_state_handoff/p0d2h_route_state_handoff_colab.ipynb`](notebooks/p0d2h_route_state_handoff/p0d2h_route_state_handoff_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_route_state_handoff/p0d2h_route_state_handoff_colab.ipynb)。
+协议见
+[`docs/p0d2h-route-state-handoff-protocol.md`](docs/p0d2h-route-state-handoff-protocol.md)。
+该审计不改变 RTB decision，训练和 1/4/8 仍未授权。
 
 ## 项目结构
 
@@ -391,7 +398,8 @@ manifest 还原为 `authorized`，随后必须在单独 pass 用原始实验 com
 │   ├── p0d2hcrd/              # Base-only routing/retrieval/composition 拆分
 │   ├── p0d2hrr/               # Authorized route-remediation LoRA pilot
 │   ├── p0d2hcpr/              # Composition-preserving remediation 与资格复评
-│   └── p0d2hrtb/              # Frozen-adapter route-transfer bridge audit
+│   ├── p0d2hrtb/              # Frozen-adapter route-transfer bridge audit
+│   └── p0d2hrsh/              # Route-state handoff audit
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```

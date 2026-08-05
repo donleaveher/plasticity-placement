@@ -19,7 +19,8 @@ plasticity-placement/
 │   ├── p0d2hcrd/              # Base-only route/retrieval decomposition
 │   ├── p0d2hrr/               # Completed route-remediation LoRA pilot and audits
 │   ├── p0d2hcpr/              # Composition-preserving remediation pilot
-│   └── p0d2hrtb/              # Frozen-adapter route-transfer bridge audit
+│   ├── p0d2hrtb/              # Frozen-adapter route-transfer bridge audit
+│   └── p0d2hrsh/              # Route-state handoff audit
 ├── tests/                     # 不依赖大模型下载的单元测试
 ├── artifacts/                 # 本地结果、适配器和检查点；不提交版本库
 ├── pyproject.toml
@@ -60,6 +61,9 @@ plasticity-placement/
   授权 1/4/8。
 - `p0d2hrtb/` 绑定失败的 CPR q2 与 immutable cpr2 adapter，运行 inference-only
   prompt-factor bridge；不训练且不改变 1/4/8 gate。
+- `p0d2hrsh/` 绑定 complete RTB/q2 artifacts，先做 CPU replay qualification，再在
+  同一 runtime 中评分 frozen slot/direct/receipt-A/receipt-B prompts，并派生
+  predicted/oracle/wrong-slot handoff；不重分类 RTB、不训练且不改变 1/4/8 gate。
 - `notebooks/` 不保存核心业务逻辑，只调用已安装的命令行入口。
 - `notebooks/p0d2h_route_remediation/` 以生成器维护 Colab；默认仅运行
   preregistration/preflight，并把外部授权采纳、单次训练、locked evaluation

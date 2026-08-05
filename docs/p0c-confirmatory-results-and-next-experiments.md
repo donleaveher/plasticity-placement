@@ -405,7 +405,8 @@ probe。当前真实结果和新的进入边界见下一节；本节保留为实
 | P0-D2H-RR route remediation | 完成、失败 | route-only 提升但 conditional-route 未达 0.75，combined 退化 |
 | RR same-runtime OFF/ON audit | 完成 | sentinel 通过；adapter 的 route 增益与 combined 退化均在同一 runtime 重现 |
 | P0-D2H-CPR composition-preserving remediation | cpr2 已训练；q2 完成并失败：route-only `0.9922`，external conditional-route `0.5625` | retrieval-only `1.0000`；历史门槛不变；1/4/8 保持冻结 |
-| P0-D2H RTB mechanism audit | 首次启动 stale `running`，且无任何评分或分析产物；一次性 zero-artifact identical recovery 待执行 | 尚无 RTB 结果；恢复与实验代码分别锁定；训练和 1/4/8 均未授权 |
+| P0-D2H RTB mechanism audit | 完成；26 个 primary expected-compatible ties 触发 strict `scoring_integrity_failed` | 八个 slot cell 的 tie-robust 增益均为正；direct action 退化而 forced-slot 稳定；1/4/8 冻结 |
+| P0-D2H route-state handoff audit | 已设计、尚未运行 | CPU replay 后比较 direct、predicted chain、oracle receipt、wrong receipt；不训练、不重分类 RTB |
 | P0-E GRPO/RLVR | 未进入 | 当前 calibration gate 不允许开始 |
 
 P0-D2H-R 在同一 0.5B 模型、固定 24-lesson cohort、固定 LoRA 参数预算上得到：
