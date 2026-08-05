@@ -82,5 +82,6 @@ def test_diagnostic_notebook_uses_exact_completed_rab_and_direct_colab_url() -> 
 
     assert "receipt-action-binding-rab1" in notebook_text
     assert "code-25f72d5f53_rsh-4d405f751a" in notebook_text
+    assert "preflight' / 'binding_probes.jsonl" in notebook_text
     assert module.COLAB_URL.startswith("https://colab.research.google.com/github/")
     assert "agent%2Fadd-lora-evaluation" in module.COLAB_URL

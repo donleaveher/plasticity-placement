@@ -26,8 +26,10 @@ diagnostic execution.
 
 ## Cell-level reconstruction
 
-For each frozen prompt, the audit joins the paired record to exactly one OFF and one ON raw row.
-It verifies all static fields, predictions, candidate order, and selected/counterfactual outcomes.
+For each frozen prompt, the audit joins the preregistered `binding_probes.jsonl` row, paired
+record, and exactly one OFF and one ON raw row. It verifies all topology-relevant static fields
+against the frozen probe bank, the 12-pair × 4-variant × 4-cell balance, predictions, candidate
+order, positive integral token counts, and selected/counterfactual outcomes.
 It then records for both states:
 
 - selected correctness;

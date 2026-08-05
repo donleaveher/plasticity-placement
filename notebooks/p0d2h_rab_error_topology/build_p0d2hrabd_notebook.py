@@ -132,6 +132,7 @@ required_source = (
     RAB_OUTPUT / 'results' / 'adapter_off.jsonl',
     RAB_OUTPUT / 'results' / 'adapter_on.jsonl',
     RAB_OUTPUT / 'audit_manifest.json',
+    RAB_OUTPUT / 'preflight' / 'binding_probes.jsonl',
 )
 missing = [str(path) for path in required_source if not path.is_file()]
 if missing:

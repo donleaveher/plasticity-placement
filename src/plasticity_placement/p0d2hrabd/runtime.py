@@ -119,11 +119,13 @@ def run_diagnostic(output_dir: Path) -> Path:
         paired_records = _read_jsonl(rab_output / "paired_records.jsonl")
         adapter_off = _read_jsonl(rab_output / "results" / "adapter_off.jsonl")
         adapter_on = _read_jsonl(rab_output / "results" / "adapter_on.jsonl")
+        binding_probes = _read_jsonl(rab_output / "preflight" / "binding_probes.jsonl")
         lesson_types = _lesson_type_map(Path(source["identity"]["rsh_output"]))
         analysis, cell_records, unit_records = analyze_error_topology(
             paired_records,
             adapter_off,
             adapter_on,
+            binding_probes,
             lesson_types,
             DiagnosticSpec(),
         )
@@ -194,6 +196,7 @@ def verify_complete_result(output_dir: Path) -> Path:
     manifest = _load_manifest(output_dir)
     if manifest.get("state") != "complete":
         raise ValueError("RAB error-topology manifest is not complete")
+    _verify_preflight(output_dir, manifest["config"])
     audit_path = output_dir / "audit_manifest.json"
     if not audit_path.is_file() or file_hash(audit_path) != manifest.get("result", {}).get(
         "audit_manifest_sha256"

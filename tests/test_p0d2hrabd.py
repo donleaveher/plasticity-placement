@@ -16,7 +16,7 @@ from plasticity_placement.p0d2hrabd.runtime import (
     plan_diagnostic,
     verify_complete_result,
 )
-from plasticity_placement.p0d2hrr.io import file_hash
+from plasticity_placement.p0d2hrr.io import file_hash, json_hash
 
 
 def test_diagnostic_spec_is_frozen_and_disallows_intervention() -> None:
@@ -54,10 +54,10 @@ def test_unit_taxonomy_priority(signature: str, category: str, tie: bool) -> Non
 
 
 def test_full_analysis_reconstructs_transitions_margins_and_taxonomy() -> None:
-    paired, off, on, lesson_types = _synthetic_source()
+    paired, off, on, probes, lesson_types = _synthetic_source()
 
     result, cell_records, unit_records = analyze_error_topology(
-        paired, off, on, lesson_types, DiagnosticSpec()
+        paired, off, on, probes, lesson_types, DiagnosticSpec()
     )
 
     assert len(cell_records) == 192
@@ -80,22 +80,37 @@ def test_full_analysis_reconstructs_transitions_margins_and_taxonomy() -> None:
     assert result["mappings_per_adapter_authorized"] is False
 
 
-@pytest.mark.parametrize("corruption", ("static", "score_rank", "nonfinite"))
+@pytest.mark.parametrize(
+    "corruption", ("static", "score_rank", "nonfinite", "fractional_token_count")
+)
 def test_row_reconstruction_rejects_source_corruption(corruption: str) -> None:
-    paired, off, on, lesson_types = _synthetic_source()
+    paired, off, on, probes, lesson_types = _synthetic_source()
     if corruption == "static":
         on[0]["receipt"] = "B"
     elif corruption == "score_rank":
         on[0]["candidates"][1]["sum_rank"] = 1
     elif corruption == "nonfinite":
         on[0]["candidates"][0]["mean_logprob"] = float("inf")
+    elif corruption == "fractional_token_count":
+        on[0]["candidates"][0]["token_count"] = 1.9
     else:
         raise AssertionError(corruption)
 
-    _, integrity = build_cell_records(paired, off, on, lesson_types, DiagnosticSpec())
+    _, integrity = build_cell_records(paired, off, on, probes, lesson_types, DiagnosticSpec())
 
     assert integrity["all_checks_passed"] is False
     assert len(integrity["mismatches"]) == 1
+
+
+def test_row_reconstruction_rejects_consistent_result_mutation_against_probe_bank() -> None:
+    paired, off, on, probes, lesson_types = _synthetic_source()
+    for row in (paired[0], off[0], on[0]):
+        row["expected_action"] = "act_c"
+
+    _, integrity = build_cell_records(paired, off, on, probes, lesson_types, DiagnosticSpec())
+
+    assert integrity["all_checks_passed"] is False
+    assert "frozen binding probe" in integrity["mismatches"][0]["error"]
 
 
 def test_plan_is_safe_and_preregistered(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -134,6 +149,15 @@ def test_complete_verifier_rejects_published_artifact_mutation(tmp_path: Path) -
         verify_complete_result(output)
 
 
+@pytest.mark.parametrize("relative", ("preregistration.json", "preflight/analysis_plan.json"))
+def test_complete_verifier_rejects_preflight_mutation(tmp_path: Path, relative: str) -> None:
+    output = _complete_result_fixture(tmp_path)
+    (output / relative).write_text("{}")
+
+    with pytest.raises(ValueError, match="changed"):
+        verify_complete_result(output)
+
+
 def _taxonomy_cells(signature: str, *, tie: bool) -> dict[str, dict[str, object]]:
     expected = {"canonical_A": "a", "canonical_B": "b", "swapped_A": "b", "swapped_B": "a"}
     rows: dict[str, dict[str, object]] = {}
@@ -155,11 +179,13 @@ def _synthetic_source() -> tuple[
     list[dict[str, object]],
     list[dict[str, object]],
     list[dict[str, object]],
+    list[dict[str, object]],
     dict[str, str],
 ]:
     paired: list[dict[str, object]] = []
     off: list[dict[str, object]] = []
     on: list[dict[str, object]] = []
+    probes: list[dict[str, object]] = []
     lesson_types = {f"pair-{index:02d}": f"lesson-{index % 3}" for index in range(12)}
     for pair_index in range(12):
         pair_id = f"pair-{pair_index:02d}"
@@ -200,7 +226,8 @@ def _synthetic_source() -> tuple[
                 )
                 off.append(base)
                 on.append(adapter)
-    return paired, off, on, lesson_types
+                probes.append(dict(static))
+    return paired, off, on, probes, lesson_types
 
 
 def _raw_row(static: dict[str, object], state: str, predicted: str) -> dict[str, object]:
@@ -237,9 +264,20 @@ def _paired_state(expected: str, counterfactual: str, predicted: str) -> dict[st
 
 def _complete_result_fixture(tmp_path: Path) -> Path:
     output = tmp_path / "complete"
-    output.mkdir()
+    (output / "preflight").mkdir(parents=True)
     run_id = "p0d2hrabd-fixture"
-    preregistration_sha256 = "c" * 64
+    analysis_plan = {"schema_version": "fixture-plan"}
+    analysis_plan["analysis_plan_sha256"] = json_hash(analysis_plan)
+    (output / "preflight" / "analysis_plan.json").write_text(json.dumps(analysis_plan))
+    identity = {
+        "analysis_plan_sha256": file_hash(output / "preflight" / "analysis_plan.json"),
+        "inference_authorized": False,
+        "training_authorized": False,
+        "mappings_per_adapter_authorized": False,
+    }
+    identity["preregistration_sha256"] = json_hash(identity)
+    preregistration_sha256 = identity["preregistration_sha256"]
+    (output / "preregistration.json").write_text(json.dumps(identity))
     summary = {
         "run_id": run_id,
         "analysis": {"analysis_status": "descriptive_error_topology_complete"},
@@ -277,7 +315,7 @@ def _complete_result_fixture(tmp_path: Path) -> Path:
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "run_id": run_id,
         "state": "complete",
-        "config": {"preregistration_sha256": preregistration_sha256},
+        "config": identity,
         "result": {
             "summary_sha256": artifacts["summary"],
             "audit_manifest_sha256": file_hash(output / "audit_manifest.json"),

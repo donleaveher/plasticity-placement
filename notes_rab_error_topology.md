@@ -24,3 +24,10 @@
 - Repository-wide Ruff: passed.
 - Repository-wide pytest: passed.
 - CLI smoke test for `plan/run/verify/status`: passed.
+
+## Independent review changes
+
+- Complete verification now rechecks both preregistration and the self-hashed analysis plan.
+- Every paired/OFF/ON row is anchored to the preregistered binding probe and an exact
+  12-pair × 4-variant × 4-cell balance.
+- Candidate token counts must be positive integers; consistent result-only mutations are rejected.

@@ -31,6 +31,9 @@ error topology of the completed receipt/action binding experiment.
 - Initial Ruff pass found two long lines and one import-order issue; reformatted and fixed.
 - Two new regression assertions initially mutated an already-top rank and rewrote an artifact with
   identical bytes; corrected the fixtures so both tests exercise real corruption.
+- Independent review found three provenance/validation gaps: complete verification omitted
+  preflight revalidation, result rows were not joined to the frozen binding bank, and token counts
+  accepted malformed values. All three were fixed with regression tests before publication.
 
 ## Status
 **Currently in Phase 5** - conducting independent review and locking the Colab revision.

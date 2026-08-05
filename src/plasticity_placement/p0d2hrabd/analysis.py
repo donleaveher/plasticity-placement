@@ -19,6 +19,7 @@ def analyze_error_topology(
     paired_records: list[dict[str, Any]],
     adapter_off_rows: list[dict[str, Any]],
     adapter_on_rows: list[dict[str, Any]],
+    binding_probe_rows: list[dict[str, Any]],
     lesson_types: dict[str, str],
     spec: DiagnosticSpec,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
@@ -26,6 +27,7 @@ def analyze_error_topology(
         paired_records,
         adapter_off_rows,
         adapter_on_rows,
+        binding_probe_rows,
         lesson_types,
         spec,
     )
@@ -115,17 +117,20 @@ def build_cell_records(
     paired_records: list[dict[str, Any]],
     adapter_off_rows: list[dict[str, Any]],
     adapter_on_rows: list[dict[str, Any]],
+    binding_probe_rows: list[dict[str, Any]],
     lesson_types: dict[str, str],
     spec: DiagnosticSpec,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     paired = _unique_index(paired_records, "probe_id", "paired records")
     off = _unique_index(adapter_off_rows, "probe_id", "adapter OFF rows")
     on = _unique_index(adapter_on_rows, "probe_id", "adapter ON rows")
+    probes = _unique_index(binding_probe_rows, "probe_id", "frozen binding probes")
     checks = {
         "paired_record_count": len(paired) == spec.paired_record_count,
         "adapter_off_count": len(off) == spec.raw_row_count_per_state,
         "adapter_on_count": len(on) == spec.raw_row_count_per_state,
-        "probe_id_sets_match": set(paired) == set(off) == set(on),
+        "binding_probe_count": len(probes) == spec.paired_record_count,
+        "probe_id_sets_match": set(paired) == set(off) == set(on) == set(probes),
         "lesson_type_pairs_complete": len(lesson_types) == 12,
     }
     rows: list[dict[str, Any]] = []
@@ -138,18 +143,31 @@ def build_cell_records(
                         paired[probe_id],
                         off[probe_id],
                         on[probe_id],
+                        probes[probe_id],
                         lesson_types,
                     )
                 )
             except (KeyError, TypeError, ValueError) as error:
                 mismatches.append({"probe_id": probe_id, "error": str(error)})
     unit_cells: dict[str, Counter[str]] = defaultdict(Counter)
+    pair_variants: dict[str, set[int]] = defaultdict(set)
+    pair_variant_counts: Counter[tuple[str, int]] = Counter()
+    cell_counts: Counter[str] = Counter()
     for row in rows:
         unit_cells[row["unit_id"]][row["cell"]] += 1
+        pair_id = str(row["pair_id"])
+        variant = int(row["route_variant"])
+        pair_variants[pair_id].add(variant)
+        pair_variant_counts[(pair_id, variant)] += 1
+        cell_counts[str(row["cell"])] += 1
     checks.update(
         {
             "row_reconstruction_complete": len(rows) == spec.paired_record_count and not mismatches,
             "unit_count": len(unit_cells) == spec.unit_count,
+            "pair_variant_balance": len(pair_variants) == 12
+            and all(variants == {1, 2, 3, 4} for variants in pair_variants.values())
+            and all(count == 4 for count in pair_variant_counts.values()),
+            "global_cell_balance": cell_counts == {cell: 48 for cell in CELLS},
             "factorial_complete": all(
                 counts == {cell: 1 for cell in CELLS} for counts in unit_cells.values()
             ),
@@ -200,6 +218,7 @@ def _cell_record(
     paired: dict[str, Any],
     off: dict[str, Any],
     on: dict[str, Any],
+    probe: dict[str, Any],
     lesson_types: dict[str, str],
 ) -> dict[str, Any]:
     static = (
@@ -214,8 +233,10 @@ def _cell_record(
         "counterfactual_action",
         "ordered_candidates",
     )
-    if any(paired.get(field) != raw.get(field) for raw in (off, on) for field in static):
-        raise ValueError("paired/raw static fields differ")
+    if any(
+        paired.get(field) != source.get(field) for source in (off, on, probe) for field in static
+    ):
+        raise ValueError("paired/raw static fields differ from frozen binding probe")
     if off.get("adapter_state") != "adapter_off" or on.get("adapter_state") != "adapter_on":
         raise ValueError("raw adapter states differ from file identity")
     pair_id = str(paired["pair_id"])
@@ -273,8 +294,8 @@ def _cell_record(
             "top1_top2_margin": raw.get("top1_top2_margin"),
         }
         if label == "base":
-            record["expected_token_count"] = int(candidate_index[expected]["token_count"])
-        elif int(candidate_index[expected]["token_count"]) != record["expected_token_count"]:
+            record["expected_token_count"] = candidate_index[expected]["token_count"]
+        elif candidate_index[expected]["token_count"] != record["expected_token_count"]:
             raise ValueError("OFF/ON expected candidate token counts differ")
     base_correct = bool(record["base"]["selected_correct"])
     adapter_correct = bool(record["adapter"]["selected_correct"])
@@ -435,6 +456,13 @@ def _candidate_index(
         for field in ("sum_logprob", "mean_logprob")
     ):
         raise ValueError("raw candidate scores are non-finite or malformed")
+    if any(
+        isinstance(candidate.get("token_count"), bool)
+        or not isinstance(candidate.get("token_count"), int)
+        or candidate["token_count"] <= 0
+        for candidate in candidates
+    ):
+        raise ValueError("raw candidate token counts must be positive integers")
     return {str(candidate["candidate"]): candidate for candidate in candidates}
 
 
