@@ -66,7 +66,9 @@ def test_bridge_notebook_has_isolated_controls_and_recovery_lifecycle() -> None:
         assert f"{variable} =" not in combined
         assert f"{variable} =" not in results
     assert "EXPERIMENT_CODE_REVISION = 'dd004f54e39598e4b67ae525bb46a38c293378b1'" in config
-    assert "RECOVERY_CODE_REVISION =" in config
+    assert (
+        "RECOVERY_CODE_REVISION = '8678cc8c2510e50015fb451f558d47901f918716'" in config
+    )
     assert "EXPERIMENT_REPO_DIR" in config
     assert "RECOVERY_REPO_DIR" in config
     assert "f'{revision_ref}^{{commit}}'" in all_code

@@ -9,7 +9,7 @@ BRANCH = "agent/add-lora-evaluation"
 OUTPUT_DIR = Path(__file__).resolve().parent
 NOTEBOOK_NAME = "p0d2h_route_transfer_bridge_colab.ipynb"
 EXPERIMENT_CODE_REVISION = "dd004f54e39598e4b67ae525bb46a38c293378b1"
-RECOVERY_CODE_REVISION = None
+RECOVERY_CODE_REVISION = "8678cc8c2510e50015fb451f558d47901f918716"
 COLAB_URL = (
     "https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/"
     f"{BRANCH.replace('/', '%2F')}/notebooks/p0d2h_route_transfer_bridge/{NOTEBOOK_NAME}"
