@@ -371,13 +371,26 @@ expected-compatible、margin 为零；最坏 tie resolution 下八个 slot-reado
 adapter 增益仍全部为正。完全 external slot 从 `0.5208` 升至 `0.9896`，direct action
 却从 `0.6354` 降至 `0.5521`，而 forced-slot action 保持在 `0.9271`。
 
-下一步是独立的 route-state handoff audit：CPU replay 先绑定 RTB/q2，GPU audit 再冻结
-并评分 direct、predicted-slot chain、oracle-slot 和 wrong-slot control。Colab 入口见
+route-state handoff audit 已完成。保守 handoff rescue 为
+`+0.1458 [0.0417, 0.2396]`，predicted chain 与 oracle 在 adapter ON 下均为
+`0.9271`；但 oracle-minus-wrong specificity 仅为
+`0.1354 [0.0729, 0.2083]`，低于预注册 `0.20`，因此结论为
+`handoff_not_supported`。原 wrong slot 是没有唯一有效替代映射的 advisory decoy。
+原 Colab 入口见
 [`notebooks/p0d2h_route_state_handoff/p0d2h_route_state_handoff_colab.ipynb`](notebooks/p0d2h_route_state_handoff/p0d2h_route_state_handoff_colab.ipynb)，
 也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_route_state_handoff/p0d2h_route_state_handoff_colab.ipynb)。
 协议见
 [`docs/p0d2h-route-state-handoff-protocol.md`](docs/p0d2h-route-state-handoff-protocol.md)。
 该审计不改变 RTB decision，训练和 1/4/8 仍未授权。
+
+下一步 receipt/action binding audit 先从 RSH paired records 生成 CPU 四象限诊断，再把
+同一 lesson pair 的两个有效 verified mappings 同时放入 A/B，并交叉 receipt A/B 与
+canonical/swapped binding，从而直接检验 action 是否随 receipt 因果翻转。Colab 入口见
+[`notebooks/p0d2h_receipt_action_binding/p0d2h_receipt_action_binding_colab.ipynb`](notebooks/p0d2h_receipt_action_binding/p0d2h_receipt_action_binding_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_receipt_action_binding/p0d2h_receipt_action_binding_colab.ipynb)。
+协议见
+[`docs/p0d2h-receipt-action-binding-protocol.md`](docs/p0d2h-receipt-action-binding-protocol.md)。
+该审计不重分类 RSH、不训练且不授权 1/4/8。
 
 ## 项目结构
 
@@ -399,7 +412,8 @@ adapter 增益仍全部为正。完全 external slot 从 `0.5208` 升至 `0.9896
 │   ├── p0d2hrr/               # Authorized route-remediation LoRA pilot
 │   ├── p0d2hcpr/              # Composition-preserving remediation 与资格复评
 │   ├── p0d2hrtb/              # Frozen-adapter route-transfer bridge audit
-│   └── p0d2hrsh/              # Route-state handoff audit
+│   ├── p0d2hrsh/              # Route-state handoff audit
+│   └── p0d2hrab/              # Two-valid-slot receipt/action binding audit
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```
