@@ -8,7 +8,17 @@ adds actual-action and forced-slot-action endpoints. The training-like corner re
 CRD route-only prompts, and the forced-slot endpoint preserves the exact external payload. It
 cannot train, retry qualification, or authorize 1/4/8.
 
-Safe defaults run planning only. Authorization and the single GPU audit are separate passes.
+The user-editable controls and `APPROVER` are isolated in one dedicated Colab cell. Safe defaults
+run planning only; planning, authorization, zero-artifact recovery, and the single GPU audit must
+be separate passes.
+
+For the stale `running` attempt with no result artifacts, the notebook now supports a formal
+one-time recovery. A safe pass first verifies eligibility and emits an external approval template.
+After human inspection, enable only `RUN_RECOVER_ZERO_ARTIFACT`; this restores the same manifest to
+`authorized` without scoring. The same controls cell requires a named `APPROVER` and explicit
+`ORIGINAL_RUNTIME_TERMINATED = True` attestation. Then enable only `RUN_AUDIT` in a later pass. The recovery cannot
+change the frozen bank, adapter, prompts, thresholds, original experiment revision, or authorize
+training/1/4/8.
 
 Regenerate with:
 

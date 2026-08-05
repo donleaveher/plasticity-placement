@@ -19,6 +19,8 @@ def _module():
 
 def test_generated_bridge_notebook_is_colab_ready_and_parses(tmp_path: Path) -> None:
     module = _module()
+    checked_in = json.loads((NOTEBOOK_DIR / module.NOTEBOOK_NAME).read_text())
+    assert checked_in == module.build_notebook()
     module.OUTPUT_DIR = tmp_path
     module.main()
     notebook = json.loads((tmp_path / module.NOTEBOOK_NAME).read_text())
@@ -28,23 +30,45 @@ def test_generated_bridge_notebook_is_colab_ready_and_parses(tmp_path: Path) -> 
             ast.parse("".join(cell["source"]), filename=f"RTB-cell-{index}")
 
 
-def test_bridge_notebook_has_safe_three_pass_lifecycle() -> None:
+def test_bridge_notebook_has_isolated_controls_and_recovery_lifecycle() -> None:
     notebook = _module().build_notebook()
     code_cells = [
         "".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"
     ]
     all_code = "\n".join(code_cells)
-    assert len(code_cells) == 3
-    combined = code_cells[1]
+    assert len(code_cells) == 4
+    config, controls, combined, results = code_cells
     assert (
-        combined.index("CODE_REVISION = subprocess.run")
+        combined.index("RESOLVED_EXPERIMENT_CODE_REVISION = prepare_checkout")
         < combined.index("AUDIT_OUTPUT = PIPELINE_ROOT")
         < combined.index("if RUN_PLAN:")
+        < combined.index("recovery_template_result = run")
+        < combined.index("if RUN_AUDIT:")
     )
-    assert "RUN_PLAN = True" in all_code
-    assert "RUN_AUTHORIZE = False" in all_code
-    assert "RUN_AUDIT = False" in all_code
-    assert "REQUESTED_CODE_REVISION = 'dd004f54e39598e4b67ae525bb46a38c293378b1'" in all_code
+    assert "RUN_PLAN = True" in controls
+    assert "RUN_AUTHORIZE = False" in controls
+    assert "RUN_RECOVER_ZERO_ARTIFACT = False" in controls
+    assert "RUN_AUDIT = False" in controls
+    assert "APPROVER = ''" in controls
+    assert "ORIGINAL_RUNTIME_TERMINATED = False" in controls
+    assert "recovery_template != observed_recovery_template" in combined
+    assert "Recovery evidence changed after inspection" in combined
+    assert "Recovery already adopted; validating idempotent completion" in combined
+    for variable in (
+        "RUN_PLAN",
+        "RUN_AUTHORIZE",
+        "RUN_RECOVER_ZERO_ARTIFACT",
+        "RUN_AUDIT",
+        "APPROVER",
+        "ORIGINAL_RUNTIME_TERMINATED",
+    ):
+        assert f"{variable} =" not in config
+        assert f"{variable} =" not in combined
+        assert f"{variable} =" not in results
+    assert "EXPERIMENT_CODE_REVISION = 'dd004f54e39598e4b67ae525bb46a38c293378b1'" in config
+    assert "RECOVERY_CODE_REVISION =" in config
+    assert "EXPERIMENT_REPO_DIR" in config
+    assert "RECOVERY_REPO_DIR" in config
     assert "f'{revision_ref}^{{commit}}'" in all_code
     assert "f'{{revision_ref}}^{{commit}}'" not in all_code
     assert "composition-remediation-cpr2" in all_code
@@ -52,7 +76,13 @@ def test_bridge_notebook_has_safe_three_pass_lifecycle() -> None:
     assert "manifest['state'] == 'complete'" in all_code
     assert "audit_manifest['artifacts']['summary']" in all_code
     assert "Bridge summary hash does not match complete manifests" in all_code
-    for action in ("plan", "authorize", "run"):
+    for action in (
+        "plan",
+        "authorize",
+        "zero-artifact-recovery-template",
+        "recover-zero-artifact",
+        "run",
+    ):
         assert f"'plasticity-p0d2hrtb', '{action}'" in all_code
     assert "'plasticity-p0d2hrtb', 'train'" not in all_code
     assert "mappings_per_adapter_authorized" in all_code

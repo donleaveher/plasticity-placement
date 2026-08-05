@@ -12,6 +12,12 @@ This bridge audit is a post-failure mechanism diagnostic on the immutable cpr2 a
 not a CPR retry, training experiment, prompt search, or capacity experiment. Every output keeps
 the historical gate unchanged and sets training and 1/4/8 authorization to false.
 
+The first RTB launch is currently stale in `running` state with an empty error list and no OFF/ON
+rows, raw checkpoint, pairs, summary, report, or audit manifest. It therefore has no interpretable
+RTB result. One externally authorized identical recovery is defined in
+[`p0d2hrtb-zero-artifact-recovery-protocol.md`](p0d2hrtb-zero-artifact-recovery-protocol.md); it
+cannot be consumed twice and does not change this experiment's bank, analysis, or stop rules.
+
 ## Question
 
 Did cpr2 learn a route operator that fails to transfer because of one or more prompt-format

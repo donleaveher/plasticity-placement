@@ -365,6 +365,13 @@ external payload 与 route-to-action composition，项目新增一个冻结 adap
 [`docs/p0d2h-route-transfer-bridge-protocol.md`](docs/p0d2h-route-transfer-bridge-protocol.md)。
 该审计不能重开 CPR-v1、授权训练或授权 1/4/8。
 
+RTB 第一次启动目前停留在 stale `running`，但未写出 OFF/ON rows、raw checkpoint、
+pairs、summary 或 audit manifest，因此尚无 RTB 结果。项目只允许一次外部授权的
+zero-artifact identical retry：恢复治理与原实验代码分别锁定，恢复 pass 只将同一
+manifest 还原为 `authorized`，随后必须在单独 pass 用原始实验 commit 运行。协议见
+[`docs/p0d2hrtb-zero-artifact-recovery-protocol.md`](docs/p0d2hrtb-zero-artifact-recovery-protocol.md)。
+在该审计完成并复核前，训练和 1/4/8 仍未授权。
+
 ## 项目结构
 
 ```text
