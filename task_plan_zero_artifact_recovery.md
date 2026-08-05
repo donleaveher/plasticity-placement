@@ -9,7 +9,7 @@ attempt with no persisted inference or analysis artifacts.
 - [x] Phase 2: Freeze eligibility, authorization, and immutability rules
 - [x] Phase 3: Implement CLI/runtime/notebook recovery and dedicated control cell
 - [x] Phase 4: Add tests, review, and run full verification
-- [ ] Phase 5: Commit and push
+- [x] Phase 5: Commit and push
 
 ## Key Questions
 1. How can a zero-artifact infrastructure interruption be retried without enabling result-based
@@ -32,5 +32,5 @@ attempt with no persisted inference or analysis artifacts.
   it with smaller exact block patches. No generated file was affected by the failed patch.
 
 ## Status
-**Currently in Phase 5** - recovery implementation is committed; pinning its immutable revision,
-then pushing the reviewed notebook and protocol.
+**Complete** - the reviewed recovery implementation, immutable revision pin, Colab notebook, and
+protocol are committed and pushed to `agent/add-lora-evaluation`.
