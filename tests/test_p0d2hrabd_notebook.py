@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 NOTEBOOK_DIR = Path(__file__).parents[1] / "notebooks" / "p0d2h_rab_error_topology"
+EXPECTED_CODE_REVISION = "242bfbc8155e00d8640ca2c8a3a3698ad57c6d45"
 
 
 def _module():
@@ -20,7 +21,8 @@ def _module():
 
 def test_diagnostic_notebook_is_colab_ready_and_matches_builder(tmp_path: Path) -> None:
     module = _module()
-    assert module.CODE_REVISION is None or re.fullmatch(r"[0-9a-f]{40}", module.CODE_REVISION)
+    assert module.CODE_REVISION == EXPECTED_CODE_REVISION
+    assert re.fullmatch(r"[0-9a-f]{40}", module.CODE_REVISION)
     checked_in = json.loads((NOTEBOOK_DIR / module.NOTEBOOK_NAME).read_text())
     assert checked_in == module.build_notebook()
     module.OUTPUT_DIR = tmp_path
