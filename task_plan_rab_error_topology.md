@@ -9,7 +9,7 @@ error topology of the completed receipt/action binding experiment.
 - [x] Phase 2: Implement immutable plan/run/verify lifecycle and analysis package
 - [x] Phase 3: Add protocol, Colab, project status, and regression tests
 - [x] Phase 4: Run focused and full verification
-- [ ] Phase 5: Independent review, revision lock, commits, and GitHub push
+- [x] Phase 5: Independent review, revision lock, commits, and GitHub push
 
 ## Key Questions
 1. Are ON errors dominated by action-prior locking, receipt invariance, binding invariance,
@@ -36,4 +36,5 @@ error topology of the completed receipt/action binding experiment.
   accepted malformed values. All three were fixed with regression tests before publication.
 
 ## Status
-**Currently in Phase 5** - conducting independent review and locking the Colab revision.
+**Complete** - implementation, verification, independent review, revision lock, and publication
+are complete.

@@ -31,3 +31,5 @@
 - Every paired/OFF/ON row is anchored to the preregistered binding probe and an exact
   12-pair × 4-variant × 4-cell balance.
 - Candidate token counts must be positive integers; consistent result-only mutations are rejected.
+- Reviewer recheck: approved with no remaining findings.
+- Post-fix focused suite: 22 passed; post-fix repository-wide Ruff and pytest passed.
