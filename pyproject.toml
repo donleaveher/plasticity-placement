@@ -22,6 +22,7 @@ plasticity-p0d2hcpr = "plasticity_placement.p0d2hcpr.cli:main"
 plasticity-p0d2hrtb = "plasticity_placement.p0d2hrtb.cli:main"
 plasticity-p0d2hrsh = "plasticity_placement.p0d2hrsh.cli:main"
 plasticity-p0d2hrab = "plasticity_placement.p0d2hrab.cli:main"
+plasticity-p0d2hrabd = "plasticity_placement.p0d2hrabd.cli:main"
 
 [project.optional-dependencies]
 train = [

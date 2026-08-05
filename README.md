@@ -383,14 +383,25 @@ route-state handoff audit 已完成。保守 handoff rescue 为
 [`docs/p0d2h-route-state-handoff-protocol.md`](docs/p0d2h-route-state-handoff-protocol.md)。
 该审计不改变 RTB decision，训练和 1/4/8 仍未授权。
 
-下一步 receipt/action binding audit 先从 RSH paired records 生成 CPU 四象限诊断，再把
-同一 lesson pair 的两个有效 verified mappings 同时放入 A/B，并交叉 receipt A/B 与
-canonical/swapped binding，从而直接检验 action 是否随 receipt 因果翻转。Colab 入口见
+receipt/action binding audit 已完成，结论为 `binding_not_supported`。adapter ON 的
+selected-binding accuracy 为 `0.6406 [0.6042, 0.6771]`，未通过 `0.75` accuracy gate；
+canonical/swapped 分别为 `0.6354/0.6458`。causal specificity
+`0.2812 [0.2083, 0.3542]` 通过，且 OFF→ON 净增益为 `+0.0625`，说明存在局部因果
+响应，但尚未形成稳定的 receipt/action binding。原 Colab 入口见
 [`notebooks/p0d2h_receipt_action_binding/p0d2h_receipt_action_binding_colab.ipynb`](notebooks/p0d2h_receipt_action_binding/p0d2h_receipt_action_binding_colab.ipynb)，
 也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_receipt_action_binding/p0d2h_receipt_action_binding_colab.ipynb)。
 协议见
 [`docs/p0d2h-receipt-action-binding-protocol.md`](docs/p0d2h-receipt-action-binding-protocol.md)。
 该审计不重分类 RSH、不训练且不授权 1/4/8。
+
+下一步是对该 RAB 的 192 条 frozen paired records 做 CPU-only error-topology audit，
+区分 action locked、receipt invariant、binding invariant、fully inverted 与 mixed errors，
+并报告 C/W 转移、selected-minus-counterfactual margins 和冻结 factor slices。Colab 入口见
+[`notebooks/p0d2h_rab_error_topology/p0d2h_rab_error_topology_colab.ipynb`](notebooks/p0d2h_rab_error_topology/p0d2h_rab_error_topology_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_rab_error_topology/p0d2h_rab_error_topology_colab.ipynb)。
+协议见
+[`docs/p0d2h-rab-error-topology-protocol.md`](docs/p0d2h-rab-error-topology-protocol.md)。
+该诊断不加载模型、不推理、不训练、不改变 RAB decision，且不授权 1/4/8。
 
 ## 项目结构
 
@@ -413,7 +424,8 @@ canonical/swapped binding，从而直接检验 action 是否随 receipt 因果�
 │   ├── p0d2hcpr/              # Composition-preserving remediation 与资格复评
 │   ├── p0d2hrtb/              # Frozen-adapter route-transfer bridge audit
 │   ├── p0d2hrsh/              # Route-state handoff audit
-│   └── p0d2hrab/              # Two-valid-slot receipt/action binding audit
+│   ├── p0d2hrab/              # Two-valid-slot receipt/action binding audit
+│   └── p0d2hrabd/             # CPU-only RAB paired error-topology diagnostic
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```
