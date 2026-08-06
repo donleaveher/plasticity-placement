@@ -288,6 +288,13 @@ def _transition_slice(
 ) -> dict[str, Any]:
     counts = Counter(str(row["correctness_transition"]) for row in rows)
     adverse = counts["C→W"] + counts["W→W"]
+    base_margins = [float(row["base"]["selected_minus_counterfactual_margin"]) for row in rows]
+    adapter_margins = [
+        float(row["adapter"]["selected_minus_counterfactual_margin"]) for row in rows
+    ]
+    margin_changes = [
+        adapter - base for base, adapter in zip(base_margins, adapter_margins, strict=True)
+    ]
     return {
         "factor": factor,
         "level": level,
@@ -301,6 +308,15 @@ def _transition_slice(
         "W→W_share_of_global": counts["W→W"] / global_counts["W→W"],
         "rescue_share_of_global": counts["W→C"] / global_counts["W→C"],
         "net_correctness_change": counts["W→C"] - counts["C→W"],
+        "base_mean_margin": mean(base_margins),
+        "adapter_mean_margin": mean(adapter_margins),
+        "mean_margin_change": mean(margin_changes),
+        "adapter_margin_sign_counts": _sign_counts(adapter_margins),
+        "margin_change_sign_counts": _sign_counts(margin_changes),
+        "margin_change_by_transition": {
+            transition: _descriptive_transition_margin(rows, transition)
+            for transition in TRANSITIONS
+        },
     }
 
 
@@ -349,11 +365,29 @@ def _validate_factor_slices(
         for level, rows in expected.items():
             transitions = Counter(str(row["correctness_transition"]) for row in rows)
             source = observed[level]
-            if source.get("observation_count") != len(rows) or source.get(
-                "correctness_transitions"
-            ) != {label: transitions[label] for label in TRANSITIONS}:
+            base_margin = mean(
+                float(row["base"]["selected_minus_counterfactual_margin"]) for row in rows
+            )
+            adapter_margin = mean(
+                float(row["adapter"]["selected_minus_counterfactual_margin"]) for row in rows
+            )
+            if (
+                source.get("observation_count") != len(rows)
+                or source.get("correctness_transitions")
+                != {label: transitions[label] for label in TRANSITIONS}
+                or not _close(source.get("base_mean_margin"), base_margin)
+                or not _close(source.get("adapter_mean_margin"), adapter_margin)
+                or not _close(
+                    source.get("adapter_minus_base_mean_margin"),
+                    adapter_margin - base_margin,
+                )
+            ):
                 differences.append(
-                    {"factor": factor, "level": level, "error": "source slice counts differ"}
+                    {
+                        "factor": factor,
+                        "level": level,
+                        "error": "source slice counts or margins differ",
+                    }
                 )
     return {
         "checked_factors": list(FACTORS),
@@ -374,6 +408,30 @@ def _unit_join_matches(unit: dict[str, Any], rows: list[dict[str, Any]]) -> bool
         sum(transitions.values()) == 4
         and unit.get("taxonomy_transition")
         == f"{unit.get('base', {}).get('category')}→{unit.get('adapter', {}).get('category')}"
+    )
+
+
+def _descriptive_transition_margin(rows: list[dict[str, Any]], transition: str) -> dict[str, Any]:
+    selected = [row for row in rows if row["correctness_transition"] == transition]
+    if not selected:
+        return {"observation_count": 0, "mean_change": None, "adapter_negative_count": 0}
+    changes = [
+        float(row["adapter"]["selected_minus_counterfactual_margin"])
+        - float(row["base"]["selected_minus_counterfactual_margin"])
+        for row in selected
+    ]
+    return {
+        "observation_count": len(selected),
+        "mean_change": mean(changes),
+        "adapter_negative_count": sum(
+            float(row["adapter"]["selected_minus_counterfactual_margin"]) < 0 for row in selected
+        ),
+    }
+
+
+def _close(observed: Any, expected: float) -> bool:
+    return isinstance(observed, (int, float)) and math.isclose(
+        float(observed), expected, rel_tol=1e-12, abs_tol=1e-12
     )
 
 

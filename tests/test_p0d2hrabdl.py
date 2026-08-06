@@ -55,6 +55,9 @@ def test_localization_reconstructs_all_frozen_views() -> None:
     assert analysis["transition_totals"] == EXPECTED_TRANSITION_COUNTS
     assert localization["adverse_total"] == 69
     assert len(localization["factors"]["pair_id"]["levels"]) == 12
+    receipt_level = localization["factors"]["receipt"]["levels"][0]
+    assert "adapter_margin_sign_counts" in receipt_level
+    assert set(receipt_level["margin_change_by_transition"]) == set(EXPECTED_TRANSITION_COUNTS)
     assert sum(row["count"] for row in taxonomy["nonzero_transitions"]) == 48
     assert margins["profiles"]["C→W"]["mean_change"] == -3.0
     assert margins["profiles"]["W→C"]["mean_change"] == 3.0
@@ -262,6 +265,24 @@ def _factor_slices(cells: list[dict[str, object]]) -> dict[str, object]:
                     label: Counter(str(row["correctness_transition"]) for row in rows)[label]
                     for label in EXPECTED_TRANSITION_COUNTS
                 },
+                "base_mean_margin": sum(
+                    float(row["base"]["selected_minus_counterfactual_margin"]) for row in rows
+                )
+                / len(rows),
+                "adapter_mean_margin": sum(
+                    float(row["adapter"]["selected_minus_counterfactual_margin"]) for row in rows
+                )
+                / len(rows),
+                "adapter_minus_base_mean_margin": (
+                    sum(
+                        float(row["adapter"]["selected_minus_counterfactual_margin"])
+                        for row in rows
+                    )
+                    - sum(
+                        float(row["base"]["selected_minus_counterfactual_margin"]) for row in rows
+                    )
+                )
+                / len(rows),
             }
             for level, rows in sorted(grouped.items())
         ]
