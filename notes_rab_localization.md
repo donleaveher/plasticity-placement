@@ -27,3 +27,13 @@
 - Reader plus generated-notebook tests: 15 passed.
 - Focused Ruff and CLI smoke tests: passed.
 - Repository-wide Ruff and pytest: passed.
+
+## Independent review
+
+- One P1 provenance finding was fixed by cross-checking manifest boundary flags, audit source hash,
+  summary source metadata, and before/after snapshots against the preregistration identity.
+- Factor×transition profiles were expanded to base/adapter/change mean, median, and complete
+  positive/zero/negative counts; slices remain descriptive-only.
+- Post-fix focused suite: 20 passed.
+- Reviewer recheck: approved with no remaining findings.
+- Colab exact revision: `36f9d4e957f6b8e4ca5da0f9d88656fde40b5aef`.

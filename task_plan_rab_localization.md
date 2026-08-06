@@ -9,7 +9,7 @@ the completed RAB error-topology result without inference, training, or gate cha
 - [x] Phase 2: Implement source validation, localization analysis, and immutable lifecycle
 - [x] Phase 3: Add protocol, Colab, status updates, and regression tests
 - [x] Phase 4: Run focused and repository-wide verification
-- [ ] Phase 5: Independent review, revision lock, commits, and GitHub push
+- [x] Phase 5: Independent review, revision lock, commits, and GitHub push
 
 ## Key Questions
 1. Which factor levels account for the 21 `C→W` and 48 `W→W` cells?
@@ -25,7 +25,11 @@ the completed RAB error-topology result without inference, training, or gate cha
 - Planning and localization execution are separate; no external approval is required.
 
 ## Errors Encountered
-- None yet.
+- Initial focused Ruff found one unused test import; removed it before running tests.
+- Independent review found incomplete completed-bundle provenance cross-checks and insufficient
+  factor×transition margin detail. The verifier now binds manifest/audit/summary/source snapshots,
+  and every factor×transition cell now publishes base/adapter/change mean, median, and sign counts.
 
 ## Status
-**Currently in Phase 5** - conducting independent review and locking the Colab revision.
+**Complete** - implementation, full verification, independent review, revision lock, and GitHub
+publication are complete.
