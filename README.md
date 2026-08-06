@@ -415,6 +415,19 @@ migrations 与 transition-conditioned margins。Colab 入口见
 [`docs/p0d2h-rab-error-localization-protocol.md`](docs/p0d2h-rab-error-localization-protocol.md)。
 该 reader 只做 descriptive localization，不改变历史状态，也不授权训练或 1/4/8。
 
+针对 localization 暴露出的 `receipt B / candidate position 0` 混杂，项目新增 frozen RAB
+counterbalancing audit。它保持原 48 个 unit、adapter 与 runtime，交叉
+`canonical/swapped × receipt A/B × display AB/BA × 4 candidate rotations`，生成 1536 个
+条件并做 OFF/ON 配对评分。由于原四个 route variant 已经循环 candidate panel，1536 个
+条件对应 384 个不同 prompt 文本、每个恰好重复四次；preflight 显式验证该结构，推断仍按
+请求的 1536 条 schedule 执行，置信区间按 12 个 pair 聚类。协议见
+[`docs/p0d2h-rab-counterbalancing-protocol.md`](docs/p0d2h-rab-counterbalancing-protocol.md)。
+Colab 入口见
+[`notebooks/p0d2h_rab_counterbalancing/p0d2h_rab_counterbalancing_colab.ipynb`](notebooks/p0d2h_rab_counterbalancing/p0d2h_rab_counterbalancing_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_rab_counterbalancing/p0d2h_rab_counterbalancing_colab.ipynb)。
+该审计将 joint receipt/slot-label、serial position、candidate position 0 与 composition
+interaction 分开报告；不重分类历史 RAB，不授权 remediation training 或 1/4/8。
+
 ## 项目结构
 
 ```text
@@ -438,7 +451,8 @@ migrations 与 transition-conditioned margins。Colab 入口见
 │   ├── p0d2hrsh/              # Route-state handoff audit
 │   ├── p0d2hrab/              # Two-valid-slot receipt/action binding audit
 │   ├── p0d2hrabd/             # CPU-only RAB paired error-topology diagnostic
-│   └── p0d2hrabdl/            # CPU-only RAB error-localization reader
+│   ├── p0d2hrabdl/            # CPU-only RAB error-localization reader
+│   └── p0d2hrabc/             # Frozen RAB counterbalancing inference audit
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```
