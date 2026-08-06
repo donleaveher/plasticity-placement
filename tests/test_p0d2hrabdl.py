@@ -58,6 +58,14 @@ def test_localization_reconstructs_all_frozen_views() -> None:
     receipt_level = localization["factors"]["receipt"]["levels"][0]
     assert "adapter_margin_sign_counts" in receipt_level
     assert set(receipt_level["margin_change_by_transition"]) == set(EXPECTED_TRANSITION_COUNTS)
+    nonempty = next(
+        profile
+        for profile in receipt_level["margin_change_by_transition"].values()
+        if profile["observation_count"]
+    )
+    assert set(nonempty["base_sign_counts"]) == {"positive", "zero", "negative"}
+    assert set(nonempty["adapter_sign_counts"]) == {"positive", "zero", "negative"}
+    assert set(nonempty["change_sign_counts"]) == {"positive", "zero", "negative"}
     assert sum(row["count"] for row in taxonomy["nonzero_transitions"]) == 48
     assert margins["profiles"]["C→W"]["mean_change"] == -3.0
     assert margins["profiles"]["W→C"]["mean_change"] == 3.0
@@ -164,6 +172,52 @@ def test_complete_verifier_rejects_artifact_mutation(tmp_path: Path) -> None:
     assert verify_complete_result(output) == output / "summary.json"
     (output / "taxonomy_migrations.json").write_text('{"mutated": true}')
     with pytest.raises(ValueError, match="artifacts changed"):
+        verify_complete_result(output)
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    (
+        "audit_snapshot",
+        "summary_snapshot",
+        "source_sha",
+        "source_modified",
+        "manifest_boundary",
+    ),
+)
+def test_complete_verifier_rejects_provenance_mismatch(tmp_path: Path, corruption: str) -> None:
+    output = _complete_result_fixture(tmp_path)
+    if corruption == "manifest_boundary":
+        manifest = json.loads((output / "manifest.json").read_text())
+        manifest["training_authorized"] = True
+        (output / "manifest.json").write_text(json.dumps(manifest))
+    elif corruption == "audit_snapshot":
+        audit = json.loads((output / "audit_manifest.json").read_text())
+        audit["source_snapshot_sha256"] = "f" * 64
+        (output / "audit_manifest.json").write_text(json.dumps(audit))
+        manifest = json.loads((output / "manifest.json").read_text())
+        manifest["result"]["audit_manifest_sha256"] = file_hash(output / "audit_manifest.json")
+        (output / "manifest.json").write_text(json.dumps(manifest))
+    else:
+        summary = json.loads((output / "summary.json").read_text())
+        if corruption == "summary_snapshot":
+            summary["source_snapshot_after"] = {"rabd_output_tree": "f" * 64}
+        elif corruption == "source_sha":
+            summary["source"]["rabd_summary_sha256"] = "f" * 64
+        elif corruption == "source_modified":
+            summary["source_artifacts_modified"] = True
+        else:
+            raise AssertionError(corruption)
+        (output / "summary.json").write_text(json.dumps(summary))
+        audit = json.loads((output / "audit_manifest.json").read_text())
+        audit["artifacts"]["summary"] = file_hash(output / "summary.json")
+        (output / "audit_manifest.json").write_text(json.dumps(audit))
+        manifest = json.loads((output / "manifest.json").read_text())
+        manifest["result"]["summary_sha256"] = audit["artifacts"]["summary"]
+        manifest["result"]["audit_manifest_sha256"] = file_hash(output / "audit_manifest.json")
+        (output / "manifest.json").write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="disagree|inconsistent"):
         verify_complete_result(output)
 
 
@@ -298,6 +352,9 @@ def _complete_result_fixture(tmp_path: Path) -> Path:
     (output / "preflight" / "analysis_plan.json").write_text(json.dumps(plan))
     identity = {
         "analysis_plan_sha256": file_hash(output / "preflight" / "analysis_plan.json"),
+        "rabd_run_id": "p0d2hrabd-a82d35757b",
+        "rabd_summary_sha256": "d" * 64,
+        "source_snapshot": {"rabd_output_tree": "e" * 64},
         "inference_authorized": False,
         "training_authorized": False,
         "mappings_per_adapter_authorized": False,
@@ -306,7 +363,15 @@ def _complete_result_fixture(tmp_path: Path) -> Path:
     (output / "preregistration.json").write_text(json.dumps(identity))
     summary = {
         "run_id": run_id,
+        "source": {
+            "rabd_run_id": identity["rabd_run_id"],
+            "rabd_summary_sha256": identity["rabd_summary_sha256"],
+            "rabd_status": "descriptive_error_topology_complete",
+        },
         "analysis": {"analysis_status": "descriptive_error_localization_complete"},
+        "source_snapshot_before": identity["source_snapshot"],
+        "source_snapshot_after": identity["source_snapshot"],
+        "source_artifacts_modified": False,
         "historical_rab_decision_changed": False,
         "historical_rabd_status_changed": False,
         "inference_authorized": False,
@@ -332,6 +397,7 @@ def _complete_result_fixture(tmp_path: Path) -> Path:
         "schema_version": "p0d2hrabdl-audit-manifest-v1",
         "run_id": run_id,
         "preregistration_sha256": identity["preregistration_sha256"],
+        "source_snapshot_sha256": json_hash(identity["source_snapshot"]),
         "artifacts": artifacts,
         "historical_rab_decision_changed": False,
         "historical_rabd_status_changed": False,
@@ -345,6 +411,11 @@ def _complete_result_fixture(tmp_path: Path) -> Path:
         "run_id": run_id,
         "state": "complete",
         "config": identity,
+        "historical_rab_decision_changed": False,
+        "historical_rabd_status_changed": False,
+        "inference_authorized": False,
+        "training_authorized": False,
+        "mappings_per_adapter_authorized": False,
         "result": {
             "summary_sha256": artifacts["summary"],
             "audit_manifest_sha256": file_hash(output / "audit_manifest.json"),

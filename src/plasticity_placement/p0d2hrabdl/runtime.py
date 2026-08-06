@@ -229,6 +229,13 @@ def verify_complete_result(output_dir: Path) -> Path:
         or audit.get("run_id") != manifest.get("run_id")
         or audit.get("preregistration_sha256")
         != manifest.get("config", {}).get("preregistration_sha256")
+        or audit.get("source_snapshot_sha256")
+        != json_hash(manifest.get("config", {}).get("source_snapshot"))
+        or manifest.get("historical_rab_decision_changed") is not False
+        or manifest.get("historical_rabd_status_changed") is not False
+        or manifest.get("inference_authorized") is not False
+        or manifest.get("training_authorized") is not False
+        or manifest.get("mappings_per_adapter_authorized") is not False
         or audit.get("historical_rab_decision_changed") is not False
         or audit.get("historical_rabd_status_changed") is not False
         or audit.get("inference_authorized") is not False
@@ -239,6 +246,8 @@ def verify_complete_result(output_dir: Path) -> Path:
     ):
         raise ValueError("RAB localization complete manifests disagree")
     summary = read_json_object(required["summary"], "RAB localization summary")
+    identity = manifest["config"]
+    source = summary.get("source", {})
     if (
         summary.get("run_id") != manifest.get("run_id")
         or summary.get("analysis", {}).get("analysis_status")
@@ -248,6 +257,12 @@ def verify_complete_result(output_dir: Path) -> Path:
         or summary.get("inference_authorized") is not False
         or summary.get("training_authorized") is not False
         or summary.get("mappings_per_adapter_authorized") is not False
+        or summary.get("source_artifacts_modified") is not False
+        or summary.get("source_snapshot_before") != identity.get("source_snapshot")
+        or summary.get("source_snapshot_after") != identity.get("source_snapshot")
+        or source.get("rabd_run_id") != identity.get("rabd_run_id")
+        or source.get("rabd_summary_sha256") != identity.get("rabd_summary_sha256")
+        or source.get("rabd_status") != "descriptive_error_topology_complete"
         or _jsonl_row_count(required["unit_hotspots"]) != 48
     ):
         raise ValueError("RAB localization summary or hotspot count is inconsistent")

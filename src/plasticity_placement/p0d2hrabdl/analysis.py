@@ -414,18 +414,32 @@ def _unit_join_matches(unit: dict[str, Any], rows: list[dict[str, Any]]) -> bool
 def _descriptive_transition_margin(rows: list[dict[str, Any]], transition: str) -> dict[str, Any]:
     selected = [row for row in rows if row["correctness_transition"] == transition]
     if not selected:
-        return {"observation_count": 0, "mean_change": None, "adapter_negative_count": 0}
-    changes = [
-        float(row["adapter"]["selected_minus_counterfactual_margin"])
-        - float(row["base"]["selected_minus_counterfactual_margin"])
-        for row in selected
-    ]
+        return {
+            "observation_count": 0,
+            "base_mean": None,
+            "base_median": None,
+            "base_sign_counts": _sign_counts([]),
+            "adapter_mean": None,
+            "adapter_median": None,
+            "adapter_sign_counts": _sign_counts([]),
+            "change_mean": None,
+            "change_median": None,
+            "change_sign_counts": _sign_counts([]),
+        }
+    base = [float(row["base"]["selected_minus_counterfactual_margin"]) for row in selected]
+    adapter = [float(row["adapter"]["selected_minus_counterfactual_margin"]) for row in selected]
+    changes = [after - before for before, after in zip(base, adapter, strict=True)]
     return {
         "observation_count": len(selected),
-        "mean_change": mean(changes),
-        "adapter_negative_count": sum(
-            float(row["adapter"]["selected_minus_counterfactual_margin"]) < 0 for row in selected
-        ),
+        "base_mean": mean(base),
+        "base_median": median(base),
+        "base_sign_counts": _sign_counts(base),
+        "adapter_mean": mean(adapter),
+        "adapter_median": median(adapter),
+        "adapter_sign_counts": _sign_counts(adapter),
+        "change_mean": mean(changes),
+        "change_median": median(changes),
+        "change_sign_counts": _sign_counts(changes),
     }
 
 

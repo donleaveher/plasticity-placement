@@ -22,7 +22,8 @@ The reader publishes four exhaustive descriptive views:
    `route_variant`, `orientation`, `receipt`, `expected_action`, `candidate_position`, and
    `expected_token_count`, report `C→C`, `C→W`, `W→C`, and `W→W` counts/rates plus adverse and
    rescue shares, OFF/ON mean margins, margin-sign counts, and descriptive margin change within
-   each correctness transition.
+   each correctness transition, including base/adapter/change mean, median, and full
+   positive/zero/negative counts.
 2. **Taxonomy migration.** Report the complete OFF→ON unit-taxonomy transition matrix, with
    dedicated rows for all base `single_action_locked` units and all adapter
    `receipt_invariant`/`partial_mixed` units.
