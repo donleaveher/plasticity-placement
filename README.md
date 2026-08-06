@@ -394,14 +394,26 @@ canonical/swapped 分别为 `0.6354/0.6458`。causal specificity
 [`docs/p0d2h-receipt-action-binding-protocol.md`](docs/p0d2h-receipt-action-binding-protocol.md)。
 该审计不重分类 RSH、不训练且不授权 1/4/8。
 
-下一步是对该 RAB 的 192 条 frozen paired records 做 CPU-only error-topology audit，
-区分 action locked、receipt invariant、binding invariant、fully inverted 与 mixed errors，
-并报告 C/W 转移、selected-minus-counterfactual margins 和冻结 factor slices。Colab 入口见
+RAB error-topology audit 已完成。其 cell transitions 为 `C→C=90`、`C→W=21`、
+`W→C=33`、`W→W=48`；`single_action_locked` 从 `30/48` 降至 `10/48`，但
+`receipt_invariant` 从 `3/48` 升至 `13/48`，`partial_mixed` 从 `13/48` 升至
+`23/48`。selected-minus-counterfactual margin 的 ON−OFF 均值为
+`+0.8145 [0.6907, 0.9251]`。这说明 adapter 打破了大量全局 action locking，但尚未形成
+稳定的四格 binding。原 Colab 入口见
 [`notebooks/p0d2h_rab_error_topology/p0d2h_rab_error_topology_colab.ipynb`](notebooks/p0d2h_rab_error_topology/p0d2h_rab_error_topology_colab.ipynb)，
 也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_rab_error_topology/p0d2h_rab_error_topology_colab.ipynb)。
 协议见
 [`docs/p0d2h-rab-error-topology-protocol.md`](docs/p0d2h-rab-error-topology-protocol.md)。
 该诊断不加载模型、不推理、不训练、不改变 RAB decision，且不授权 1/4/8。
+
+下一步 CPU-only localization reader 将完整读取该 RABD 的 summary、factor slices、192
+条 cell records 和 48 条 unit records，定位 21 个 `C→W`、48 个 `W→W`、taxonomy
+migrations 与 transition-conditioned margins。Colab 入口见
+[`notebooks/p0d2h_rab_error_localization/p0d2h_rab_error_localization_colab.ipynb`](notebooks/p0d2h_rab_error_localization/p0d2h_rab_error_localization_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_rab_error_localization/p0d2h_rab_error_localization_colab.ipynb)。
+协议见
+[`docs/p0d2h-rab-error-localization-protocol.md`](docs/p0d2h-rab-error-localization-protocol.md)。
+该 reader 只做 descriptive localization，不改变历史状态，也不授权训练或 1/4/8。
 
 ## 项目结构
 
@@ -425,7 +437,8 @@ canonical/swapped 分别为 `0.6354/0.6458`。causal specificity
 │   ├── p0d2hrtb/              # Frozen-adapter route-transfer bridge audit
 │   ├── p0d2hrsh/              # Route-state handoff audit
 │   ├── p0d2hrab/              # Two-valid-slot receipt/action binding audit
-│   └── p0d2hrabd/             # CPU-only RAB paired error-topology diagnostic
+│   ├── p0d2hrabd/             # CPU-only RAB paired error-topology diagnostic
+│   └── p0d2hrabdl/            # CPU-only RAB error-localization reader
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```

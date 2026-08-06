@@ -22,7 +22,8 @@ plasticity-placement/
 │   ├── p0d2hrtb/              # Frozen-adapter route-transfer bridge audit
 │   ├── p0d2hrsh/              # Route-state handoff audit
 │   ├── p0d2hrab/              # Two-valid-slot receipt/action binding audit
-│   └── p0d2hrabd/             # CPU-only RAB paired error-topology diagnostic
+│   ├── p0d2hrabd/             # CPU-only RAB paired error-topology diagnostic
+│   └── p0d2hrabdl/            # CPU-only RAB error-localization reader
 ├── tests/                     # 不依赖大模型下载的单元测试
 ├── artifacts/                 # 本地结果、适配器和检查点；不提交版本库
 ├── pyproject.toml
@@ -72,6 +73,10 @@ plasticity-placement/
 - `p0d2hrabd/` 只接受 exact completed `binding_not_supported` RAB，重验完整来源后在 CPU
   上从既有 OFF/ON rows 派生 cell transitions、四格 unit taxonomy、score margins 和冻结
   descriptive slices；不加载模型、不重分类 RAB、不训练且不改变 1/4/8 gate。
+- `p0d2hrabdl/` 只接受 exact completed RABD，重验其 manifest、preregistration、analysis
+  plan 和全部 published hashes 后，读取 192 cell/48 unit records，派生 exhaustive factor
+  localization、taxonomy migrations、transition margins 和 unit hotspots；不重新推理、
+  不重分类历史结果、不训练且不改变 1/4/8 gate。
 - `notebooks/` 不保存核心业务逻辑，只调用已安装的命令行入口。
 - `notebooks/p0d2h_route_remediation/` 以生成器维护 Colab；默认仅运行
   preregistration/preflight，并把外部授权采纳、单次训练、locked evaluation
