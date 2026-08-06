@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 NOTEBOOK_DIR = Path(__file__).parents[1] / "notebooks" / "p0d2h_rab_error_localization"
-EXPECTED_CODE_REVISION = "5aad1a1f2a86867735a9caa6bdf6976863e69d57"
+EXPECTED_CODE_REVISION = "36f9d4e957f6b8e4ca5da0f9d88656fde40b5aef"
 
 
 def _module():
