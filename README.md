@@ -428,6 +428,20 @@ Colab 入口见
 该审计将 joint receipt/slot-label、serial position、candidate position 0 与 composition
 interaction 分开报告；不重分类历史 RAB，不授权 remediation training 或 1/4/8。
 
+正式 counterbalancing 结果为 `multiple_mechanisms`：adapter 的 Receipt B−A 为
+`-0.1745 [-0.2370, -0.1146]`，selected-slot second−first 为
+`-0.2839 [-0.3750, -0.2005]`，candidate-position-0−others 为
+`-0.5260 [-0.6372, -0.4132]`，且存在 composition interaction。由于该设计仍把 receipt
+token A/B 与 selected Slot A/B label 绑定，下一步新增 receipt/slot-label disentanglement
+audit。它通过显式 canonical/crossed codebook 独立交叉 receipt token、selected Slot label、
+display order 和 candidate rotation，共生成 3072 个 prompt / 6144 个 OFF/ON decisions。
+协议见
+[`docs/p0d2h-rab-label-disentanglement-protocol.md`](docs/p0d2h-rab-label-disentanglement-protocol.md)，
+Colab 入口见
+[`notebooks/p0d2h_rab_label_disentanglement/p0d2h_rab_label_disentanglement_colab.ipynb`](notebooks/p0d2h_rab_label_disentanglement/p0d2h_rab_label_disentanglement_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_rab_label_disentanglement/p0d2h_rab_label_disentanglement_colab.ipynb)。
+该审计仍只做冻结 adapter 推理，不重分类 RAB/RABC，不授权训练或 1/4/8。
+
 ## 项目结构
 
 ```text
@@ -452,7 +466,8 @@ interaction 分开报告；不重分类历史 RAB，不授权 remediation traini
 │   ├── p0d2hrab/              # Two-valid-slot receipt/action binding audit
 │   ├── p0d2hrabd/             # CPU-only RAB paired error-topology diagnostic
 │   ├── p0d2hrabdl/            # CPU-only RAB error-localization reader
-│   └── p0d2hrabc/             # Frozen RAB counterbalancing inference audit
+│   ├── p0d2hrabc/             # Frozen RAB counterbalancing inference audit
+│   └── p0d2hrabx/             # Receipt/slot-label disentanglement inference audit
 ├── tests/                     # 单元测试
 └── artifacts/                 # 生成结果，不纳入版本控制
 ```

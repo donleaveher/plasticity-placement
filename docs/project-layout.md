@@ -24,7 +24,8 @@ plasticity-placement/
 │   ├── p0d2hrab/              # Two-valid-slot receipt/action binding audit
 │   ├── p0d2hrabd/             # CPU-only RAB paired error-topology diagnostic
 │   ├── p0d2hrabdl/            # CPU-only RAB error-localization reader
-│   └── p0d2hrabc/             # Frozen RAB counterbalancing inference audit
+│   ├── p0d2hrabc/             # Frozen RAB counterbalancing inference audit
+│   └── p0d2hrabx/             # Receipt/slot-label disentanglement audit
 ├── tests/                     # 不依赖大模型下载的单元测试
 ├── artifacts/                 # 本地结果、适配器和检查点；不提交版本库
 ├── pyproject.toml
@@ -81,6 +82,9 @@ plasticity-placement/
 - `p0d2hrabc/` 只接受 exact completed RAB，保持冻结 adapter/runtime，交叉 slot 展示顺序
   与 candidate rotations，输出 joint label、serial position、candidate position 与交互归因；
   不重分类 RAB、不训练且不改变 1/4/8 gate。
+- `p0d2hrabx/` 只接受 run `p0d2hrabc-c4f96876bb` 的 complete RABC 及其传递 RAB source，
+  通过 canonical/crossed receipt-to-slot codebook 独立交叉 receipt token 与 selected Slot
+  label，同时控制 display/candidate position；不重分类 RAB/RABC、不训练且不改变 1/4/8 gate。
 - `notebooks/` 不保存核心业务逻辑，只调用已安装的命令行入口。
 - `notebooks/p0d2h_route_remediation/` 以生成器维护 Colab；默认仅运行
   preregistration/preflight，并把外部授权采纳、单次训练、locked evaluation

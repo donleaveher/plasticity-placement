@@ -108,6 +108,14 @@ P0-D2H-CRD route/retrieval decomposition 使用第五个独立目录：
   exact source-chain 验证、counterbalanced bank、5,376 candidate sequences、
   诊断 gate 与禁止训练边界。
 
+P0-D2H RAB receipt/slot-label disentanglement 使用独立目录：
+
+- [`p0d2h_rab_label_disentanglement/p0d2h_rab_label_disentanglement_colab.ipynb`](p0d2h_rab_label_disentanglement/p0d2h_rab_label_disentanglement_colab.ipynb)：
+  以 canonical/crossed receipt-to-slot codebook 运行 3072 个 frozen prompts / 6144 个
+  OFF-ON decisions；
+- [`p0d2h_rab_label_disentanglement/README.md`](p0d2h_rab_label_disentanglement/README.md)：
+  source qualification、独立 label crossing、授权生命周期和禁止训练边界。
+
 后续 1/4/8 mappings、ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自
 创建新目录和 notebook。
 
