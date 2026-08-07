@@ -6,6 +6,7 @@ from textwrap import dedent
 from typing import Any
 
 BRANCH = "agent/add-lora-evaluation"
+EXPERIMENT_CODE_REVISION = "58eaa8c4dde431e393925662b6c1e913bba02611"
 OUTPUT_DIR = Path(__file__).resolve().parent
 NOTEBOOK_NAME = "p0d2h_rab_label_disentanglement_colab.ipynb"
 COLAB_URL = (
@@ -48,7 +49,10 @@ from IPython.display import Markdown, display
 
 REPO_URL = 'https://github.com/donleaveher/plasticity-placement.git'
 BRANCH = '{BRANCH}'
-REPO_DIR = Path('/content/plasticity-placement-rab-label-disentanglement')
+EXPERIMENT_CODE_REVISION = '{EXPERIMENT_CODE_REVISION}'
+RECOVERY_CODE_REVISION = None
+EXPERIMENT_REPO_DIR = Path('/content/plasticity-placement-rab-label-disentanglement')
+RECOVERY_REPO_DIR = Path('/content/plasticity-placement-rab-label-recovery')
 
 RABC_OUTPUT = Path(
     '/content/drive/MyDrive/plasticity-p0d/rab-counterbalancing/v1/pipelines/'
@@ -71,65 +75,92 @@ print('Label-disentanglement pipeline:', PIPELINE_ROOT)
 
 CONTROLS = """
 # EDIT ONLY THIS CELL BETWEEN PASSES.
-REQUESTED_CODE_REVISION = None  # Optional exact Git SHA; first plan locks the resolved revision.
 RUN_PLAN = True
 RUN_AUTHORIZE = False
+RUN_RECOVERY_INSPECTION = False
+RUN_RECOVER_ZERO_ARTIFACT = False
 RUN_AUDIT = False
 APPROVER = ''  # Human/responsible-party identifier; never a password or token.
+ORIGINAL_RUNTIME_TERMINATED = False  # True only after confirming the old Colab process stopped.
 
-stages = {'plan': RUN_PLAN, 'authorize': RUN_AUTHORIZE, 'audit': RUN_AUDIT}
+stages = {
+    'plan': RUN_PLAN,
+    'authorize': RUN_AUTHORIZE,
+    'recovery_inspection': RUN_RECOVERY_INSPECTION,
+    'recover_zero_artifact': RUN_RECOVER_ZERO_ARTIFACT,
+    'audit': RUN_AUDIT,
+}
 if sum(bool(value) for value in stages.values()) > 1:
     raise ValueError(f'Enable at most one stage per pass: {stages}')
-if RUN_AUTHORIZE and not APPROVER.strip():
-    raise ValueError('Set APPROVER to a human identifier before authorization')
+if (RUN_AUTHORIZE or RUN_RECOVER_ZERO_ARTIFACT) and not APPROVER.strip():
+    raise ValueError('Set APPROVER to a human identifier before authorization or recovery')
+if RUN_RECOVER_ZERO_ARTIFACT and ORIGINAL_RUNTIME_TERMINATED is not True:
+    raise ValueError('Confirm ORIGINAL_RUNTIME_TERMINATED before recovery')
 print('Selected controls:', stages)
 """
 
 
 SETUP = """
 subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'uv'], check=True)
-if REPO_DIR.exists() and not (REPO_DIR / '.git').exists():
-    raise RuntimeError(f'{REPO_DIR} exists but is not a Git repository')
-if not REPO_DIR.exists():
-    subprocess.run(['git', 'clone', '--branch', BRANCH, REPO_URL, str(REPO_DIR)], check=True)
-dirty = subprocess.run(
-    ['git', '-C', str(REPO_DIR), 'status', '--porcelain'],
-    check=True,
-    capture_output=True,
-    text=True,
-).stdout.strip()
-if dirty:
-    raise RuntimeError(f'Checkout has local changes:\\n{dirty}')
+
+def prepare_checkout(repo_dir, requested_revision, revision_lock, label):
+    if repo_dir.exists() and not (repo_dir / '.git').exists():
+        raise RuntimeError(f'{repo_dir} exists but is not a Git repository')
+    if not repo_dir.exists():
+        subprocess.run(['git', 'clone', '--branch', BRANCH, REPO_URL, str(repo_dir)], check=True)
+    dirty = subprocess.run(
+        ['git', '-C', str(repo_dir), 'status', '--porcelain'],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if dirty:
+        raise RuntimeError(f'{label} checkout has local changes:\\n{dirty}')
+    subprocess.run(['git', '-C', str(repo_dir), 'fetch', 'origin', BRANCH], check=True)
+    locked_revision = revision_lock.read_text().strip() if revision_lock.exists() else None
+    revision_ref = requested_revision or locked_revision or f'origin/{BRANCH}'
+    revision = subprocess.run(
+        ['git', '-C', str(repo_dir), 'rev-parse', f'{revision_ref}^{{commit}}'],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if locked_revision and locked_revision != revision:
+        raise RuntimeError(f'{label} code lock mismatch; use a new pipeline attempt')
+    if not locked_revision:
+        temporary = revision_lock.with_suffix(revision_lock.suffix + '.tmp')
+        temporary.write_text(revision + '\\n')
+        temporary.replace(revision_lock)
+    subprocess.run(['git', '-C', str(repo_dir), 'checkout', '--detach', revision], check=True)
+    return revision
 
 PIPELINE_ROOT.mkdir(parents=True, exist_ok=True)
-CODE_REVISION_LOCK = PIPELINE_ROOT / 'code_revision.txt'
-locked_revision = CODE_REVISION_LOCK.read_text().strip() if CODE_REVISION_LOCK.exists() else None
-subprocess.run(['git', '-C', str(REPO_DIR), 'fetch', 'origin', BRANCH], check=True)
-revision_ref = REQUESTED_CODE_REVISION or locked_revision or f'origin/{BRANCH}'
-RESOLVED_CODE_REVISION = subprocess.run(
-    ['git', '-C', str(REPO_DIR), 'rev-parse', f'{revision_ref}^{{commit}}'],
+EXPERIMENT_CODE_REVISION_LOCK = PIPELINE_ROOT / 'code_revision.txt'
+RECOVERY_CODE_REVISION_LOCK = PIPELINE_ROOT / 'recovery_code_revision.txt'
+RESOLVED_EXPERIMENT_CODE_REVISION = prepare_checkout(
+    EXPERIMENT_REPO_DIR,
+    EXPERIMENT_CODE_REVISION,
+    EXPERIMENT_CODE_REVISION_LOCK,
+    'experiment',
+)
+RESOLVED_RECOVERY_CODE_REVISION = prepare_checkout(
+    RECOVERY_REPO_DIR,
+    RECOVERY_CODE_REVISION,
+    RECOVERY_CODE_REVISION_LOCK,
+    'recovery',
+)
+subprocess.run(
+    ['uv', 'sync', '--extra', 'train', '--extra', 'colab'],
+    cwd=EXPERIMENT_REPO_DIR,
     check=True,
-    capture_output=True,
-    text=True,
-).stdout.strip()
-if locked_revision and locked_revision != RESOLVED_CODE_REVISION:
-    raise RuntimeError('Label-disentanglement code lock mismatch; use a new pipeline attempt')
-if not locked_revision:
-    temporary = CODE_REVISION_LOCK.with_suffix('.txt.tmp')
-    temporary.write_text(RESOLVED_CODE_REVISION + '\\n')
-    temporary.replace(CODE_REVISION_LOCK)
-subprocess.run(
-    ['git', '-C', str(REPO_DIR), 'checkout', '--detach', RESOLVED_CODE_REVISION], check=True
 )
-subprocess.run(
-    ['uv', 'sync', '--extra', 'train', '--extra', 'colab'], cwd=REPO_DIR, check=True
-)
+subprocess.run(['uv', 'sync'], cwd=RECOVERY_REPO_DIR, check=True)
 if RUN_AUDIT:
     subprocess.run(['nvidia-smi'], check=True)
 
 environment = subprocess.run(
     ['uv', 'run', 'plasticity-p0d2hrabx', 'environment'],
-    cwd=REPO_DIR,
+    cwd=EXPERIMENT_REPO_DIR,
     check=True,
     capture_output=True,
     text=True,
@@ -137,7 +168,8 @@ environment = subprocess.run(
 environment_payload = json.loads(environment.stdout.splitlines()[-1])
 if RUN_AUDIT and environment_payload['environment']['cuda_available'] is not True:
     raise RuntimeError('RAB label-disentanglement audit requires a CUDA runtime')
-print('Code revision:', RESOLVED_CODE_REVISION)
+print('Experiment code revision:', RESOLVED_EXPERIMENT_CODE_REVISION)
+print('Recovery code revision:', RESOLVED_RECOVERY_CODE_REVISION)
 print('Environment fingerprint:', environment_payload['fingerprint'])
 """
 
@@ -161,19 +193,27 @@ missing = [str(path) for path in required if not path.is_file()]
 if missing:
     raise FileNotFoundError(f'Missing frozen RABC artifacts: {missing}')
 rabc_hash = sha256((RABC_OUTPUT / 'summary.json').read_bytes()).hexdigest()
-identity = f'code-{RESOLVED_CODE_REVISION[:10]}_rabc-{rabc_hash[:10]}'
+identity = f'code-{RESOLVED_EXPERIMENT_CODE_REVISION[:10]}_rabc-{rabc_hash[:10]}'
 AUDIT_OUTPUT = PIPELINE_ROOT / 'runs' / identity / (
     'rab-label-disentanglement-' + AUDIT_ATTEMPT
 )
 APPROVAL_PATH = PIPELINE_ROOT / 'approvals' / identity / f'authorization-{AUDIT_ATTEMPT}.json'
+RECOVERY_APPROVAL_PATH = (
+    PIPELINE_ROOT / 'approvals' / identity / f'zero-artifact-recovery-{AUDIT_ATTEMPT}.json'
+)
+RECOVERY_TEMPLATE_PATH = (
+    PIPELINE_ROOT / 'approvals' / identity
+    / f'zero-artifact-recovery-template-{AUDIT_ATTEMPT}.json'
+)
 print('Audit output:', AUDIT_OUTPUT)
 print('External approval:', APPROVAL_PATH)
+print('External recovery approval:', RECOVERY_APPROVAL_PATH)
 """
 
 
 LIFECYCLE = """
-def run(command):
-    completed = subprocess.run(command, cwd=REPO_DIR, capture_output=True, text=True)
+def run(command, *, cwd):
+    completed = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
     if completed.stdout:
         print(completed.stdout)
     if completed.stderr:
@@ -181,6 +221,12 @@ def run(command):
     if completed.returncode != 0:
         raise RuntimeError(f'Command failed with exit code {completed.returncode}: {command}')
     return completed
+
+def last_json_line(completed):
+    lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError('Command produced no JSON output')
+    return json.loads(lines[-1])
 
 def write_or_validate_approval(path, fixed):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -207,7 +253,7 @@ if RUN_PLAN:
         run([
             'uv', 'run', 'plasticity-p0d2hrabx', 'plan',
             '--output', str(AUDIT_OUTPUT), '--rabc-output', str(RABC_OUTPUT),
-        ])
+        ], cwd=EXPERIMENT_REPO_DIR)
     bank_audit = AUDIT_OUTPUT / 'preflight' / 'bank_audit.json'
     if bank_audit.is_file():
         payload = json.loads(bank_audit.read_text())
@@ -240,14 +286,71 @@ if RUN_AUTHORIZE:
     run([
         'uv', 'run', 'plasticity-p0d2hrabx', 'authorize',
         '--output', str(AUDIT_OUTPUT), '--authorization', str(APPROVAL_PATH),
-    ])
+    ], cwd=EXPERIMENT_REPO_DIR)
+
+if RUN_RECOVERY_INSPECTION:
+    manifest = json.loads((AUDIT_OUTPUT / 'manifest.json').read_text())
+    if manifest['state'] != 'running':
+        raise RuntimeError(
+            f'Zero-artifact inspection requires running state: {manifest["state"]}'
+        )
+    result = run([
+        'uv', 'run', 'plasticity-p0d2hrabx', 'zero-artifact-recovery-template',
+        '--output', str(AUDIT_OUTPUT),
+        '--experiment-code-revision-lock', str(EXPERIMENT_CODE_REVISION_LOCK),
+    ], cwd=RECOVERY_REPO_DIR)
+    template = last_json_line(result)
+    RECOVERY_TEMPLATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temporary = RECOVERY_TEMPLATE_PATH.with_suffix(RECOVERY_TEMPLATE_PATH.suffix + '.tmp')
+    temporary.write_text(json.dumps(template, indent=2, sort_keys=True) + '\\n')
+    temporary.replace(RECOVERY_TEMPLATE_PATH)
+    print('Recovery eligibility verified; inspect template:', RECOVERY_TEMPLATE_PATH)
+
+if RUN_RECOVER_ZERO_ARTIFACT:
+    manifest = json.loads((AUDIT_OUTPUT / 'manifest.json').read_text())
+    if manifest['state'] == 'running':
+        if not RECOVERY_TEMPLATE_PATH.is_file():
+            raise RuntimeError('Run a separate recovery-inspection pass first')
+        inspected_template = json.loads(RECOVERY_TEMPLATE_PATH.read_text())
+        result = run([
+            'uv', 'run', 'plasticity-p0d2hrabx', 'zero-artifact-recovery-template',
+            '--output', str(AUDIT_OUTPUT),
+            '--experiment-code-revision-lock', str(EXPERIMENT_CODE_REVISION_LOCK),
+        ], cwd=RECOVERY_REPO_DIR)
+        current_template = last_json_line(result)
+        if current_template != inspected_template:
+            raise RuntimeError(
+                'Recovery evidence changed after inspection; run a fresh inspection pass'
+            )
+        fixed = {
+            **current_template,
+            'decision': 'approved',
+            'approved_by': APPROVER.strip(),
+            'original_runtime_confirmed_terminated': ORIGINAL_RUNTIME_TERMINATED,
+        }
+        fixed.pop('approved_at')
+        write_or_validate_approval(RECOVERY_APPROVAL_PATH, fixed)
+    elif manifest['state'] == 'authorized' and isinstance(manifest.get('recovery'), dict):
+        if not RECOVERY_APPROVAL_PATH.is_file():
+            raise RuntimeError('Recovered manifest is missing its external approval')
+        print('Recovery already adopted; validating idempotent completion')
+    else:
+        raise RuntimeError(
+            f'Zero-artifact recovery is not valid from state: {manifest["state"]}'
+        )
+    run([
+        'uv', 'run', 'plasticity-p0d2hrabx', 'recover-zero-artifact',
+        '--output', str(AUDIT_OUTPUT),
+        '--authorization', str(RECOVERY_APPROVAL_PATH),
+        '--experiment-code-revision-lock', str(EXPERIMENT_CODE_REVISION_LOCK),
+    ], cwd=RECOVERY_REPO_DIR)
 
 if RUN_AUDIT:
     manifest = json.loads((AUDIT_OUTPUT / 'manifest.json').read_text())
     if manifest['state'] == 'authorized':
         run([
             'uv', 'run', 'plasticity-p0d2hrabx', 'run', '--output', str(AUDIT_OUTPUT),
-        ])
+        ], cwd=EXPERIMENT_REPO_DIR)
     elif manifest['state'] == 'complete':
         print('RAB label-disentanglement audit already complete; not rerunning')
     else:
@@ -259,7 +362,10 @@ RESULTS = """
 manifest_path = AUDIT_OUTPUT / 'manifest.json'
 manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else None
 if manifest and manifest['state'] == 'complete':
-    run(['uv', 'run', 'plasticity-p0d2hrabx', 'verify', '--output', str(AUDIT_OUTPUT)])
+    run(
+        ['uv', 'run', 'plasticity-p0d2hrabx', 'verify', '--output', str(AUDIT_OUTPUT)],
+        cwd=EXPERIMENT_REPO_DIR,
+    )
     summary_path = AUDIT_OUTPUT / 'summary.json'
     report_path = AUDIT_OUTPUT / 'report.md'
     audit_manifest_path = AUDIT_OUTPUT / 'audit_manifest.json'
@@ -326,7 +432,8 @@ def build_notebook() -> dict[str, Any]:
                 token A/B and selected Slot A/B are therefore independently crossed, while slot
                 display order and four action-panel rotations remain controlled. Every prompt is
                 scored OFF→ON in one runtime. The audit never trains, reclassifies RAB/RABC, or
-                authorizes 1/4/8.
+                authorizes 1/4/8. A separately governed zero-artifact recovery is available for
+                a stale running manifest left by a terminated Colab session.
                 """
             ),
             code(CONFIG),
@@ -344,6 +451,13 @@ def build_notebook() -> dict[str, Any]:
                 `RUN_AUTHORIZE`. Finally disable authorization and enable only `RUN_AUDIT`.
                 Rerun the controls and combined lifecycle cells for each pass. Run the result
                 cell only after completion.
+
+                If a terminated Colab session leaves the manifest at running, do not edit or
+                delete it. After it has been stale for six hours, enable only
+                RUN_RECOVERY_INSPECTION and inspect the external template. In a separate pass,
+                set ORIGINAL_RUNTIME_TERMINATED = True, set APPROVER, and enable only
+                RUN_RECOVER_ZERO_ARTIFACT. After recovery returns the same run to authorized,
+                enable only RUN_AUDIT. Run the result cell only after completion.
                 """
             ),
             code(RESULTS),

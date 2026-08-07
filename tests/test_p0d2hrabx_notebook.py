@@ -39,34 +39,44 @@ def test_label_notebook_has_safe_dedicated_controls_and_atomic_lifecycle() -> No
     config, controls, combined, results = code_cells
     all_code = "\n".join(code_cells)
     for text in (
-        "REQUESTED_CODE_REVISION = None",
         "RUN_PLAN = True",
         "RUN_AUTHORIZE = False",
+        "RUN_RECOVERY_INSPECTION = False",
+        "RUN_RECOVER_ZERO_ARTIFACT = False",
         "RUN_AUDIT = False",
         "APPROVER = ''",
+        "ORIGINAL_RUNTIME_TERMINATED = False",
     ):
         assert text in controls
     for variable in (
-        "REQUESTED_CODE_REVISION",
         "RUN_PLAN",
         "RUN_AUTHORIZE",
+        "RUN_RECOVERY_INSPECTION",
+        "RUN_RECOVER_ZERO_ARTIFACT",
         "RUN_AUDIT",
         "APPROVER",
+        "ORIGINAL_RUNTIME_TERMINATED",
     ):
         assert f"{variable} =" not in config
         assert f"{variable} =" not in combined
         assert f"{variable} =" not in results
     assert (
-        combined.index("RESOLVED_CODE_REVISION = subprocess.run")
+        combined.index("RESOLVED_EXPERIMENT_CODE_REVISION = prepare_checkout")
         < combined.index("AUDIT_OUTPUT = PIPELINE_ROOT")
         < combined.index("if RUN_PLAN:")
         < combined.index("if RUN_AUTHORIZE:")
+        < combined.index("if RUN_RECOVERY_INSPECTION:")
+        < combined.index("if RUN_RECOVER_ZERO_ARTIFACT:")
         < combined.rindex("if RUN_AUDIT:")
     )
     assert "if RUN_AUDIT:\n    subprocess.run(['nvidia-smi']" in combined
     assert "Authorization already adopted; validating idempotent completion" in combined
     for action in ("plan", "authorize", "run", "verify"):
         assert f"'plasticity-p0d2hrabx', '{action}'" in all_code
+    for action in ("zero-artifact-recovery-template", "recover-zero-artifact"):
+        assert f"'plasticity-p0d2hrabx', '{action}'" in all_code
+    assert "RECOVERY_REPO_DIR" in combined
+    assert "EXPERIMENT_CODE_REVISION = '58eaa8c4dde431e393925662b6c1e913bba02611'" in config
     assert "'plasticity-p0d2hrabx', 'train'" not in all_code
     for boundary in (
         "historical_rab_decision_changed",

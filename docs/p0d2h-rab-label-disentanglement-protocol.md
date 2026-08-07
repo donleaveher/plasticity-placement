@@ -102,3 +102,9 @@ plasticity-p0d2hrabx verify --output /path/to/new-rab-label-disentanglement
 
 Primary outputs are `summary.json`, `report.md`, `paired_records.jsonl`, and immutable OFF/ON raw
 rows under `results/`.
+
+If a terminated Colab session leaves the manifest at `running` before any result artifact is
+published, do not edit or delete the manifest. Follow the separately governed
+[zero-artifact recovery protocol](p0d2h-rab-label-zero-artifact-recovery-protocol.md). Recovery
+requires six hours of staleness, a separate inspection and approval pass, explicit confirmation
+that the original runtime terminated, and reuse of the original experiment commit and run ID.

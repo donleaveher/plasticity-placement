@@ -8,6 +8,10 @@ from plasticity_placement.p0c.runtime import (
     current_environment_fingerprint,
     current_environment_snapshot,
 )
+from plasticity_placement.p0d2hrabx.recovery import (
+    recover_zero_artifact_attempt,
+    recovery_authorization_template,
+)
 from plasticity_placement.p0d2hrabx.runtime import (
     authorize_audit,
     plan_audit,
@@ -29,6 +33,15 @@ def build_parser() -> argparse.ArgumentParser:
     authorize.add_argument("--authorization", type=Path, required=True)
     run = commands.add_parser("run")
     run.add_argument("--output", type=Path, required=True)
+    recovery_template = commands.add_parser("zero-artifact-recovery-template")
+    recovery_template.add_argument("--output", type=Path, required=True)
+    recovery_template.add_argument(
+        "--experiment-code-revision-lock", type=Path, required=True
+    )
+    recover = commands.add_parser("recover-zero-artifact")
+    recover.add_argument("--output", type=Path, required=True)
+    recover.add_argument("--authorization", type=Path, required=True)
+    recover.add_argument("--experiment-code-revision-lock", type=Path, required=True)
     status = commands.add_parser("status")
     status.add_argument("--output", type=Path, required=True)
     verify = commands.add_parser("verify")
@@ -55,6 +68,22 @@ def main() -> None:
         path = authorize_audit(args.output, args.authorization)
     elif args.command == "run":
         path = run_audit(args.output)
+    elif args.command == "zero-artifact-recovery-template":
+        print(
+            json.dumps(
+                recovery_authorization_template(
+                    args.output, args.experiment_code_revision_lock
+                ),
+                sort_keys=True,
+            )
+        )
+        return
+    elif args.command == "recover-zero-artifact":
+        path = recover_zero_artifact_attempt(
+            args.output,
+            args.authorization,
+            args.experiment_code_revision_lock,
+        )
     elif args.command == "verify":
         path = verify_complete_result(args.output)
     elif args.command == "status":
@@ -65,6 +94,7 @@ def main() -> None:
                     "run_id": manifest["run_id"],
                     "state": manifest["state"],
                     "errors": manifest.get("errors", []),
+                    "recovery": manifest.get("recovery"),
                     "historical_rab_decision_changed": False,
                     "historical_rabc_attribution_changed": False,
                     "training_authorized": False,

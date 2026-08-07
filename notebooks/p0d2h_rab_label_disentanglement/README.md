@@ -11,6 +11,12 @@ Only edit the dedicated controls cell. Planning is the safe default. Authorizati
 inference require separate passes and remain disabled by default. The audit never trains,
 reclassifies RAB/RABC, or authorizes the 1/4/8 experiment.
 
+If a disconnected and terminated Colab session leaves the manifest at `running`, do not edit or
+delete it. After six hours, use the notebook's separate `RUN_RECOVERY_INSPECTION` and
+`RUN_RECOVER_ZERO_ARTIFACT` passes. The recovery follows
+[`docs/p0d2h-rab-label-zero-artifact-recovery-protocol.md`](../../docs/p0d2h-rab-label-zero-artifact-recovery-protocol.md)
+and keeps the experiment locked to commit `58eaa8c4dde431e393925662b6c1e913bba02611`.
+
 Regenerate the checked-in notebook with:
 
 ```bash
