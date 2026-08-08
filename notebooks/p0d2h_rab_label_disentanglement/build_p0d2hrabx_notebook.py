@@ -7,6 +7,7 @@ from typing import Any
 
 BRANCH = "agent/add-lora-evaluation"
 EXPERIMENT_CODE_REVISION = "58eaa8c4dde431e393925662b6c1e913bba02611"
+RECOVERY_CODE_REVISION = "31bd1e9811e983370586be15e39f83a80509eb65"
 OUTPUT_DIR = Path(__file__).resolve().parent
 NOTEBOOK_NAME = "p0d2h_rab_label_disentanglement_colab.ipynb"
 COLAB_URL = (
@@ -50,7 +51,7 @@ from IPython.display import Markdown, display
 REPO_URL = 'https://github.com/donleaveher/plasticity-placement.git'
 BRANCH = '{BRANCH}'
 EXPERIMENT_CODE_REVISION = '{EXPERIMENT_CODE_REVISION}'
-RECOVERY_CODE_REVISION = None
+RECOVERY_CODE_REVISION = '{RECOVERY_CODE_REVISION}'
 EXPERIMENT_REPO_DIR = Path('/content/plasticity-placement-rab-label-disentanglement')
 RECOVERY_REPO_DIR = Path('/content/plasticity-placement-rab-label-recovery')
 
@@ -61,11 +62,16 @@ RABC_OUTPUT = Path(
 )
 PIPELINE_ATTEMPT = 'pipeline-rabx1'
 AUDIT_ATTEMPT = 'rabx1'
+RECOVERY_ATTEMPT = 'rfix2'
 PIPELINE_ROOT = Path(
     '/content/drive/MyDrive/plasticity-p0d/rab-label-disentanglement/v1/pipelines'
 ) / PIPELINE_ATTEMPT
 
-for name, value in {{'PIPELINE_ATTEMPT': PIPELINE_ATTEMPT, 'AUDIT_ATTEMPT': AUDIT_ATTEMPT}}.items():
+for name, value in {{
+    'PIPELINE_ATTEMPT': PIPELINE_ATTEMPT,
+    'AUDIT_ATTEMPT': AUDIT_ATTEMPT,
+    'RECOVERY_ATTEMPT': RECOVERY_ATTEMPT,
+}}.items():
     if not re.fullmatch(r'[A-Za-z0-9._-]+', value):
         raise ValueError(f'{{name}} contains unsafe path characters: {{value!r}}')
 print('Frozen completed RABC source:', RABC_OUTPUT)
@@ -136,7 +142,9 @@ def prepare_checkout(repo_dir, requested_revision, revision_lock, label):
 
 PIPELINE_ROOT.mkdir(parents=True, exist_ok=True)
 EXPERIMENT_CODE_REVISION_LOCK = PIPELINE_ROOT / 'code_revision.txt'
-RECOVERY_CODE_REVISION_LOCK = PIPELINE_ROOT / 'recovery_code_revision.txt'
+RECOVERY_CODE_REVISION_LOCK = PIPELINE_ROOT / (
+    f'recovery_code_revision-{RECOVERY_ATTEMPT}.txt'
+)
 RESOLVED_EXPERIMENT_CODE_REVISION = prepare_checkout(
     EXPERIMENT_REPO_DIR,
     EXPERIMENT_CODE_REVISION,
@@ -199,11 +207,12 @@ AUDIT_OUTPUT = PIPELINE_ROOT / 'runs' / identity / (
 )
 APPROVAL_PATH = PIPELINE_ROOT / 'approvals' / identity / f'authorization-{AUDIT_ATTEMPT}.json'
 RECOVERY_APPROVAL_PATH = (
-    PIPELINE_ROOT / 'approvals' / identity / f'zero-artifact-recovery-{AUDIT_ATTEMPT}.json'
+    PIPELINE_ROOT / 'approvals' / identity
+    / f'zero-artifact-recovery-{RECOVERY_ATTEMPT}-{AUDIT_ATTEMPT}.json'
 )
 RECOVERY_TEMPLATE_PATH = (
     PIPELINE_ROOT / 'approvals' / identity
-    / f'zero-artifact-recovery-template-{AUDIT_ATTEMPT}.json'
+    / f'zero-artifact-recovery-template-{RECOVERY_ATTEMPT}-{AUDIT_ATTEMPT}.json'
 )
 print('Audit output:', AUDIT_OUTPUT)
 print('External approval:', APPROVAL_PATH)

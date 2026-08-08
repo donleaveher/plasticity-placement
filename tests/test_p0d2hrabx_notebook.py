@@ -77,6 +77,9 @@ def test_label_notebook_has_safe_dedicated_controls_and_atomic_lifecycle() -> No
         assert f"'plasticity-p0d2hrabx', '{action}'" in all_code
     assert "RECOVERY_REPO_DIR" in combined
     assert "EXPERIMENT_CODE_REVISION = '58eaa8c4dde431e393925662b6c1e913bba02611'" in config
+    assert "RECOVERY_CODE_REVISION = '31bd1e9811e983370586be15e39f83a80509eb65'" in config
+    assert "RECOVERY_ATTEMPT = 'rfix2'" in config
+    assert "recovery_code_revision-{RECOVERY_ATTEMPT}.txt" in combined
     assert "'plasticity-p0d2hrabx', 'train'" not in all_code
     for boundary in (
         "historical_rab_decision_changed",
