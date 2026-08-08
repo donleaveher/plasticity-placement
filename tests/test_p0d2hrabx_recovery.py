@@ -18,6 +18,7 @@ from plasticity_placement.p0d2hrr.io import file_hash, json_hash
 
 NOW = datetime(2026, 8, 8, 12, 0, tzinfo=UTC)
 EXPERIMENT_REVISION = "5" * 40
+EXPERIMENT_CODE_SHA256 = "a" * 64
 
 
 def _json_write(path: Path, value: object) -> None:
@@ -33,7 +34,7 @@ def _fixture(
     source_snapshot = {"rabc_output_tree": "a" * 64, "rab_source_snapshot": {}}
     identity = {
         "schema_version": "p0d2hrabx-preregistration-v1",
-        "code_sha256": EXPERIMENT_REVISION,
+        "code_sha256": EXPERIMENT_CODE_SHA256,
         "rabc_output": str((tmp_path / "rabc").resolve()),
         "source_snapshot": source_snapshot,
         "training_authorized": False,
@@ -95,6 +96,8 @@ def test_zero_artifact_recovery_restores_same_attempt_to_authorized(
 ) -> None:
     output, lock, _ = _fixture(tmp_path, monkeypatch)
     template = recovery_authorization_template(output, lock, now=NOW)
+    assert template["experiment_code_revision"] == EXPERIMENT_REVISION
+    assert EXPERIMENT_REVISION != EXPERIMENT_CODE_SHA256
     approval = _approval(tmp_path, template)
 
     path = recover_zero_artifact_attempt(output, approval, lock, now=NOW)
@@ -150,11 +153,11 @@ def test_zero_artifact_recovery_requires_runtime_termination_attestation(
         recover_zero_artifact_attempt(output, approval, lock, now=NOW)
 
 
-def test_zero_artifact_recovery_rejects_revision_lock_mismatch(
+def test_zero_artifact_recovery_rejects_malformed_revision_lock(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     output, lock, _ = _fixture(tmp_path, monkeypatch)
-    lock.write_text("6" * 40 + "\n")
+    lock.write_text("not-a-full-commit\n")
 
-    with pytest.raises(ValueError, match="revision lock differs"):
+    with pytest.raises(ValueError, match="full Git commit"):
         recovery_authorization_template(output, lock, now=NOW)

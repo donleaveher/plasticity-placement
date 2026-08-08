@@ -89,8 +89,6 @@ def inspect_zero_artifact_recovery(
         raise ValueError("original RABX authorization is not approved")
 
     experiment_revision = _read_locked_revision(experiment_code_revision_lock)
-    if experiment_revision != identity.get("code_sha256"):
-        raise ValueError("experiment revision lock differs from preregistered RABX code")
     evidence = {
         "failure_signature": FAILURE_SIGNATURE,
         "manifest_state": "running",
