@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -50,9 +51,6 @@ def plan_experiment(
     source = _validate_rabx_source(rabx_output, source_code_revision_lock)
     train, dev, training_audit = compile_training_banks(spec.data)
     heldout, heldout_audit = compile_heldout_bank(spec.data)
-
-    output_dir.mkdir(parents=True)
-    data_hashes = write_banks(output_dir, train, dev, training_audit, heldout, heldout_audit)
     tokenizer = load_tokenizer(spec.model_name, spec.model_revision)
     training_token_audit = {
         curriculum: _training_token_audit(
@@ -64,12 +62,29 @@ def plan_experiment(
     }
     if not all(value["all_checks_passed"] for value in training_token_audit.values()):
         raise ValueError("CBR training token audit failed")
+    heldout_token_audit = _heldout_token_audit(tokenizer, heldout)
+    source_overlap_audit = _source_overlap_audit(
+        rabx_output,
+        Path(source["rab_output"]),
+        [record for curriculum in CURRICULA for record in train[curriculum] + dev[curriculum]],
+        heldout,
+    )
+
+    output_dir.mkdir(parents=True)
+    data_hashes = write_banks(output_dir, train, dev, training_audit, heldout, heldout_audit)
     data_hashes["training_token_audit"] = immutable_json_write(
         output_dir / "preflight" / "training_token_audit.json",
-        {"schema_version": "p0d2hcbr-training-token-audit-v1", "curricula": training_token_audit},
+        {
+            "schema_version": "p0d2hcbr-training-token-audit-v1",
+            "curricula": training_token_audit,
+        },
         "CBR training token audit",
     )
-    heldout_token_audit = _heldout_token_audit(tokenizer, heldout)
+    data_hashes["source_overlap_audit"] = immutable_json_write(
+        output_dir / "preflight" / "source_overlap_audit.json",
+        source_overlap_audit,
+        "CBR source-overlap audit",
+    )
     data_hashes["heldout_token_audit"] = immutable_json_write(
         output_dir / "preflight" / "rab_gen_token_audit.json",
         heldout_token_audit,
@@ -265,6 +280,7 @@ def _preflight_paths(output_dir: Path) -> dict[str, Path]:
             "heldout_audit": root / "rab_gen_bank_audit.json",
             "training_token_audit": root / "training_token_audit.json",
             "heldout_token_audit": root / "rab_gen_token_audit.json",
+            "source_overlap_audit": root / "source_overlap_audit.json",
             "analysis_plan": root / "analysis_plan.json",
         }
     )
@@ -302,6 +318,44 @@ def load_heldout_audits(output_dir: Path) -> dict[str, dict[str, Any]]:
         output_dir / "preflight" / "rab_gen_token_audit.json", "CBR held-out token audit"
     )
     return {str(row["probe_id"]): row for row in payload["records"]}
+
+
+def _source_overlap_audit(
+    rabx_output: Path,
+    rab_output: Path,
+    training_records: list[TrainingRecord],
+    heldout_probes: list[HeldoutProbe],
+) -> dict[str, Any]:
+    source_paths = (
+        rabx_output / "preflight" / "label_disentanglement_probes.jsonl",
+        rab_output / "preflight" / "binding_probes.jsonl",
+    )
+    source_hashes: set[str] = set()
+    for path in source_paths:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                prompt = json.loads(line).get("prompt")
+                if isinstance(prompt, str):
+                    source_hashes.add(sha256(prompt.encode()).hexdigest())
+    training_hashes = {sha256(row.prompt.encode()).hexdigest() for row in training_records}
+    heldout_hashes = {sha256(row.prompt.encode()).hexdigest() for row in heldout_probes}
+    checks = {
+        "source_prompts_loaded": bool(source_hashes),
+        "training_exact_prompt_disjoint": source_hashes.isdisjoint(training_hashes),
+        "heldout_exact_prompt_disjoint": source_hashes.isdisjoint(heldout_hashes),
+        "training_heldout_exact_prompt_disjoint": training_hashes.isdisjoint(heldout_hashes),
+    }
+    payload = {
+        "schema_version": "p0d2hcbr-source-overlap-audit-v1",
+        "source_prompt_count": len(source_hashes),
+        "training_prompt_count": len(training_hashes),
+        "heldout_prompt_count": len(heldout_hashes),
+        "checks": checks,
+        "all_checks_passed": all(checks.values()),
+    }
+    if payload["all_checks_passed"] is not True:
+        raise ValueError(f"CBR source-overlap audit failed: {checks}")
+    return payload
 
 
 def _require_independent(source: Path, output: Path) -> None:

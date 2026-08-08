@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections import Counter
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import pytest
 
 from plasticity_placement.p0d2hcbr.config import ExperimentSpec
 from plasticity_placement.p0d2hcbr.data import compile_heldout_bank, compile_training_banks
+from plasticity_placement.p0d2hcbr.preflight import _source_overlap_audit
 
 SPEC_PATH = (
     Path(__file__).parents[1] / "configs" / "p0d2hcbr-counterbalanced-binding-remediation-v1.json"
@@ -82,3 +84,34 @@ def test_heldout_bank_is_complete_independent_factorial() -> None:
         for display in (0, 1)
         for candidate in range(4)
     }
+
+
+def test_source_overlap_audit_rejects_exact_historical_prompt(tmp_path: Path) -> None:
+    spec = ExperimentSpec().data
+    train, dev, _ = compile_training_banks(spec)
+    heldout, _ = compile_heldout_bank(spec)
+    rabx = tmp_path / "rabx" / "preflight"
+    rab = tmp_path / "rab" / "preflight"
+    rabx.mkdir(parents=True)
+    rab.mkdir(parents=True)
+    (rabx / "label_disentanglement_probes.jsonl").write_text(
+        json.dumps({"prompt": "historical prompt"}) + "\n"
+    )
+    (rab / "binding_probes.jsonl").write_text(
+        json.dumps({"prompt": "another historical prompt"}) + "\n"
+    )
+    rows = [
+        row
+        for curriculum in ("coupled", "disentangled")
+        for row in train[curriculum] + dev[curriculum]
+    ]
+
+    audit = _source_overlap_audit(tmp_path / "rabx", tmp_path / "rab", rows, heldout)
+
+    assert audit["all_checks_passed"] is True
+    contaminated = [*rows]
+    contaminated[0] = type(contaminated[0])(
+        **{**contaminated[0].to_dict(), "prompt": "historical prompt"}
+    )
+    with pytest.raises(ValueError, match="source-overlap"):
+        _source_overlap_audit(tmp_path / "rabx", tmp_path / "rab", contaminated, heldout)

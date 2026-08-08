@@ -228,7 +228,8 @@ def classify_unit(
         for state in ("base", "adapter")
     )
     checks = {
-        "scoring_integrity": compatible_ties,
+        "scoring_integrity": compatible_ties
+        and rab.get("decision", {}).get("scoring_integrity") is True,
         "heldout_tie_worst_accuracy": heldout_lower >= gates.binding_min_accuracy,
         "historical_rab_binding_accuracy": float(rab_binding["estimate"])
         >= gates.binding_min_accuracy,

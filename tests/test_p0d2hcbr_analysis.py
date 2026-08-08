@@ -57,7 +57,10 @@ def test_unit_gate_requires_binding_invariance_and_preservation() -> None:
     ]
     decision = classify_unit(
         heldout=heldout,
-        rab={"adapter_on_conservative_binding_accuracy": {"estimate": 1.0}},
+        rab={
+            "adapter_on_conservative_binding_accuracy": {"estimate": 1.0},
+            "decision": {"scoring_integrity": True},
+        },
         paired=paired,
         guardrail_pairs=guardrail,
         gates=GateSpec(),
