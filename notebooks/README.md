@@ -116,6 +116,13 @@ P0-D2H RAB receipt/slot-label disentanglement 使用独立目录：
 - [`p0d2h_rab_label_disentanglement/README.md`](p0d2h_rab_label_disentanglement/README.md)：
   source qualification、独立 label crossing、授权生命周期和禁止训练边界。
 
+P0-D2H-CBR-v1 counterbalanced binding remediation 使用新的独立目录：
+
+- `p0d2h_counterbalanced_binding_remediation/p0d2h_counterbalanced_binding_remediation_colab.ipynb`：
+  编排冻结的 `2 curricula × 2 placements × 3 seeds` 训练与 12 个独立同 runtime 评估；
+- 默认只执行 plan；authorize、train、evaluate、aggregate 和 verify 必须在 dedicated
+  controls cell 中分阶段显式开启；任何结果都不自动授权 1/4/8。
+
 后续 1/4/8 mappings、ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自
 创建新目录和 notebook。
 
