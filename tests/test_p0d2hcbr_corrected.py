@@ -8,7 +8,7 @@ import pytest
 from plasticity_placement.p0d2hcbr import corrected
 from plasticity_placement.p0d2hcbr.config import CURRICULA, ExperimentSpec, unit_id
 from plasticity_placement.p0d2hcbr.manifest import Manifest
-from plasticity_placement.p0d2hcbr.preflight import _preflight_paths
+from plasticity_placement.p0d2hcbr.preflight import _preflight_paths, load_config
 from plasticity_placement.p0d2hrr.io import file_hash
 
 SPEC_PATH = (
@@ -74,6 +74,8 @@ def test_corrected_plan_imports_six_full_controls_and_leaves_six_late_pending(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(name)
         source_hashes[name] = file_hash(path)
+    source_code_lock = tmp_path / "source-code.txt"
+    source_code_lock.write_text("source-revision\n")
     source_identity = {
         "schema_version": "p0d2hcbr-config-v1",
         "data_hashes": source_hashes,
@@ -81,8 +83,8 @@ def test_corrected_plan_imports_six_full_controls_and_leaves_six_late_pending(
         "rabx_run_id": "rabx",
         "rabc_output": str(tmp_path / "rabc"),
         "rab_output": str(tmp_path / "rab"),
-        "source_code_revision_lock": str(tmp_path / "source-code.txt"),
-        "source_code_revision_lock_sha256": "lock",
+        "source_code_revision_lock": str(source_code_lock),
+        "source_code_revision_lock_sha256": file_hash(source_code_lock),
         "source_snapshot": {"source": "frozen"},
     }
     monkeypatch.setattr(corrected, "verify_complete_result", lambda _: source_summary)
@@ -129,3 +131,6 @@ def test_corrected_plan_imports_six_full_controls_and_leaves_six_late_pending(
     }
     assert manifest.payload["config"]["training_run_limit"] == 6
     assert manifest.payload["training_authorized"] is False
+    loaded_manifest, loaded_spec, _ = load_config(output)
+    assert loaded_manifest.path == manifest_path
+    assert loaded_spec.training.late_explicit_layers == tuple(range(20, 28))

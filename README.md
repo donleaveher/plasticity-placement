@@ -453,7 +453,8 @@ adapter 只能在外部批准后完成降级为描述性的全量评估，跨 pl
 conditional-route 和完整 CRD 上做同 runtime OFF/ON 评估。协议见
 [`docs/p0d2h-counterbalanced-binding-remediation-protocol.md`](docs/p0d2h-counterbalanced-binding-remediation-protocol.md)。
 修正版 CBR-v2 复用六个不可变 full-depth controls，只训练六个 explicit layers 20–27、
-rank 28 的 late replacements，使实际预算重新精确匹配。
+rank 28 的 late replacements，使实际预算重新精确匹配。恢复与修正版 Colab 入口见
+[`notebooks/p0d2h_cbr_budget_recovery_corrected/p0d2h_cbr_budget_recovery_corrected_colab.ipynb`](notebooks/p0d2h_cbr_budget_recovery_corrected/p0d2h_cbr_budget_recovery_corrected_colab.ipynb)。
 该实验中的 full-depth 仍是全层 LoRA placement，不是全参数微调；任何结果都不自动授权
 后续训练或 1/4/8 mappings。
 

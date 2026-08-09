@@ -119,11 +119,11 @@ replacements.
   valid within-placement and curriculum analyses.
 - [x] Phase 4: Implement corrected CBR-v2 configuration, exact layer/rank budget
   preflight, immutable full-depth imports, and six-unit late-only training matrix.
-- [ ] Phase 5: Rebuild the generated Colab with dedicated controls for both phases
+- [x] Phase 5: Rebuild the generated Colab with dedicated controls for both phases
   and safe inspection-only defaults.
-- [ ] Phase 6: Add regression tests and run focused/full tests, Ruff, notebook parity,
+- [x] Phase 6: Add regression tests and run focused/full tests, Ruff, notebook parity,
   compile checks, and diff checks.
-- [ ] Phase 7: Review, commit, push, and provide exact Colab gate instructions.
+- [x] Phase 7: Review, commit, push, and provide exact Colab gate instructions.
 
 ## Key Questions
 1. How can new evaluator code be authorized without silently changing the original
@@ -150,10 +150,16 @@ replacements.
   1,167,360 versus 1,089,536 trainable parameters (7.142857% excess).
 - The first focused Ruff pass found one 105-character report string; it was split
   without changing report content or runtime behavior before tests were run.
+- The first notebook Ruff pass found one 101-character results loop; it was split
+  mechanically and the generated notebook was rebuilt before parity testing.
+- The first generated-notebook AST test exposed four lifecycle newline escapes that
+  were consumed by the builder string. They were doubled in the builder and parity
+  was regenerated; no notebook was executed.
 
 ## Status
-**Currently in Phase 5** - Core recovery and corrected experiment code passes focused and
-full repository verification; preparing the pinned Colab workflow and gate documentation.
+**Complete** - Core recovery/corrected code is committed at `04437d3`; the pinned Colab,
+393-test regression, Ruff, compile, CLI, parity, and diff checks are complete and ready for
+the final GitHub handoff commit.
 
 ## Formal-result review
 

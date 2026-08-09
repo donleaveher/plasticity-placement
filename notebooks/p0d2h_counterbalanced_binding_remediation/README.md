@@ -19,4 +19,5 @@ No CBR outcome automatically authorizes additional training or 1/4/8 mappings.
 The original notebook remains the immutable CBR-v1 training workflow. The separately generated
 budget-recovery/corrected notebook first authorizes a descriptive evaluation of the observed 7.14%
 budget deviation, then creates CBR-v2 with six imported full-depth controls and six corrected late
-runs on explicit layers 20–27 at rank 28.
+runs on explicit layers 20–27 at rank 28. [Open the recovery/corrected notebook in
+Colab](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_cbr_budget_recovery_corrected/p0d2h_cbr_budget_recovery_corrected_colab.ipynb).
