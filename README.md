@@ -446,10 +446,14 @@ RABX 正式结果独立支持 receipt token、selected Slot label、serial posit
 position 0 和 composition interaction 五类机制。基于该结果，项目新增独立的
 P0-D2H-CBR-v1 counterbalanced binding-remediation 实验。它固定运行
 `coupled/disentangled × full-depth/late-matched × 3 seeds` 共 12 个 adapter；两个 placement
-使用等 LoRA 参数预算，训练 bank 保持任务与表面位置暴露一致，只改变 receipt 与 Slot
-label 是否独立交叉。每个 adapter 在新建的 1,536-prompt RAB-GEN、历史 RAB、96 条
+原计划使用等 LoRA 参数预算，但真实 28 层结构使 late arm 多出 7.14% 参数。现有 12 个
+adapter 只能在外部批准后完成降级为描述性的全量评估，跨 placement 结论标记为参数量
+混杂。训练 bank 保持任务与表面位置暴露一致，只改变 receipt 与 Slot label 是否独立交叉。
+每个 adapter 在新建的 1,536-prompt RAB-GEN、历史 RAB、96 条
 conditional-route 和完整 CRD 上做同 runtime OFF/ON 评估。协议见
 [`docs/p0d2h-counterbalanced-binding-remediation-protocol.md`](docs/p0d2h-counterbalanced-binding-remediation-protocol.md)。
+修正版 CBR-v2 复用六个不可变 full-depth controls，只训练六个 explicit layers 20–27、
+rank 28 的 late replacements，使实际预算重新精确匹配。
 该实验中的 full-depth 仍是全层 LoRA placement，不是全参数微调；任何结果都不自动授权
 后续训练或 1/4/8 mappings。
 

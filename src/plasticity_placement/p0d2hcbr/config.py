@@ -10,6 +10,9 @@ from plasticity_placement.training.config import LayerBand, LoraTrainingConfig
 
 SPEC_SCHEMA_VERSION = "p0d2hcbr-spec-v1"
 CONFIG_SCHEMA_VERSION = "p0d2hcbr-config-v1"
+CORRECTED_SPEC_SCHEMA_VERSION = "p0d2hcbr-corrected-spec-v2"
+CORRECTED_CONFIG_SCHEMA_VERSION = "p0d2hcbr-corrected-config-v2"
+CORRECTED_EXPERIMENT_ID = "P0-D2H-COUNTERBALANCED-BINDING-REMEDIATION-v2"
 EXPERIMENT_ID = "P0-D2H-COUNTERBALANCED-BINDING-REMEDIATION-v1"
 DATA_GENERATOR_VERSION = "p0d2hcbr-training-bank-v1"
 HELDOUT_BANK_VERSION = "p0d2hcbr-rab-gen-v1"
@@ -221,6 +224,160 @@ class ExperimentSpec:
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["training"]["target_modules"] = list(self.training.target_modules)
+        payload["training"]["seeds"] = list(self.training.seeds)
+        payload["curricula"] = list(self.curricula)
+        payload["placements"] = list(self.placements)
+        return payload
+
+    def unit_ids(self) -> tuple[str, ...]:
+        return tuple(
+            unit_id(curriculum, placement, seed)
+            for curriculum in self.curricula
+            for placement in self.placements
+            for seed in self.training.seeds
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectedTrainingSpec:
+    target_modules: tuple[str, ...] = ("q_proj", "v_proj")
+    num_hidden_layers: int = 28
+    full_depth_rank: int = 8
+    full_depth_alpha: int = 16
+    late_explicit_layers: tuple[int, ...] = tuple(range(20, 28))
+    late_matched_rank: int = 28
+    late_matched_alpha: int = 56
+    dropout: float = 0.0
+    learning_rate: float = 2e-4
+    epochs: int = 1
+    batch_size: int = 4
+    gradient_accumulation_steps: int = 4
+    max_length: int = 512
+    warmup_ratio: float = 0.03
+    max_steps: int = 72
+    seeds: tuple[int, ...] = TRAINING_SEEDS
+    use_4bit: bool = True
+    gradient_checkpointing: bool = True
+    use_chat_template: bool = True
+    checkpoint_selection: str = "fixed_final_step"
+    objective: str = "equal_weight_sft_route_retrieval_combined"
+
+    def __post_init__(self) -> None:
+        if self != CorrectedTrainingSpec.__new_defaults__():
+            raise ValueError("CBR-v2 corrected training configuration is frozen")
+        if self.num_hidden_layers * self.full_depth_rank != len(
+            self.late_explicit_layers
+        ) * self.late_matched_rank:
+            raise ValueError("CBR-v2 nominal parameter budgets are not exactly matched")
+
+    @classmethod
+    def __new_defaults__(cls) -> CorrectedTrainingSpec:
+        value = object.__new__(cls)
+        for name, field in cls.__dataclass_fields__.items():
+            object.__setattr__(value, name, field.default)
+        return value
+
+    def to_lora_config(
+        self,
+        *,
+        placement: str,
+        seed: int,
+        data_path: Path,
+        output_dir: Path,
+    ) -> LoraTrainingConfig:
+        if placement not in PLACEMENTS or seed not in self.seeds:
+            raise ValueError("CBR-v2 placement or seed is outside the frozen matrix")
+        late = placement == "late_matched"
+        return LoraTrainingConfig(
+            model_name=EXPECTED_MODEL_NAME,
+            model_revision=EXPECTED_MODEL_REVISION,
+            data_path=data_path,
+            output_dir=output_dir,
+            layer_band=LayerBand.EXPLICIT if late else LayerBand.FULL,
+            explicit_layers=self.late_explicit_layers if late else (),
+            target_modules=self.target_modules,
+            rank=self.late_matched_rank if late else self.full_depth_rank,
+            alpha=self.late_matched_alpha if late else self.full_depth_alpha,
+            dropout=self.dropout,
+            learning_rate=self.learning_rate,
+            epochs=self.epochs,
+            batch_size=self.batch_size,
+            gradient_accumulation_steps=self.gradient_accumulation_steps,
+            max_length=self.max_length,
+            warmup_ratio=self.warmup_ratio,
+            max_steps=self.max_steps,
+            seed=seed,
+            use_4bit=self.use_4bit,
+            gradient_checkpointing=self.gradient_checkpointing,
+            use_chat_template=self.use_chat_template,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectedExperimentSpec:
+    schema_version: str = CORRECTED_SPEC_SCHEMA_VERSION
+    experiment_id: str = CORRECTED_EXPERIMENT_ID
+    model_name: str = EXPECTED_MODEL_NAME
+    model_revision: str = EXPECTED_MODEL_REVISION
+    data: DataSpec = DataSpec()
+    training: CorrectedTrainingSpec = CorrectedTrainingSpec()
+    gates: GateSpec = GateSpec()
+    curricula: tuple[str, ...] = CURRICULA
+    placements: tuple[str, ...] = PLACEMENTS
+    training_run_limit: int = 6
+    imported_full_depth_unit_count: int = 6
+    locked_evaluation_limit: int = 12
+    allows_hyperparameter_search: bool = False
+    allows_checkpoint_selection: bool = False
+    allows_mappings_per_adapter_scan: bool = False
+    allows_full_parameter_training: bool = False
+
+    def __post_init__(self) -> None:
+        if (
+            self.schema_version != CORRECTED_SPEC_SCHEMA_VERSION
+            or self.experiment_id != CORRECTED_EXPERIMENT_ID
+            or self.model_name != EXPECTED_MODEL_NAME
+            or self.model_revision != EXPECTED_MODEL_REVISION
+            or self.curricula != CURRICULA
+            or self.placements != PLACEMENTS
+            or self.training_run_limit != 6
+            or self.imported_full_depth_unit_count != 6
+            or self.locked_evaluation_limit != 12
+        ):
+            raise ValueError("unsupported corrected CBR-v2 experiment identity")
+        if any(
+            (
+                self.allows_hyperparameter_search,
+                self.allows_checkpoint_selection,
+                self.allows_mappings_per_adapter_scan,
+                self.allows_full_parameter_training,
+            )
+        ):
+            raise ValueError("CBR-v2 authorization scope was expanded")
+
+    @classmethod
+    def from_path(cls, path: Path) -> CorrectedExperimentSpec:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("corrected CBR spec must be a JSON object")
+        data = DataSpec(**dict(payload.pop("data", {})))
+        training_payload = dict(payload.pop("training", {}))
+        for name in ("target_modules", "late_explicit_layers", "seeds"):
+            if name in training_payload:
+                training_payload[name] = tuple(training_payload[name])
+        training = CorrectedTrainingSpec(**training_payload)
+        gates = GateSpec(**dict(payload.pop("gates", {})))
+        for name in ("curricula", "placements"):
+            if name in payload:
+                payload[name] = tuple(payload[name])
+        return cls(**payload, data=data, training=training, gates=gates)
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["training"]["target_modules"] = list(self.training.target_modules)
+        payload["training"]["late_explicit_layers"] = list(
+            self.training.late_explicit_layers
+        )
         payload["training"]["seeds"] = list(self.training.seeds)
         payload["curricula"] = list(self.curricula)
         payload["placements"] = list(self.placements)

@@ -101,6 +101,60 @@ complete. Existing P0-D2H-CAL-FC result-review changes are preserved and the old
 experiment remains immutable. No GPU inference, training, or narrow scan was
 run.
 
+---
+
+# Task Plan: CBR budget-deviation evaluation and corrected matched placement
+
+## Goal
+Preserve and fully evaluate the 12 completed CBR-v1 adapters under an explicitly
+authorized budget-deviation scope, then add a separately frozen corrected experiment
+that reuses the six immutable full-depth controls and trains six exactly matched late
+replacements.
+
+## Phases
+- [x] Phase 1: Reproduce and localize the 7.14% parameter-budget failure.
+- [x] Phase 2: Implement external budget-deviation inspection, authorization,
+  provenance, and full-matrix evaluation recovery for existing CBR-v1 artifacts.
+- [x] Phase 3: Downgrade placement claims in recovered aggregation while retaining
+  valid within-placement and curriculum analyses.
+- [x] Phase 4: Implement corrected CBR-v2 configuration, exact layer/rank budget
+  preflight, immutable full-depth imports, and six-unit late-only training matrix.
+- [ ] Phase 5: Rebuild the generated Colab with dedicated controls for both phases
+  and safe inspection-only defaults.
+- [ ] Phase 6: Add regression tests and run focused/full tests, Ruff, notebook parity,
+  compile checks, and diff checks.
+- [ ] Phase 7: Review, commit, push, and provide exact Colab gate instructions.
+
+## Key Questions
+1. How can new evaluator code be authorized without silently changing the original
+   experiment code identity?
+2. Which CBR-v1 claims remain valid when placement budgets differ by 7.14%?
+3. How can CBR-v2 reuse exact full-depth artifacts without counting them as new
+   training runs or weakening provenance?
+4. Which late layer/rank choice exactly matches 28 full layers at rank 8?
+
+## Decisions Made
+- Preserve the original 1% budget gate and record the observed failure rather than
+  raising the threshold after training.
+- Require a human-authored external authorization before deviation evaluation.
+- Recovered CBR-v1 placement contrasts are exploratory; within-placement curriculum
+  contrasts and per-unit remediation/preservation gates remain reportable.
+- Corrected late placement is the explicit last eight of 28 layers at rank 28 and
+  alpha 56, matching `28 * 8 == 8 * 28` exactly.
+- CBR-v2 will import the six frozen full-depth adapter trees by exact hash and train
+  only the six corrected late units under a new authorization and namespace.
+
+## Errors Encountered
+- The original CBR-v1 assumed a threefold rank would match a late third. Qwen2.5-1.5B
+  has 28 layers, and integer third selection chooses 10 late layers, producing
+  1,167,360 versus 1,089,536 trainable parameters (7.142857% excess).
+- The first focused Ruff pass found one 105-character report string; it was split
+  without changing report content or runtime behavior before tests were run.
+
+## Status
+**Currently in Phase 5** - Core recovery and corrected experiment code passes focused and
+full repository verification; preparing the pinned Colab workflow and gate documentation.
+
 ## Formal-result review
 
 - [x] Transcribe the supplied aggregate without redefining old strict metrics.

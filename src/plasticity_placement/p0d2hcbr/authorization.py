@@ -10,7 +10,11 @@ from plasticity_placement.p0d2hrr.io import immutable_json_write, read_json_obje
 SCHEMA_VERSION = "p0d2hcbr-authorization-v1"
 
 
-def template(preregistration_sha256: str) -> dict[str, Any]:
+def template(
+    preregistration_sha256: str, *, allowed_training_runs: int = 12
+) -> dict[str, Any]:
+    if allowed_training_runs not in {6, 12}:
+        raise ValueError("CBR authorization permits exactly 6 or 12 training runs")
     return {
         "schema_version": SCHEMA_VERSION,
         "decision": "pending",
@@ -18,7 +22,7 @@ def template(preregistration_sha256: str) -> dict[str, Any]:
         "preregistration_sha256": preregistration_sha256,
         "approved_by": "TBD",
         "approved_at": "TBD",
-        "allowed_training_runs": 12,
+        "allowed_training_runs": allowed_training_runs,
         "allowed_locked_evaluations": 12,
         "allows_hyperparameter_search": False,
         "allows_checkpoint_selection": False,
@@ -29,14 +33,20 @@ def template(preregistration_sha256: str) -> dict[str, Any]:
 
 
 def adopt(
-    output_dir: Path, source: Path, preregistration_sha256: str
+    output_dir: Path,
+    source: Path,
+    preregistration_sha256: str,
+    *,
+    allowed_training_runs: int = 12,
 ) -> tuple[dict[str, Any], str]:
     source = source.resolve()
     output_dir = output_dir.resolve()
     if source == output_dir or source.is_relative_to(output_dir):
         raise ValueError("authorization must be authored outside the CBR output")
     payload = read_json_object(source, "CBR authorization")
-    expected = template(preregistration_sha256)
+    expected = template(
+        preregistration_sha256, allowed_training_runs=allowed_training_runs
+    )
     required = {
         **expected,
         "decision": "approved",

@@ -491,3 +491,55 @@ distractor is not counted as semantically correct.
   source paths resolve.
 - The old P0-D2H-CAL-FC gate remains unchanged and still has no eligible model.
 - No CRD status can authorize training or a narrow scan.
+
+---
+
+# Notes: CBR budget mismatch recovery and corrected experiment
+
+## Confirmed failure
+
+- Frozen model has 28 transformer layers.
+- A q/v LoRA rank-layer unit contributes 4,864 trainable parameters.
+- `full_depth`: `28 * 8 * 4,864 = 1,089,536`.
+- Current `late_matched`: `10 * 24 * 4,864 = 1,167,360`.
+- Relative excess is exactly `16 / 224 = 0.07142857142857142`.
+- Evaluation fails before `_claim_evaluation`, so the shown first-unit failure does
+  not consume an evaluation claim or create a valid result artifact.
+
+## Scientific scope
+
+- Existing adapters remain valid trained artifacts and can support descriptive
+  full-matrix evaluation.
+- The original parameter-matched placement claim is invalid for CBR-v1.
+- Curriculum comparisons within the same placement retain equal parameter budgets.
+- Per-adapter OFF/ON remediation and preservation results remain interpretable.
+- Cross-placement effect and drift differences must be labeled exploratory and
+  parameter-count-confounded.
+
+## Corrected budget
+
+- Use explicit layers 20 through 27 (last eight layers), rank 28, alpha 56.
+- Corrected late budget: `8 * 28 * 4,864 = 1,089,536`, exactly equal to full depth.
+- A fresh experiment identity must freeze the source CBR-v1 run, imported full-depth
+  trees, explicit layers, and new late-only authorization before any replacement
+  training.
+
+## Implemented contracts
+
+- `budget-deviation-template` produces a read-only template bound to the original
+  preregistration, observed budget audit, and current recovery code hash.
+- `authorize-budget-deviation` requires an external human-authored approval and writes
+  an immutable adopted authorization; it leaves all training flags false.
+- Recovered aggregate status is forced to `budget_deviation_full_matrix_complete` and
+  placement scope to `exploratory_parameter_count_confounded`.
+- `plan-corrected` requires the verified completed recovered source, copies frozen
+  preflight banks, imports six full-depth controls by exact metadata/adapter identities,
+  and leaves exactly six corrected late units pending.
+- Corrected runs use the ordinary authorize/train/evaluate/aggregate/verify lifecycle;
+  authorization permits six training runs and twelve locked evaluations.
+
+## Verification checkpoint
+
+- Focused CBR tests: 19 passed.
+- Full repository pytest: passed.
+- Full Ruff, compileall, and `git diff --check`: passed.

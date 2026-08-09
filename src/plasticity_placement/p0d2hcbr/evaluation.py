@@ -11,17 +11,18 @@ from plasticity_placement.p0c.modeling import (
     load_base_model,
     release_model,
 )
-from plasticity_placement.p0c.runtime import current_code_hash, current_environment_snapshot
+from plasticity_placement.p0c.runtime import current_environment_snapshot
 from plasticity_placement.p0d2h.probes import load_hard_probe_bank
 from plasticity_placement.p0d2hcbr.analysis import analyze_factorial, classify_unit
 from plasticity_placement.p0d2hcbr.config import unit_id
+from plasticity_placement.p0d2hcbr.deviation import evaluation_code_sha256
 from plasticity_placement.p0d2hcbr.preflight import (
     _validate_rabx_source,
     load_config,
     load_heldout_audits,
     load_heldout_probes,
 )
-from plasticity_placement.p0d2hcbr.runtime import validate_all_training_units
+from plasticity_placement.p0d2hcbr.runtime import _adapter_dir, validate_all_training_units
 from plasticity_placement.p0d2hcrd.probes import compile_decomposition_bank
 from plasticity_placement.p0d2hcrd.runtime import validate_frozen_source
 from plasticity_placement.p0d2hcrd.scoring import score_candidate_batch
@@ -88,12 +89,11 @@ def evaluate_unit(request: EvaluationRequest) -> Path:
     analysis_output = request.analysis_output.resolve()
     _require_new_independent(output_dir, analysis_output)
     manifest, spec, identity = load_config(output_dir)
-    validate_all_training_units(output_dir)
-    if current_code_hash() != identity["code_sha256"]:
-        raise ValueError("code changed after CBR preregistration")
+    budget_audit = validate_all_training_units(output_dir, allow_authorized_deviation=True)
+    evaluator_sha256 = evaluation_code_sha256(output_dir, identity)
     key = unit_id(request.curriculum, request.placement, request.seed)
     entry = manifest.payload["training_units"][key]
-    adapter_dir = output_dir / "adapters" / key
+    adapter_dir = _adapter_dir(output_dir, entry, key)
     adapter_sha256 = _adapter_hash(adapter_dir)
     if adapter_sha256 != entry["training"]["summary"]["adapter_sha256"]:
         raise ValueError(f"CBR adapter changed after training: {key}")
@@ -108,7 +108,9 @@ def evaluate_unit(request: EvaluationRequest) -> Path:
         "unit_id": key,
         "adapter_sha256": adapter_sha256,
         "analysis_output": str(analysis_output),
-        "code_sha256": identity["code_sha256"],
+        "experiment_code_sha256": identity["code_sha256"],
+        "evaluation_code_sha256": evaluator_sha256,
+        "budget_audit_sha256": json_hash(budget_audit),
     }
     run_id = "p0d2hcbr-eval-" + json_hash(run_identity)[:10]
     claim_hash = _claim_evaluation(output_dir, key, run_id, analysis_output, adapter_sha256)
@@ -266,6 +268,10 @@ def evaluate_unit(request: EvaluationRequest) -> Path:
         "historical_rab": rab_analysis,
         "preservation": paired_analysis,
         "decision": decision,
+        "budget_audit": budget_audit,
+        "placement_comparison_scope": budget_audit.get(
+            "comparison_scope", "preregistered_parameter_matched"
+        ),
         "source_snapshot_before": before,
         "source_snapshot_after": after,
         "source_artifacts_modified": False,
@@ -461,8 +467,9 @@ def _claim_evaluation(
 
 
 def _source_snapshot(output_dir: Path, identity: dict[str, Any], key: str) -> dict[str, Any]:
-    adapter_dir = output_dir / "adapters" / key
-    return {
+    manifest = load_config(output_dir)[0]
+    adapter_dir = _adapter_dir(output_dir, manifest.payload["training_units"][key], key)
+    snapshot = {
         "preregistration_sha256": file_hash(output_dir / "preregistration.json"),
         "authorization_sha256": file_hash(output_dir / "authorization.json"),
         "training_metadata_sha256": file_hash(adapter_dir / "training_metadata.json"),
@@ -471,6 +478,13 @@ def _source_snapshot(output_dir: Path, identity: dict[str, Any], key: str) -> di
             Path(identity["rabx_output"]), Path(identity["source_code_revision_lock"])
         )["snapshot"],
     }
+    deviation = output_dir / "budget_deviation_authorization.json"
+    if deviation.is_file():
+        snapshot["budget_deviation_authorization_sha256"] = file_hash(deviation)
+    corrected_source = identity.get("corrected_source_snapshot")
+    if corrected_source is not None:
+        snapshot["corrected_source_snapshot"] = corrected_source
+    return snapshot
 
 
 def _require_new_independent(source: Path, output: Path) -> None:

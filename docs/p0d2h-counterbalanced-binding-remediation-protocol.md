@@ -32,9 +32,38 @@ one natural epoch / 72 optimizer steps, zero dropout, and the fixed final checkp
 `20260810`, `20260811`, and `20260812`. There is no hyperparameter search, early stopping,
 checkpoint selection, retry seed, or failed-unit overwrite.
 
-The late third uses three times the rank and alpha so its nominal LoRA budget matches full depth.
-Aggregation additionally requires the actual trainable-parameter count to differ by no more than
-1% for every curriculum/seed pair.
+CBR-v1 preregistered three times the rank and alpha under the assumption that the late third would
+contain exactly one third of the layers. The actual model has 28 layers; integer band selection
+chooses 10 late layers. The observed budgets are therefore 1,089,536 for full depth and 1,167,360
+for late placement, a 7.142857% difference. The original 1% gate remains unchanged and correctly
+prevents a parameter-matched placement claim.
+
+## Authorized CBR-v1 budget-deviation evaluation
+
+The completed CBR-v1 adapters may still receive all 12 locked evaluations only after a separate,
+externally authored budget-deviation authorization binds the original preregistration, exact
+observed budget audit, and recovery evaluator code hash. This recovery authorizes no training,
+checkpoint selection, hyperparameter search, or 1/4/8 scan.
+
+Recovered per-adapter OFF/ON results and curriculum contrasts within one placement retain their
+registered scope. Cross-placement accuracy and drift contrasts are emitted only as
+`exploratory_parameter_count_confounded`. The aggregate status is forced to
+`budget_deviation_full_matrix_complete`; it cannot emit a causal placement decision.
+
+## Corrected CBR-v2 placement
+
+CBR-v2 is a separate preregistered experiment. It imports the six immutable CBR-v1 full-depth
+adapters by exact adapter and metadata hashes and authorizes exactly six replacement late runs:
+
+```text
+full_depth: 28 layers × rank 8  = 224 rank-layer units
+late_matched: explicit layers 20–27 × rank 28 = 224 rank-layer units
+```
+
+The corrected late alpha is 56, preserving alpha/rank = 2. All other training data, optimizer,
+seed, model, evaluation, and decision settings remain frozen. CBR-v2 planning is allowed only
+after the authorized CBR-v1 deviation evaluation is complete and verified. Imported full-depth
+adapters are controls, not new training runs.
 
 ## Training banks
 
@@ -139,6 +168,28 @@ plasticity-p0d2hcbr aggregate \
 
 plasticity-p0d2hcbr verify --output /new/cbr-training-output
 ```
+
+For an already trained budget-mismatched CBR-v1 run:
+
+```bash
+plasticity-p0d2hcbr budget-deviation-template --output /existing/cbr-v1
+plasticity-p0d2hcbr authorize-budget-deviation \
+  --output /existing/cbr-v1 \
+  --authorization /outside/approved-budget-deviation.json
+```
+
+After its 12 evaluations, aggregation, and verification, plan the corrected run:
+
+```bash
+plasticity-p0d2hcbr plan-corrected \
+  --output /new/cbr-v2 \
+  --source-cbr-output /existing/cbr-v1 \
+  --spec configs/p0d2hcbr-counterbalanced-binding-remediation-v2.json
+```
+
+The ordinary `authorize`, `train`, `evaluate`, `aggregate`, and `verify` commands then operate on
+CBR-v2. Blank training selectors validate/reuse the six imported controls and train only the six
+pending corrected late units.
 
 Training and evaluation are resumable only at immutable unit boundaries. A completed unit is
 validated and reused. A failed or partially published unit is never deleted or overwritten; a

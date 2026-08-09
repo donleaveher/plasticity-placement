@@ -24,7 +24,7 @@ def aggregate_experiment(output_dir: Path, evaluations_root: Path) -> Path:
     manifest, spec, identity = load_config(output_dir)
     if manifest.state != "evaluated":
         raise ValueError(f"CBR aggregation requires state=evaluated, found {manifest.state}")
-    budget_audit = validate_all_training_units(output_dir)
+    budget_audit = validate_all_training_units(output_dir, allow_authorized_deviation=True)
     summaries = {
         key: _verify_unit_evaluation(
             evaluations_root / key,
@@ -61,8 +61,15 @@ def aggregate_experiment(output_dir: Path, evaluations_root: Path) -> Path:
             }
     contrasts = _condition_contrasts(summaries, spec.training.seeds)
     qualified = sorted(name for name, value in arms.items() if value["all_seeds_qualified"])
-    status = _classify_matrix(
-        arms, contrasts, qualified, spec.gates.placement_noninferiority_margin
+    placement_scope = budget_audit.get(
+        "comparison_scope", "preregistered_parameter_matched"
+    )
+    status = (
+        "budget_deviation_full_matrix_complete"
+        if placement_scope == "exploratory_parameter_count_confounded"
+        else _classify_matrix(
+            arms, contrasts, qualified, spec.gates.placement_noninferiority_margin
+        )
     )
     summary = {
         "schema_version": "p0d2hcbr-aggregate-v1",
@@ -73,12 +80,15 @@ def aggregate_experiment(output_dir: Path, evaluations_root: Path) -> Path:
             "rabx_run_id": identity["rabx_run_id"],
         },
         "budget_audit": budget_audit,
+        "placement_comparison_scope": placement_scope,
         "arms": arms,
         "paired_seed_contrasts": contrasts,
         "decision": {
             "status": status,
             "qualified_arms": qualified,
             "requires_independent_review": bool(qualified),
+            "placement_claims_authorized": placement_scope
+            == "preregistered_parameter_matched",
             "additional_training_authorized": False,
             "mappings_per_adapter_authorized": False,
         },
@@ -282,6 +292,7 @@ def _render_report(summary: dict[str, Any]) -> str:
         f"- Run: `{summary['run_id']}`",
         f"- Decision: `{summary['decision']['status']}`",
         f"- Qualified arms: `{', '.join(summary['decision']['qualified_arms']) or 'none'}`",
+        f"- Placement comparison scope: `{summary['placement_comparison_scope']}`",
         "- Additional training authorized: `false`",
         "- 1/4/8 authorized: `false`",
         "",
@@ -295,4 +306,14 @@ def _render_report(summary: dict[str, Any]) -> str:
             f"{value['guardrail_c_to_w_mean']:.4f} |"
         )
     lines.append("")
+    if summary["placement_comparison_scope"] == "exploratory_parameter_count_confounded":
+        lines.extend(
+            [
+                "Cross-placement contrasts are descriptive only because the existing late adapters",
+                "contain 7.14% more trainable parameters than the full-depth controls.",
+                "Within-placement curriculum contrasts and individual OFF/ON evaluations retain",
+                "their stated scope.",
+                "",
+            ]
+        )
     return "\n".join(lines)

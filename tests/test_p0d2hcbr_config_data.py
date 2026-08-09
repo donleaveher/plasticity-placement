@@ -6,12 +6,17 @@ from pathlib import Path
 
 import pytest
 
-from plasticity_placement.p0d2hcbr.config import ExperimentSpec
+from plasticity_placement.p0d2hcbr.config import CorrectedExperimentSpec, ExperimentSpec
 from plasticity_placement.p0d2hcbr.data import compile_heldout_bank, compile_training_banks
 from plasticity_placement.p0d2hcbr.preflight import _source_overlap_audit
 
 SPEC_PATH = (
     Path(__file__).parents[1] / "configs" / "p0d2hcbr-counterbalanced-binding-remediation-v1.json"
+)
+CORRECTED_SPEC_PATH = (
+    Path(__file__).parents[1]
+    / "configs"
+    / "p0d2hcbr-counterbalanced-binding-remediation-v2.json"
 )
 
 
@@ -62,6 +67,26 @@ def test_training_banks_match_exposure_and_disentangle_labels() -> None:
     assert set((row.receipt, row.selected_slot_label) for row in disentangled) == {
         (receipt, slot) for receipt in ("A", "B") for slot in ("A", "B")
     }
+
+
+def test_corrected_spec_exactly_matches_full_and_late_nominal_budgets(
+    tmp_path: Path,
+) -> None:
+    spec = CorrectedExperimentSpec.from_path(CORRECTED_SPEC_PATH)
+    late = spec.training.to_lora_config(
+        placement="late_matched",
+        seed=spec.training.seeds[0],
+        data_path=tmp_path / "train.jsonl",
+        output_dir=tmp_path / "late",
+    )
+
+    assert spec.training_run_limit == 6
+    assert spec.imported_full_depth_unit_count == 6
+    assert spec.training.num_hidden_layers * spec.training.full_depth_rank == 224
+    assert len(spec.training.late_explicit_layers) * spec.training.late_matched_rank == 224
+    assert late.layer_band.value == "explicit"
+    assert late.explicit_layers == tuple(range(20, 28))
+    assert (late.rank, late.alpha) == (28, 56)
 
 
 def test_heldout_bank_is_complete_independent_factorial() -> None:

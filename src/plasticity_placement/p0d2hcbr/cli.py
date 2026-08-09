@@ -16,6 +16,11 @@ from plasticity_placement.p0d2hcbr.config import (
     ExperimentSpec,
     unit_id,
 )
+from plasticity_placement.p0d2hcbr.corrected import plan_corrected_experiment
+from plasticity_placement.p0d2hcbr.deviation import (
+    adopt_budget_deviation,
+    deviation_template,
+)
 from plasticity_placement.p0d2hcbr.evaluation import EvaluationRequest, evaluate_unit
 from plasticity_placement.p0d2hcbr.manifest import Manifest
 from plasticity_placement.p0d2hcbr.preflight import plan_experiment
@@ -31,9 +36,25 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("--rabx-output", type=Path, required=True)
     plan.add_argument("--source-code-revision-lock", type=Path, required=True)
     plan.add_argument("--spec", type=Path, required=True)
+    corrected = subparsers.add_parser(
+        "plan-corrected", help="冻结精确参数匹配的 CBR-v2 并导入六个 full-depth controls"
+    )
+    corrected.add_argument("--output", type=Path, required=True)
+    corrected.add_argument("--source-cbr-output", type=Path, required=True)
+    corrected.add_argument("--spec", type=Path, required=True)
     authorize = subparsers.add_parser("authorize", help="采纳外部批准文件")
     authorize.add_argument("--output", type=Path, required=True)
     authorize.add_argument("--authorization", type=Path, required=True)
+    deviation = subparsers.add_parser(
+        "budget-deviation-template",
+        help="只读生成现有 CBR-v1 全量描述性评估的偏差授权模板",
+    )
+    deviation.add_argument("--output", type=Path, required=True)
+    adopt_deviation = subparsers.add_parser(
+        "authorize-budget-deviation", help="采纳外部预算偏差评估批准文件"
+    )
+    adopt_deviation.add_argument("--output", type=Path, required=True)
+    adopt_deviation.add_argument("--authorization", type=Path, required=True)
     train = subparsers.add_parser("train", help="训练一个指定 unit 或全部 pending units")
     train.add_argument("--output", type=Path, required=True)
     _add_unit_selector(train)
@@ -72,8 +93,19 @@ def main() -> None:
             source_code_revision_lock=args.source_code_revision_lock,
             spec_path=args.spec,
         )
+    elif args.command == "plan-corrected":
+        path = plan_corrected_experiment(
+            output_dir=args.output,
+            source_cbr_output=args.source_cbr_output,
+            spec_path=args.spec,
+        )
     elif args.command == "authorize":
         path = authorize_experiment(args.output, args.authorization)
+    elif args.command == "budget-deviation-template":
+        print(json.dumps(deviation_template(args.output), ensure_ascii=False, sort_keys=True))
+        return
+    elif args.command == "authorize-budget-deviation":
+        path = adopt_budget_deviation(args.output, args.authorization)
     elif args.command == "train":
         paths = [
             train_unit(args.output, curriculum, placement, seed)
@@ -114,6 +146,7 @@ def main() -> None:
                         key: value["state"]
                         for key, value in manifest.payload["evaluation_claims"].items()
                     },
+                    "budget_deviation": manifest.payload.get("budget_deviation"),
                     "mappings_per_adapter_authorized": False,
                 },
                 ensure_ascii=False,

@@ -15,3 +15,8 @@ uv run python \
 ```
 
 No CBR outcome automatically authorizes additional training or 1/4/8 mappings.
+
+The original notebook remains the immutable CBR-v1 training workflow. The separately generated
+budget-recovery/corrected notebook first authorizes a descriptive evaluation of the observed 7.14%
+budget deviation, then creates CBR-v2 with six imported full-depth controls and six corrected late
+runs on explicit layers 20–27 at rank 28.

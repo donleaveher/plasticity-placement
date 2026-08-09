@@ -7,7 +7,14 @@ from typing import Any
 
 from plasticity_placement.p0c.runtime import current_code_hash
 from plasticity_placement.p0d2hcbr.authorization import template
-from plasticity_placement.p0d2hcbr.config import CONFIG_SCHEMA_VERSION, CURRICULA, ExperimentSpec
+from plasticity_placement.p0d2hcbr.config import (
+    CONFIG_SCHEMA_VERSION,
+    CORRECTED_CONFIG_SCHEMA_VERSION,
+    CORRECTED_SPEC_SCHEMA_VERSION,
+    CURRICULA,
+    CorrectedExperimentSpec,
+    ExperimentSpec,
+)
 from plasticity_placement.p0d2hcbr.data import (
     HeldoutProbe,
     TrainingRecord,
@@ -142,11 +149,16 @@ def plan_experiment(
     return manifest.path
 
 
-def load_config(output_dir: Path) -> tuple[Manifest, ExperimentSpec, dict[str, Any]]:
+def load_config(
+    output_dir: Path,
+) -> tuple[Manifest, ExperimentSpec | CorrectedExperimentSpec, dict[str, Any]]:
     output_dir = output_dir.resolve()
     manifest = Manifest.load(output_dir / "manifest.json")
     identity = manifest.payload.get("config")
-    if not isinstance(identity, dict) or identity.get("schema_version") != CONFIG_SCHEMA_VERSION:
+    if not isinstance(identity, dict) or identity.get("schema_version") not in {
+        CONFIG_SCHEMA_VERSION,
+        CORRECTED_CONFIG_SCHEMA_VERSION,
+    }:
         raise ValueError("CBR preregistration identity is missing")
     spec_payload = identity.get("spec")
     if not isinstance(spec_payload, dict):
@@ -170,6 +182,10 @@ def load_config(output_dir: Path) -> tuple[Manifest, ExperimentSpec, dict[str, A
         != identity["source_code_revision_lock_sha256"]
     ):
         raise ValueError("CBR source code revision lock changed")
+    if identity["schema_version"] == CORRECTED_CONFIG_SCHEMA_VERSION:
+        from plasticity_placement.p0d2hcbr.corrected import validate_corrected_source
+
+        validate_corrected_source(identity)
     return manifest, spec, identity
 
 
@@ -287,19 +303,34 @@ def _preflight_paths(output_dir: Path) -> dict[str, Path]:
     return paths
 
 
-def _spec_from_dict(payload: dict[str, Any]) -> ExperimentSpec:
-    from plasticity_placement.p0d2hcbr.config import DataSpec, GateSpec, TrainingSpec
+def _spec_from_dict(
+    payload: dict[str, Any],
+) -> ExperimentSpec | CorrectedExperimentSpec:
+    from plasticity_placement.p0d2hcbr.config import (
+        CorrectedTrainingSpec,
+        DataSpec,
+        GateSpec,
+        TrainingSpec,
+    )
 
     copy = dict(payload)
     data = DataSpec(**dict(copy.pop("data")))
     training_payload = dict(copy.pop("training"))
     training_payload["target_modules"] = tuple(training_payload["target_modules"])
     training_payload["seeds"] = tuple(training_payload["seeds"])
-    training = TrainingSpec(**training_payload)
+    corrected = copy.get("schema_version") == CORRECTED_SPEC_SCHEMA_VERSION
+    if corrected:
+        training_payload["late_explicit_layers"] = tuple(
+            training_payload["late_explicit_layers"]
+        )
+        training = CorrectedTrainingSpec(**training_payload)
+    else:
+        training = TrainingSpec(**training_payload)
     gates = GateSpec(**dict(copy.pop("gates")))
     copy["curricula"] = tuple(copy["curricula"])
     copy["placements"] = tuple(copy["placements"])
-    return ExperimentSpec(**copy, data=data, training=training, gates=gates)
+    spec_type = CorrectedExperimentSpec if corrected else ExperimentSpec
+    return spec_type(**copy, data=data, training=training, gates=gates)
 
 
 def load_heldout_probes(output_dir: Path) -> list[HeldoutProbe]:

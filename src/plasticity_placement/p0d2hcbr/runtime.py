@@ -18,7 +18,10 @@ def authorize_experiment(output_dir: Path, authorization_path: Path) -> Path:
     if manifest.state != "planned":
         raise ValueError(f"CBR authorization requires state=planned, found {manifest.state}")
     payload, digest = adopt(
-        output_dir, authorization_path.resolve(), identity["preregistration_sha256"]
+        output_dir,
+        authorization_path.resolve(),
+        identity["preregistration_sha256"],
+        allowed_training_runs=identity["training_run_limit"],
     )
     manifest.payload["authorization"] = {
         "sha256": digest,
@@ -41,7 +44,7 @@ def train_unit(output_dir: Path, curriculum: str, placement: str, seed: int) -> 
     _validate_execution(output_dir, manifest.payload, identity)
     key = unit_id(curriculum, placement, seed)
     entry = manifest.payload["training_units"][key]
-    adapter_dir = output_dir / "adapters" / key
+    adapter_dir = _adapter_dir(output_dir, entry, key)
     if entry["state"] == "trained":
         _validate_trained_unit(output_dir, key, entry, spec, identity)
         return adapter_dir / "training_metadata.json"
@@ -114,27 +117,39 @@ def _validate_trained_unit(
 ) -> None:
     curriculum, placement, seed_text = key.split("__")
     seed = int(seed_text.removeprefix("seed-"))
-    metadata_path = output_dir / "adapters" / key / "training_metadata.json"
+    adapter_dir = _adapter_dir(output_dir, entry, key)
+    metadata_path = adapter_dir / "training_metadata.json"
     metadata = read_json_object(metadata_path, f"CBR training metadata {key}")
-    expected = spec.training.to_lora_config(
-        placement=placement,
-        seed=seed,
-        data_path=output_dir / "preflight" / f"train_{curriculum}.jsonl",
-        output_dir=output_dir / "adapters" / key,
-    ).to_dict()
     training = entry.get("training")
+    imported = isinstance(training, dict) and training.get("artifact_origin") == "imported"
+    if imported:
+        expected = training.get("source_training_config")
+    else:
+        expected = spec.training.to_lora_config(
+            placement=placement,
+            seed=seed,
+            data_path=output_dir / "preflight" / f"train_{curriculum}.jsonl",
+            output_dir=adapter_dir,
+        ).to_dict()
     if (
         not isinstance(training, dict)
         or training.get("training_metadata_sha256") != file_hash(metadata_path)
         or metadata.get("config") != expected
         or metadata.get("summary") != training.get("summary")
         or metadata.get("summary", {}).get("training_data_sha256")
-        != identity["data_hashes"][f"train_{curriculum}"]
+        != training.get(
+            "training_data_sha256",
+            identity["data_hashes"][f"train_{curriculum}"],
+        )
     ):
         raise ValueError(f"CBR trained unit provenance differs: {key}")
+    if imported and training.get("adapter_sha256") != metadata.get("summary", {}).get(
+        "adapter_sha256"
+    ):
+        raise ValueError(f"CBR imported adapter provenance differs: {key}")
 
 
-def validate_all_training_units(output_dir: Path) -> dict[str, Any]:
+def audit_all_training_units(output_dir: Path) -> dict[str, Any]:
     manifest, spec, identity = load_config(output_dir)
     if manifest.state not in {"trained", "evaluated", "complete"}:
         raise ValueError(f"CBR matrix is not fully trained: {manifest.state}")
@@ -163,6 +178,33 @@ def validate_all_training_units(output_dir: Path) -> dict[str, Any]:
         value["relative_difference"] <= spec.gates.parameter_budget_relative_tolerance
         for value in comparisons.values()
     )
-    if not passed:
-        raise ValueError(f"CBR placement parameter budgets differ: {comparisons}")
-    return {"comparisons": comparisons, "all_checks_passed": True}
+    return {
+        "comparisons": comparisons,
+        "relative_tolerance": spec.gates.parameter_budget_relative_tolerance,
+        "all_checks_passed": passed,
+    }
+
+
+def validate_all_training_units(
+    output_dir: Path, *, allow_authorized_deviation: bool = False
+) -> dict[str, Any]:
+    audit = audit_all_training_units(output_dir)
+    if audit["all_checks_passed"] is True:
+        return audit
+    if allow_authorized_deviation:
+        from plasticity_placement.p0d2hcbr.deviation import validate_adopted_deviation
+
+        recovery = validate_adopted_deviation(output_dir, audit)
+        return {
+            **audit,
+            "authorized_deviation": recovery,
+            "comparison_scope": "exploratory_parameter_count_confounded",
+        }
+    raise ValueError(f"CBR placement parameter budgets differ: {audit['comparisons']}")
+
+
+def _adapter_dir(output_dir: Path, entry: dict[str, Any], key: str) -> Path:
+    training = entry.get("training")
+    if isinstance(training, dict) and isinstance(training.get("adapter_dir"), str):
+        return Path(training["adapter_dir"]).resolve()
+    return output_dir / "adapters" / key
