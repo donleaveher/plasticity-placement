@@ -283,3 +283,4 @@ def test_aggregate_uses_each_claims_recorded_evaluation_root(
 
     assert summary["unit_evaluation_roots"] == expected_roots
     assert manifest.payload["result"]["unit_evaluation_roots"] == expected_roots
+    assert aggregate.verify_complete_result(output) == result

@@ -122,6 +122,9 @@ P0-D2H-CBR-v1 counterbalanced binding remediation 使用新的独立目录：
   编排冻结的 `2 curricula × 2 placements × 3 seeds` 训练与 12 个独立同 runtime 评估；
 - 默认只执行 plan；authorize、train、evaluate、aggregate 和 verify 必须在 dedicated
   controls cell 中分阶段显式开启；任何结果都不自动授权 1/4/8。
+- `p0d2h_cbr_resumable_evaluation/p0d2h_cbr_resumable_evaluation_colab.ipynb`：
+  对已有训练 adapter 使用外部授权的不可变 prompt shards；掉线后重跑同一 evaluation
+  gate 会验证并自动采用完整 checkpoints，只计算尚未完成的 shards。
 
 后续 1/4/8 mappings、ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自
 创建新目录和 notebook。

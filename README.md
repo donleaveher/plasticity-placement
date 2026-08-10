@@ -455,6 +455,10 @@ conditional-route 和完整 CRD 上做同 runtime OFF/ON 评估。协议见
 修正版 CBR-v2 复用六个不可变 full-depth controls，只训练六个 explicit layers 20–27、
 rank 28 的 late replacements，使实际预算重新精确匹配。恢复与修正版 Colab 入口见
 [`notebooks/p0d2h_cbr_budget_recovery_corrected/p0d2h_cbr_budget_recovery_corrected_colab.ipynb`](notebooks/p0d2h_cbr_budget_recovery_corrected/p0d2h_cbr_budget_recovery_corrected_colab.ipynb)。
+长时间评估另提供
+[`notebooks/p0d2h_cbr_resumable_evaluation/p0d2h_cbr_resumable_evaluation_colab.ipynb`](notebooks/p0d2h_cbr_resumable_evaluation/p0d2h_cbr_resumable_evaluation_colab.ipynb)：
+它默认每 64 个 prompt 写入一个不可变 checkpoint，Colab 掉线后重新执行同一 unit 会验证并
+跳过已完成 shards，不重新训练 adapter。
 该实验中的 full-depth 仍是全层 LoRA placement，不是全参数微调；任何结果都不自动授权
 后续训练或 1/4/8 mappings。
 

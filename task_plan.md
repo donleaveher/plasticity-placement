@@ -176,10 +176,10 @@ Colab runtime interruption without retraining adapters or manually releasing cla
 - [x] Phase 2: Freeze resume identity, shard layout, runtime-segment integrity,
   claim/recovery transitions, and migration semantics.
 - [x] Phase 3: Implement resumable shard scoring, validation, final assembly, and CLI.
-- [ ] Phase 4: Rebuild the generated Colab with a dedicated resume attempt and safe
+- [x] Phase 4: Rebuild the generated Colab with a dedicated resume attempt and safe
   controls.
-- [ ] Phase 5: Add interruption, corruption, identity, assembly, and notebook tests.
-- [ ] Phase 6: Run focused and full verification, inspect the diff, and prepare the
+- [x] Phase 5: Add interruption, corruption, identity, assembly, and notebook tests.
+- [x] Phase 6: Run focused and full verification, inspect the diff, and prepare the
   handoff.
 
 ## Key Questions
@@ -216,11 +216,16 @@ Colab runtime interruption without retraining adapters or manually releasing cla
   its fabricated payload, so tampering changed both expected and observed objects and
   reached the later row-order guard. The fixture now copies the list, testing the
   intended immutable-plan mismatch.
+- The first notebook lint pass found one 101-character revision assertion in the
+  test. The literal was split without changing the asserted pinned revision.
+- The lifecycle-order test initially matched the early CUDA preflight condition as
+  the evaluation stage. The preflight now reads the already-validated `stages` map,
+  leaving the actual `RUN_*` stage blocks unambiguous and ordered.
 
 ## Status
-**Currently in Phase 4** - Core resumable authorization, scoring, checkpoint adoption,
-final assembly, CLI, and mixed-root aggregation are implemented; building the pinned
-Colab workflow next.
+**Complete** - Core revision `99462a4` implements the resumable evaluator. The pinned
+generated Colab, protocol documentation, 400-test regression, Ruff, compile, parity,
+and diff checks are complete; the notebook handoff commit remains to be published.
 
 ## Formal-result review
 

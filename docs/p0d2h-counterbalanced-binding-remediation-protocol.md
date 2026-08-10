@@ -98,8 +98,9 @@ Every group contains the complete 64-cell factorial. Receipt token, selected Slo
 display position, and exact expected-candidate position form 32 joint primary cells with 48 rows
 each. Candidate continuations are full-string token-audited before authorization.
 
-Every adapter is evaluated in its own single loaded-model process. For each prompt the scorer
-runs adapter OFF immediately before adapter ON. The same process also scores:
+The original monolithic evaluator places every adapter in its own single loaded-model process.
+For each prompt the scorer runs adapter OFF immediately before adapter ON. The same process also
+scores:
 
 1. all 192 historical RAB prompts;
 2. all 96 frozen external conditional-route prompts;
@@ -107,6 +108,26 @@ runs adapter OFF immediately before adapter ON. The same process also scores:
 4. one OFF sentinel before and after the complete matrix.
 
 Ties are never resolved by candidate order. Accuracy gates use pessimistic tie bounds.
+
+### Authorized resumable evaluation
+
+The separately authorized resumable evaluator preserves the same 3,360-prompt matrix but splits
+each panel into immutable prompt shards (64 prompts by default). Each shard keeps OFF immediately
+before ON for every prompt, verifies model-object identity, and runs an OFF sentinel before and
+after that shard. A shard is written atomically with its exact item IDs, source and adapter
+identities, runtime segment, environment, rows, and sentinel result.
+
+On restart, the evaluator validates the frozen plan and every existing shard. Valid shards are
+adopted and skipped; a missing shard is scored; a changed, malformed, or missing previously
+recorded shard stops the run. A file committed immediately before interruption but not yet added
+to the mutable progress index is validated and adopted as an orphan checkpoint. Temporary or
+partial files are never treated as complete.
+
+A resumed unit may contain multiple process/runtime segments. It therefore reports the exact
+segment count and does not claim one process or one loaded model across the whole unit. The
+scientific invariant is one loaded model per segment and adjacent OFF/ON scoring per prompt. Once
+all shards validate, the evaluator deterministically reconstructs the original final artifact
+schema and standard complete claim, so legacy and resumed units can be aggregated together.
 
 ## Unit gates
 
@@ -169,6 +190,28 @@ plasticity-p0d2hcbr aggregate \
 plasticity-p0d2hcbr verify --output /new/cbr-training-output
 ```
 
+For long-running inference, authorize one independent resumable attempt and rerun the same
+evaluation command after an interruption:
+
+```bash
+plasticity-p0d2hcbr resumable-evaluation-template \
+  --output /existing/cbr-training-output \
+  --analysis-root /independent/cbr-resume1 \
+  --shard-size 64
+
+plasticity-p0d2hcbr authorize-resumable-evaluation \
+  --output /existing/cbr-training-output \
+  --analysis-root /independent/cbr-resume1 \
+  --authorization /outside/approved-resume1.json \
+  --shard-size 64
+
+plasticity-p0d2hcbr evaluate-resumable \
+  --output /existing/cbr-training-output \
+  --curriculum disentangled \
+  --placement full_depth \
+  --seed 20260811
+```
+
 For an already trained budget-mismatched CBR-v1 run:
 
 ```bash
@@ -191,6 +234,7 @@ The ordinary `authorize`, `train`, `evaluate`, `aggregate`, and `verify` command
 CBR-v2. Blank training selectors validate/reuse the six imported controls and train only the six
 pending corrected late units.
 
-Training and evaluation are resumable only at immutable unit boundaries. A completed unit is
-validated and reused. A failed or partially published unit is never deleted or overwritten; a
-new preregistered experiment attempt is required.
+Training remains resumable only at immutable unit boundaries. The original evaluator retains the
+same boundary. The separately authorized resumable evaluator adds immutable prompt-shard
+boundaries and automatically continues from the next missing shard. A changed or partially
+published immutable shard is never deleted or overwritten; it requires a new evaluation attempt.
