@@ -161,6 +161,67 @@ replacements.
 393-test regression, Ruff, compile, CLI, parity, and diff checks are complete and ready for
 the final GitHub handoff commit.
 
+---
+
+# Task Plan: CBR resumable sharded evaluation
+
+## Goal
+Replace the monolithic CBR unit evaluator with an auditable shard-checkpointed
+evaluation attempt that can validate completed work on Drive and resume after a
+Colab runtime interruption without retraining adapters or manually releasing claims.
+
+## Phases
+- [x] Phase 1: Map scoring boundaries, immutable output contracts, CLI, tests, and
+  notebook lifecycle constraints.
+- [x] Phase 2: Freeze resume identity, shard layout, runtime-segment integrity,
+  claim/recovery transitions, and migration semantics.
+- [x] Phase 3: Implement resumable shard scoring, validation, final assembly, and CLI.
+- [ ] Phase 4: Rebuild the generated Colab with a dedicated resume attempt and safe
+  controls.
+- [ ] Phase 5: Add interruption, corruption, identity, assembly, and notebook tests.
+- [ ] Phase 6: Run focused and full verification, inspect the diff, and prepare the
+  handoff.
+
+## Key Questions
+1. What is the smallest immutable shard that preserves prompt-level OFF/ON pairing?
+2. How can a resumed unit represent multiple model-runtime segments without claiming
+   one process or one loaded model for the whole unit?
+3. How should completed shards be validated before skipping inference?
+4. How can existing trained adapters remain immutable while old eval1/eval2 claims
+   remain preserved as interrupted attempts?
+
+## Decisions Made
+- Preserve training outputs and adapter hashes; this task changes evaluation only.
+- Persist checkpoints under a new evaluation attempt and never reinterpret partial
+  monolithic outputs as completed shards.
+- Require atomic immutable shard files and validate their full identity and hash on
+  every resume.
+- Add a separate `evaluate-resumable` lifecycle instead of changing the frozen
+  monolithic `evaluate` command in place.
+- Use one externally adopted matrix-level authorization to bind the new evaluator
+  code hash, analysis root, shard size, and eligible unfinished units.
+- Checkpoint 64 prompts by default. Each shard keeps OFF/ON adjacent, runs its own
+  before/after OFF sentinel, and is independently valid across runtime restarts.
+- Treat each process invocation as a runtime segment. Whole-unit single-runtime
+  status is reported rather than assumed.
+- Publish the existing final unit artifact schema and standard complete claim so
+  downstream analysis remains compatible; aggregation will resolve each unit from
+  its recorded claim path to permit mixed legacy/resumable roots.
+
+## Errors Encountered
+- Initial Ruff pass on the new modules found three unused imports and three line-length
+  violations. They were mechanical first-draft issues; imports and wrapping were
+  corrected before functional integration.
+- The first checkpoint-tamper test reused the plan's mutable `item_ids` list inside
+  its fabricated payload, so tampering changed both expected and observed objects and
+  reached the later row-order guard. The fixture now copies the list, testing the
+  intended immutable-plan mismatch.
+
+## Status
+**Currently in Phase 4** - Core resumable authorization, scoring, checkpoint adoption,
+final assembly, CLI, and mixed-root aggregation are implemented; building the pinned
+Colab workflow next.
+
 ## Formal-result review
 
 - [x] Transcribe the supplied aggregate without redefining old strict metrics.

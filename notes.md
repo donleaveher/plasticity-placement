@@ -1,5 +1,29 @@
 # Notes: P0-D2H-R evaluation repair
 
+## CBR resumable-evaluation implementation log
+
+- Current CBR evaluation claims the unit before inference but writes all result
+  artifacts only after four full banks finish.
+- A unit scores 1,536 held-out, 192 historical RAB, 96 conditional-route, and
+  1,536 CRD OFF/ON pairs in one model runtime.
+- Repeated Colab runtime loss therefore leaves a `claimed` manifest entry and zero
+  reusable artifacts after roughly an hour of inference.
+- Resume must preserve prompt-level adapter OFF/ON pairing while recording multiple
+  runtime segments honestly; whole-unit `single_process` and
+  `single_loaded_base_model` claims cannot survive a VM restart.
+- Selected implementation: a new resumable evaluator and authorization path, leaving
+  the old frozen evaluator intact.
+- A shard is complete only after its rows, item IDs, runtime segment, object-identity
+  check, and before/after OFF sentinel are atomically persisted in one immutable JSON
+  object.
+- Completed shards are validated against a frozen plan before inference. Missing
+  shards are scored; changed or malformed shards stop the run.
+- Final standard artifacts are reconstructed deterministically from validated shards.
+- Aggregation must use each complete claim's `analysis_output`, because legacy and
+  resumed units can legitimately live under different evaluation roots.
+
+---
+
 ## Observed run
 
 - `late-matched` beat `full-base` by 10.07 percentage points on hard accuracy.

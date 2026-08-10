@@ -24,6 +24,15 @@ from plasticity_placement.p0d2hcbr.deviation import (
 from plasticity_placement.p0d2hcbr.evaluation import EvaluationRequest, evaluate_unit
 from plasticity_placement.p0d2hcbr.manifest import Manifest
 from plasticity_placement.p0d2hcbr.preflight import plan_experiment
+from plasticity_placement.p0d2hcbr.resumable_evaluation import (
+    ResumableEvaluationRequest,
+    evaluate_unit_resumable,
+)
+from plasticity_placement.p0d2hcbr.resume import (
+    DEFAULT_SHARD_SIZE,
+    adopt_resumable_evaluation,
+    resumable_evaluation_template,
+)
 from plasticity_placement.p0d2hcbr.runtime import authorize_experiment, train_unit
 
 
@@ -62,6 +71,27 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--output", type=Path, required=True)
     evaluate.add_argument("--analysis-root", type=Path, required=True)
     _add_unit_selector(evaluate)
+    resume_template = subparsers.add_parser(
+        "resumable-evaluation-template",
+        help="只读生成未完成 CBR units 的分片续跑授权模板",
+    )
+    resume_template.add_argument("--output", type=Path, required=True)
+    resume_template.add_argument("--analysis-root", type=Path, required=True)
+    resume_template.add_argument("--shard-size", type=int, default=DEFAULT_SHARD_SIZE)
+    authorize_resume = subparsers.add_parser(
+        "authorize-resumable-evaluation",
+        help="采纳外部分片续跑批准并封存零产物旧 claim",
+    )
+    authorize_resume.add_argument("--output", type=Path, required=True)
+    authorize_resume.add_argument("--analysis-root", type=Path, required=True)
+    authorize_resume.add_argument("--authorization", type=Path, required=True)
+    authorize_resume.add_argument("--shard-size", type=int, default=DEFAULT_SHARD_SIZE)
+    evaluate_resume = subparsers.add_parser(
+        "evaluate-resumable",
+        help="按不可变 prompt shards 评估并自动采用已验证 checkpoint",
+    )
+    evaluate_resume.add_argument("--output", type=Path, required=True)
+    _add_unit_selector(evaluate_resume)
     aggregate = subparsers.add_parser("aggregate", help="聚合全部 12 个 verified evaluations")
     aggregate.add_argument("--output", type=Path, required=True)
     aggregate.add_argument("--evaluations-root", type=Path, required=True)
@@ -126,6 +156,39 @@ def main() -> None:
             for curriculum, placement, seed in _selected_units(args)
         ]
         path = paths[-1]
+    elif args.command == "resumable-evaluation-template":
+        print(
+            json.dumps(
+                resumable_evaluation_template(
+                    args.output,
+                    args.analysis_root,
+                    shard_size=args.shard_size,
+                ),
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return
+    elif args.command == "authorize-resumable-evaluation":
+        path = adopt_resumable_evaluation(
+            args.output,
+            args.authorization,
+            args.analysis_root,
+            shard_size=args.shard_size,
+        )
+    elif args.command == "evaluate-resumable":
+        paths = [
+            evaluate_unit_resumable(
+                ResumableEvaluationRequest(
+                    args.output,
+                    curriculum,
+                    placement,
+                    seed,
+                )
+            )
+            for curriculum, placement, seed in _selected_units(args)
+        ]
+        path = paths[-1]
     elif args.command == "aggregate":
         path = aggregate_experiment(args.output, args.evaluations_root)
     elif args.command == "verify":
@@ -147,6 +210,7 @@ def main() -> None:
                         for key, value in manifest.payload["evaluation_claims"].items()
                     },
                     "budget_deviation": manifest.payload.get("budget_deviation"),
+                    "resumable_evaluation": manifest.payload.get("resumable_evaluation"),
                     "mappings_per_adapter_authorized": False,
                 },
                 ensure_ascii=False,

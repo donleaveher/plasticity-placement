@@ -7,6 +7,7 @@ from typing import Any
 
 from plasticity_placement.p0d2hcbr.config import CURRICULA, PLACEMENTS, unit_id
 from plasticity_placement.p0d2hcbr.preflight import load_config
+from plasticity_placement.p0d2hcbr.resume import resumable_budget_audit
 from plasticity_placement.p0d2hcbr.runtime import validate_all_training_units
 from plasticity_placement.p0d2hrr.io import (
     file_hash,
@@ -24,10 +25,18 @@ def aggregate_experiment(output_dir: Path, evaluations_root: Path) -> Path:
     manifest, spec, identity = load_config(output_dir)
     if manifest.state != "evaluated":
         raise ValueError(f"CBR aggregation requires state=evaluated, found {manifest.state}")
-    budget_audit = validate_all_training_units(output_dir, allow_authorized_deviation=True)
+    budget_audit = (
+        resumable_budget_audit(output_dir)
+        if isinstance(manifest.payload.get("resumable_evaluation"), dict)
+        else validate_all_training_units(output_dir, allow_authorized_deviation=True)
+    )
+    unit_roots = {
+        key: Path(manifest.payload["evaluation_claims"][key]["analysis_output"]).resolve()
+        for key in spec.unit_ids()
+    }
     summaries = {
         key: _verify_unit_evaluation(
-            evaluations_root / key,
+            unit_roots[key],
             key,
             manifest.payload["evaluation_claims"][key],
             manifest.payload["run_id"],
@@ -93,8 +102,9 @@ def aggregate_experiment(output_dir: Path, evaluations_root: Path) -> Path:
             "mappings_per_adapter_authorized": False,
         },
         "unit_summary_hashes": {
-            key: file_hash(evaluations_root / key / "summary.json") for key in summaries
+            key: file_hash(unit_roots[key] / "summary.json") for key in summaries
         },
+        "unit_evaluation_roots": {key: str(root) for key, root in unit_roots.items()},
         "historical_rab_decision_changed": False,
         "historical_rabx_attribution_changed": False,
         "additional_training_authorized": False,
@@ -127,6 +137,7 @@ def aggregate_experiment(output_dir: Path, evaluations_root: Path) -> Path:
         "audit_manifest_sha256": audit_hash,
         "decision": status,
         "evaluations_root": str(evaluations_root),
+        "unit_evaluation_roots": summary["unit_evaluation_roots"],
     }
     manifest.set_state("complete")
     return aggregate_root / "summary.json"
@@ -172,9 +183,15 @@ def verify_complete_result(output_dir: Path) -> Path:
     ):
         raise ValueError("CBR aggregate manifests disagree")
     evaluations_root = Path(result["evaluations_root"])
+    recorded_roots = result.get("unit_evaluation_roots")
     for key in spec.unit_ids():
+        root = (
+            Path(recorded_roots[key])
+            if isinstance(recorded_roots, dict) and key in recorded_roots
+            else evaluations_root / key
+        )
         _verify_unit_evaluation(
-            evaluations_root / key,
+            root,
             key,
             manifest.payload["evaluation_claims"][key],
             manifest.payload["run_id"],
