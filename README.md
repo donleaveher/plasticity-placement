@@ -455,6 +455,10 @@ conditional-route 和完整 CRD 上做同 runtime OFF/ON 评估。协议见
 修正版 CBR-v2 复用六个不可变 full-depth controls，只训练六个 explicit layers 20–27、
 rank 28 的 late replacements，使实际预算重新精确匹配。恢复与修正版 Colab 入口见
 [`notebooks/p0d2h_cbr_budget_recovery_corrected/p0d2h_cbr_budget_recovery_corrected_colab.ipynb`](notebooks/p0d2h_cbr_budget_recovery_corrected/p0d2h_cbr_budget_recovery_corrected_colab.ipynb)。
+CBR-v1 `verify` 完成后，CBR-v2 应改用独立的
+[`notebooks/p0d2h_cbr_v2/p0d2h_cbr_v2_colab.ipynb`](notebooks/p0d2h_cbr_v2/p0d2h_cbr_v2_colab.ipynb)，
+也可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_cbr_v2/p0d2h_cbr_v2_colab.ipynb)。该入口不暴露旧的整-unit
+`RUN_EVALUATE_V2`，而是先检查 12 个 unit 全部 `trained`，再授权 shard 自动恢复评估。
 长时间评估另提供
 [`notebooks/p0d2h_cbr_resumable_evaluation/p0d2h_cbr_resumable_evaluation_colab.ipynb`](notebooks/p0d2h_cbr_resumable_evaluation/p0d2h_cbr_resumable_evaluation_colab.ipynb)：
 它默认每 64 个 prompt 写入一个不可变 checkpoint，Colab 掉线后重新执行同一 unit 会验证并

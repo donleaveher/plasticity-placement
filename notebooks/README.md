@@ -125,6 +125,10 @@ P0-D2H-CBR-v1 counterbalanced binding remediation 使用新的独立目录：
 - `p0d2h_cbr_resumable_evaluation/p0d2h_cbr_resumable_evaluation_colab.ipynb`：
   对已有训练 adapter 使用外部授权的不可变 prompt shards；掉线后重跑同一 evaluation
   gate 会验证并自动采用完整 checkpoints，只计算尚未完成的 shards。
+- `p0d2h_cbr_v2/p0d2h_cbr_v2_colab.ipynb`：
+  在 CBR-v1 `verify` 完成后独立执行 corrected matched-budget v2；复用六个 full-depth、
+  只训练六个 explicit layers 20–27 / rank 28 的 `late_matched`，并为全部 12 个 unit 使用
+  shard 自动恢复评估。可[直接在 Google Colab 打开](https://colab.research.google.com/github/donleaveher/plasticity-placement/blob/agent%2Fadd-lora-evaluation/notebooks/p0d2h_cbr_v2/p0d2h_cbr_v2_colab.ipynb)。
 
 后续 1/4/8 mappings、ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自
 创建新目录和 notebook。
