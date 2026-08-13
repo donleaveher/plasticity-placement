@@ -7,7 +7,8 @@ from typing import Any
 
 BRANCH = "agent/add-lora-evaluation"
 SOURCE_CBR_CODE_REVISION = "f4a71efe6bc717d345843b025c95fceeb6071954"
-CORRECTED_CODE_REVISION = "04437d33de7af53d6bdd408665a3be941c440965"
+SOURCE_CBR_RECOVERY_CODE_REVISION = "04437d33de7af53d6bdd408665a3be941c440965"
+CORRECTED_CODE_REVISION = "99462a4a7742b82f0cee395d4da891d1ed6e48db"
 RESUMABLE_CODE_REVISION = "99462a4a7742b82f0cee395d4da891d1ed6e48db"
 OUTPUT_DIR = Path(__file__).resolve().parent
 NOTEBOOK_NAME = "p0d2h_cbr_v2_colab.ipynb"
@@ -54,6 +55,7 @@ from IPython.display import Markdown, display
 REPO_URL = 'https://github.com/donleaveher/plasticity-placement.git'
 BRANCH = '{BRANCH}'
 SOURCE_CBR_CODE_REVISION = '{SOURCE_CBR_CODE_REVISION}'
+SOURCE_CBR_RECOVERY_CODE_REVISION = '{SOURCE_CBR_RECOVERY_CODE_REVISION}'
 REQUESTED_CORRECTED_CODE_REVISION = '{CORRECTED_CODE_REVISION}'
 REQUESTED_RESUMABLE_CODE_REVISION = '{RESUMABLE_CODE_REVISION}'
 REPO_DIR = Path('/content/plasticity-placement-cbr-v2')
@@ -71,7 +73,7 @@ CBR1_RECOVERY_CODE_REVISION_LOCK = (
     CBR1_PIPELINE_ROOT / 'budget_recovery_code_revision.txt'
 )
 
-CBR2_PIPELINE_ATTEMPT = 'pipeline-cbr2'
+CBR2_PIPELINE_ATTEMPT = 'pipeline-cbr2r1'
 CBR2_EXPERIMENT_ATTEMPT = 'cbr2'
 CBR2_RESUME_ATTEMPT = 'resume1'
 CBR2_PIPELINE_ROOT = Path(
@@ -202,7 +204,10 @@ if not CBR1_RECOVERY_CODE_REVISION_LOCK.is_file():
     raise FileNotFoundError(
         'Missing CBR-v1 recovery code lock; finish CBR-v1 verify before CBR-v2'
     )
-if CBR1_RECOVERY_CODE_REVISION_LOCK.read_text().strip() != corrected_revision:
+if (
+    CBR1_RECOVERY_CODE_REVISION_LOCK.read_text().strip()
+    != SOURCE_CBR_RECOVERY_CODE_REVISION
+):
     raise RuntimeError('CBR-v1 recovery code lock differs')
 if not (CBR1_OUTPUT / 'aggregate' / 'summary.json').is_file():
     raise FileNotFoundError('CBR-v1 aggregate/summary.json is missing; do not start CBR-v2')

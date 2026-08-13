@@ -17,6 +17,10 @@ Use this notebook only after CBR-v1 `verify` succeeds and returns
 The notebook deliberately does not expose the legacy monolithic `RUN_EVALUATE_V2` gate. A Colab
 reconnect can rerun `RUN_EVALUATE_RESUMABLE_V2=True`; validated completed shards are skipped.
 
+The corrected experiment uses `pipeline-cbr2r1` and pins plan/train to the resumable-aware code
+revision. The earlier `pipeline-cbr2` attempt may contain only a revision lock from a failed plan;
+leave it untouched. No CBR-v1 stage needs to be rerun.
+
 Edit only the dedicated controls cell and enable exactly one gate per pass. The default is
 `RUN_PLAN_V2=True`; all later state-changing gates are disabled. `APPROVER` is a human or
 responsible-party identifier, never a credential.

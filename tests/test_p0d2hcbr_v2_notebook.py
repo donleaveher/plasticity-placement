@@ -93,8 +93,12 @@ def test_v2_notebook_preserves_experiment_identity_and_switches_revision() -> No
     ]
     config, _, lifecycle, _ = code_cells
     assert (
-        "REQUESTED_CORRECTED_CODE_REVISION = "
+        "SOURCE_CBR_RECOVERY_CODE_REVISION = "
         "'04437d33de7af53d6bdd408665a3be941c440965'"
+    ) in config
+    assert (
+        "REQUESTED_CORRECTED_CODE_REVISION = "
+        "'99462a4a7742b82f0cee395d4da891d1ed6e48db'"
     ) in config
     assert (
         "REQUESTED_RESUMABLE_CODE_REVISION = "
@@ -102,7 +106,9 @@ def test_v2_notebook_preserves_experiment_identity_and_switches_revision() -> No
     ) in config
     assert "active_revision = corrected_revision if corrected_stage_selected else" in lifecycle
     assert "f'code-{corrected_revision[:10]}_cbr1-" in lifecycle
+    assert "CBR2_PIPELINE_ATTEMPT = 'pipeline-cbr2r1'" in config
     assert "CBR2_RESUME_ATTEMPT = 'resume1'" in config
+    assert "!= SOURCE_CBR_RECOVERY_CODE_REVISION" in lifecycle
     assert "CBR2_RESUME_EVALUATIONS_ROOT" in lifecycle
 
 
