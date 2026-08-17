@@ -44,9 +44,12 @@ def build_notebook() -> dict[str, Any]:
             "## Run passes\n\n"
             "Edit **only the next cell** between passes.\n\n"
             "1. Inspection: keep all defaults and run all cells.\n"
-            "2. G1: set `USE_GOOGLE_DRIVE=True`, `RUN_G1=True`, and set `APPROVER` to your own "
-            "name or lab identifier; run all cells.\n"
-            "3. P0: after G1 writes a passing authorization, set `RUN_G1=False`, `RUN_P0=True`, "
+            "2. Recipe A diagnosis: keep both run flags false, set `USE_GOOGLE_DRIVE=True` and "
+            "`RUN_LABEL='pathmem-v1'`; the results cell derives diagnostics without training.\n"
+            "3. Recipe B G1: preserve the failed Recipe A directory, use a new `RUN_LABEL`, set "
+            "`USE_GOOGLE_DRIVE=True`, `RUN_G1=True`, keep `G1_RECIPE='B'`, and set `APPROVER` "
+            "to your own name or lab identifier; run all cells.\n"
+            "4. P0: after G1 writes a passing authorization, set `RUN_G1=False`, `RUN_P0=True`, "
             "keep the same `APPROVER` and `RUN_LABEL`, then run all cells.\n\n"
             "`APPROVER` is a responsible-party identifier, not a password or API key. Never put "
             "secrets in this notebook.",
@@ -58,7 +61,8 @@ def build_notebook() -> dict[str, Any]:
             'RUN_P0 = False  # @param {type:"boolean"}\n'
             'USE_GOOGLE_DRIVE = False  # @param {type:"boolean"}\n'
             'APPROVER = ""  # @param {type:"string"}\n'
-            'RUN_LABEL = "pathmem-v1"  # @param {type:"string"}\n',
+            'RUN_LABEL = "pathmem-g1-recipe-b"  # @param {type:"string"}\n'
+            'G1_RECIPE = "B"  # @param ["A", "B"]\n',
             tag="user-controls",
         ),
         code(
@@ -74,6 +78,8 @@ def build_notebook() -> dict[str, Any]:
             '    raise ValueError("APPROVER must identify the responsible human for execution")\n'
             'if not re.fullmatch(r"[A-Za-z0-9._-]+", RUN_LABEL):\n'
             '    raise ValueError("RUN_LABEL contains an unsupported character")\n\n'
+            'if G1_RECIPE not in {"A", "B"}:\n'
+            '    raise ValueError("G1_RECIPE must be A or B")\n\n'
             'REPOSITORY_URL = "https://github.com/donleaveher/plasticity-placement.git"\n'
             'REPOSITORY_BRANCH = "agent/add-lora-evaluation"\n'
             'REPOSITORY_ROOT = Path("/content/plasticity-placement")\n'
@@ -90,6 +96,17 @@ def build_notebook() -> dict[str, Any]:
             "    ).stdout.strip()\n"
             "    if observed != REPOSITORY_URL:\n"
             '        raise RuntimeError(f"Unexpected existing checkout remote: {observed}")\n\n'
+            "    subprocess.run(\n"
+            '        ["git", "-C", str(REPOSITORY_ROOT), "diff", "--quiet"], check=True\n'
+            "    )\n"
+            "    subprocess.run(\n"
+            '        ["git", "-C", str(REPOSITORY_ROOT), "fetch", "origin", REPOSITORY_BRANCH],\n'
+            "        check=True,\n"
+            "    )\n"
+            "    subprocess.run(\n"
+            '        ["git", "-C", str(REPOSITORY_ROOT), "merge", "--ff-only", "FETCH_HEAD"],\n'
+            "        check=True,\n"
+            "    )\n\n"
             'subprocess.run([sys.executable, "-m", "pip", "install", "-q", "uv"], check=True)\n'
             "subprocess.run(\n"
             '    ["uv", "sync", "--extra", "train", "--extra", "colab"],\n'
@@ -106,7 +123,7 @@ def build_notebook() -> dict[str, Any]:
             tag="setup",
         ),
         code(
-            "if USE_GOOGLE_DRIVE and (RUN_G1 or RUN_P0):\n"
+            "if USE_GOOGLE_DRIVE:\n"
             "    from google.colab import drive\n"
             '    drive.mount("/content/drive")\n'
             '    OUTPUT_BASE = Path("/content/drive/MyDrive/pathmem_g1_p0")\n'
@@ -122,6 +139,7 @@ def build_notebook() -> dict[str, Any]:
             '    "approver": APPROVER.strip(),\n'
             '    "checkout_revision": CHECKOUT_REVISION,\n'
             '    "run_label": RUN_LABEL,\n'
+            '    "g1_recipe": G1_RECIPE,\n'
             "}\n"
             "if not (RUN_G1 or RUN_P0):\n"
             '    print("Inspection does not create an execution identity.")\n'
@@ -146,7 +164,7 @@ def build_notebook() -> dict[str, Any]:
             "if RUN_G1:\n"
             "    command = BASE_COMMAND + [\n"
             '        "g1", "--g0", str(G0_ROOT), "--protocol-root", str(PROTOCOL_ROOT),\n'
-            '        "--output", str(G1_ROOT),\n'
+            '        "--output", str(G1_ROOT), "--recipe", G1_RECIPE,\n'
             "    ]\n"
             "    subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)\n"
             "elif RUN_P0:\n"
@@ -165,10 +183,20 @@ def build_notebook() -> dict[str, Any]:
             "from IPython.display import JSON, display\n\n"
             'summaries = (("G1", G1_ROOT / "summary.json"), '
             '("P0", P0_ROOT / "summary.json"))\n'
+            'if (G1_ROOT / "summary.json").is_file():\n'
+            '    diagnostic_path = G1_ROOT / "g1_diagnostic.json"\n'
+            '    subprocess.run(\n'
+            '        BASE_COMMAND + ["diagnose-g1", "--run-root", str(G1_ROOT),\n'
+            '                        "--output", str(diagnostic_path)],\n'
+            '        cwd=REPOSITORY_ROOT, check=True,\n'
+            '    )\n'
             "for label, path in summaries:\n"
             "    if path.is_file():\n"
             '        print(f"{label} summary: {path}")\n'
             "        display(JSON(json.loads(path.read_text())))\n"
+            'if (G1_ROOT / "g1_diagnostic.json").is_file():\n'
+            '    print(f"G1 diagnostic: {G1_ROOT / \'g1_diagnostic.json\'}")\n'
+            '    display(JSON(json.loads((G1_ROOT / "g1_diagnostic.json").read_text())))\n'
             'print(f"Artifacts root: {RUN_ROOT}")\n',
             tag="results",
         ),

@@ -15,6 +15,7 @@ from plasticity_placement.pathmem.identity import (
 from plasticity_placement.pathmem.io import file_hash, immutable_json_write, json_hash
 from plasticity_placement.pathmem.schema import EventBlock, OperatorKind
 from plasticity_placement.pathmem_exec.artifacts import (
+    ADAPTER_LINEAGE_VERSION,
     adapter_bundle_hash,
     write_lineage,
 )
@@ -24,7 +25,7 @@ from plasticity_placement.training.lora import train_lora
 from plasticity_placement.training.model_utils import model_load_kwargs, set_seed
 
 ROOT_ADAPTER_VERSION = "pathmem-root-adapter-v1"
-TRAINER_CONTRACT_VERSION = "pathmem-reset-adamw-trainer-v1"
+TRAINER_CONTRACT_VERSION = "pathmem-reset-adamw-trainer-v2"
 
 
 def trainer_config_identity(config: PhaseConfig) -> str:
@@ -185,15 +186,6 @@ def train_event_node(
     """Train one event from its exact parent with fresh AdamW/scheduler state."""
     data_sha256 = write_event_data(block, data_path)
     parent_adapter_sha256 = adapter_bundle_hash(parent_adapter_dir)
-    if output_dir.exists():
-        return _verify_trained_node(
-            output_dir=output_dir,
-            attempt_id=attempt_id,
-            parent_state_sha256=parent_state_sha256,
-            root_state_sha256=root_state_sha256,
-            training_data_sha256=data_sha256,
-        )
-
     identity_input = resolve_node_identity(
         plan=plan,
         dag=dag,
@@ -207,7 +199,22 @@ def train_event_node(
         node_id = json_hash(identity_payload)
     else:
         identity_payload = identity_input.to_dict()
+        identity_payload.pop("node_id")
         node_id = identity_input.node_id
+
+    if output_dir.exists():
+        return verify_trained_node(
+            config=config,
+            runtime=runtime,
+            output_dir=output_dir,
+            attempt_id=attempt_id,
+            expected_node_id=node_id,
+            expected_node_identity=identity_payload,
+            parent_adapter_sha256=parent_adapter_sha256,
+            parent_state_sha256=parent_state_sha256,
+            root_state_sha256=root_state_sha256,
+            training_data_sha256=data_sha256,
+        )
 
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}.", dir=output_dir.parent))
@@ -227,8 +234,9 @@ def train_event_node(
         batch_size=config.recipe.batch_size,
         gradient_accumulation_steps=config.recipe.gradient_accumulation_steps,
         max_length=config.recipe.training_max_length,
-        warmup_ratio=0.0,
+        warmup_ratio=config.recipe.warmup_ratio,
         max_steps=config.recipe.optimizer_steps_per_event,
+        max_grad_norm=config.recipe.max_grad_norm,
         seed=block_seed(
             runtime.training_seed,
             plan.event_block_sha256,
@@ -250,6 +258,7 @@ def train_event_node(
         raise RuntimeError("saved adapter hash differs from training summary")
     lineage = {
         "attempt_id": attempt_id,
+        "recipe_id": config.recipe.recipe_id,
         "node_id": node_id,
         "node_identity": identity_payload,
         "adapter_sha256": adapter_sha256,
@@ -262,9 +271,14 @@ def train_event_node(
     }
     write_lineage(staging, lineage)
     staging.rename(output_dir)
-    return _verify_trained_node(
+    return verify_trained_node(
+        config=config,
+        runtime=runtime,
         output_dir=output_dir,
         attempt_id=attempt_id,
+        expected_node_id=node_id,
+        expected_node_identity=identity_payload,
+        parent_adapter_sha256=parent_adapter_sha256,
         parent_state_sha256=parent_state_sha256,
         root_state_sha256=root_state_sha256,
         training_data_sha256=data_sha256,
@@ -299,10 +313,15 @@ def _verify_root_adapter(
     return payload
 
 
-def _verify_trained_node(
+def verify_trained_node(
     *,
+    config: PhaseConfig,
+    runtime: RuntimeIdentity,
     output_dir: Path,
     attempt_id: str,
+    expected_node_id: str,
+    expected_node_identity: dict[str, Any],
+    parent_adapter_sha256: str,
     parent_state_sha256: str,
     root_state_sha256: str,
     training_data_sha256: str,
@@ -311,20 +330,62 @@ def _verify_trained_node(
     if not lineage_path.is_file():
         raise FileNotFoundError(f"trained adapter is incomplete: {output_dir}")
     lineage = json.loads(lineage_path.read_text(encoding="utf-8"))
-    observed = {
-        "attempt_id": lineage.get("attempt_id"),
-        "adapter_sha256": adapter_bundle_hash(output_dir),
-        "parent_state_sha256": lineage.get("parent_state_sha256"),
-        "root_state_sha256": lineage.get("root_state_sha256"),
-        "training_data_sha256": lineage.get("training_data_sha256"),
+    metadata_path = output_dir / "training_metadata.json"
+    if not metadata_path.is_file():
+        raise FileNotFoundError(f"training metadata is missing: {output_dir}")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    summary = lineage.get("training_summary")
+    trainer = metadata.get("config")
+    if not isinstance(summary, dict) or not isinstance(trainer, dict):
+        raise ValueError(f"trained adapter metadata is malformed: {output_dir}")
+    adapter_sha256 = adapter_bundle_hash(output_dir)
+    checks = {
+        "lineage_schema": lineage.get("schema_version") == ADAPTER_LINEAGE_VERSION,
+        "attempt_id": lineage.get("attempt_id") == attempt_id,
+        "recipe_id": lineage.get("recipe_id") == config.recipe.recipe_id,
+        "node_id": lineage.get("node_id") == expected_node_id,
+        "node_identity": lineage.get("node_identity") == expected_node_identity,
+        "node_identity_hash": json_hash(expected_node_identity) == expected_node_id,
+        "adapter_sha256": lineage.get("adapter_sha256") == adapter_sha256,
+        "parent_adapter_sha256": (
+            lineage.get("parent_adapter_sha256") == parent_adapter_sha256
+        ),
+        "parent_state_sha256": lineage.get("parent_state_sha256") == parent_state_sha256,
+        "root_state_sha256": lineage.get("root_state_sha256") == root_state_sha256,
+        "training_data_sha256": (
+            lineage.get("training_data_sha256") == training_data_sha256
+        ),
+        "trainer_config_sha256": (
+            lineage.get("trainer_config_sha256") == runtime.trainer_config_sha256
+        ),
+        "summary_matches_metadata": metadata.get("summary") == summary,
+        "summary_adapter_sha256": summary.get("adapter_sha256") == adapter_sha256,
+        "summary_training_data_sha256": (
+            summary.get("training_data_sha256") == training_data_sha256
+        ),
+        "summary_optimizer_steps": (
+            summary.get("optimizer_steps") == config.recipe.optimizer_steps_per_event
+        ),
+        "summary_model_revision": summary.get("model_revision") == config.model.revision,
+        "summary_precision": summary.get("precision") == "nf4-bfloat16",
+        "summary_full_layer_lora": summary.get("selected_layers") is None,
+        "trainer_rank": trainer.get("rank") == config.recipe.rank,
+        "trainer_alpha": trainer.get("alpha") == config.recipe.alpha,
+        "trainer_dropout": trainer.get("dropout") == config.recipe.dropout,
+        "trainer_target_modules": trainer.get("target_modules")
+        == list(config.recipe.target_modules),
+        "trainer_learning_rate": trainer.get("learning_rate")
+        == config.recipe.learning_rate,
+        "trainer_weight_decay": trainer.get("weight_decay") == config.recipe.weight_decay,
+        "trainer_warmup_ratio": trainer.get("warmup_ratio") == config.recipe.warmup_ratio,
+        "trainer_max_grad_norm": trainer.get("max_grad_norm")
+        == config.recipe.max_grad_norm,
+        "trainer_max_steps": trainer.get("max_steps")
+        == config.recipe.optimizer_steps_per_event,
+        "trainer_use_4bit": trainer.get("use_4bit") is True,
+        "trainer_chat_template": trainer.get("use_chat_template") is True,
     }
-    expected = {
-        "attempt_id": attempt_id,
-        "adapter_sha256": lineage.get("adapter_sha256"),
-        "parent_state_sha256": parent_state_sha256,
-        "root_state_sha256": root_state_sha256,
-        "training_data_sha256": training_data_sha256,
-    }
-    if observed != expected:
-        raise ValueError(f"trained adapter lineage changed: {output_dir}")
+    failed = sorted(name for name, passed in checks.items() if not passed)
+    if failed:
+        raise ValueError(f"trained adapter verification failed ({failed}): {output_dir}")
     return lineage

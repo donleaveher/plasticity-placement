@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from plasticity_placement.pathmem.compiler import compile_bank
 from plasticity_placement.pathmem.io import json_hash
 from plasticity_placement.pathmem_exec.artifacts import (
     AttemptState,
@@ -13,7 +14,12 @@ from plasticity_placement.pathmem_exec.artifacts import (
     write_g1_authorization,
 )
 from plasticity_placement.pathmem_exec.cli import execution_plan_summary
-from plasticity_placement.pathmem_exec.config import G1_CONFIG, P0_CONFIG
+from plasticity_placement.pathmem_exec.config import (
+    G1_CONFIG,
+    G1_RECIPE_A_CONFIG,
+    G1_RECIPE_B_CONFIG,
+    P0_CONFIG,
+)
 from plasticity_placement.pathmem_exec.training import trainer_config_identity
 from plasticity_placement.training.config import LoraTrainingConfig
 
@@ -33,17 +39,27 @@ def test_frozen_plan_has_24_g1_anchors_and_44_p0_artifacts() -> None:
 
 
 def test_phase_recipes_are_explicit_nf4_bf16_reset_adamw() -> None:
-    for config in (G1_CONFIG, P0_CONFIG):
+    expected = {
+        "A": {"rank": 8, "alpha": 16, "learning_rate": 2e-4, "steps": 16},
+        "B": {"rank": 16, "alpha": 32, "learning_rate": 2e-4, "steps": 16},
+    }
+    for config in (G1_RECIPE_A_CONFIG, G1_RECIPE_B_CONFIG, P0_CONFIG):
         recipe = config.recipe
         assert recipe.quantization == "nf4_double_quant"
         assert recipe.compute_dtype == "bfloat16"
         assert recipe.optimizer == "AdamW"
         assert recipe.weight_decay == 0.0
-        assert recipe.optimizer_steps_per_event == 16
-        assert recipe.rank == 8
-        assert recipe.alpha == 16
+        assert recipe.optimizer_steps_per_event == expected[recipe.recipe_id]["steps"]
+        assert recipe.rank == expected[recipe.recipe_id]["rank"]
+        assert recipe.alpha == expected[recipe.recipe_id]["alpha"]
+        assert recipe.learning_rate == expected[recipe.recipe_id]["learning_rate"]
         assert recipe.target_modules == ("q_proj", "v_proj")
         assert len(trainer_config_identity(config)) == 64
+    assert G1_CONFIG is G1_RECIPE_B_CONFIG
+    assert P0_CONFIG.recipe == G1_RECIPE_B_CONFIG.recipe
+    assert {
+        block.optimizer_steps for block in compile_bank().event_blocks
+    } == {P0_CONFIG.recipe.optimizer_steps_per_event}
 
 
 def test_generic_lora_config_exposes_weight_decay(tmp_path: Path) -> None:
@@ -80,6 +96,7 @@ def test_manifest_lifecycle_and_g1_authorization_are_idempotent(tmp_path: Path) 
     manifest.require_all_verified()
 
     gate = {"gate": "G1", "passed": True, "checks": [], "blockers": []}
+    recipe_sha256 = json_hash(G1_CONFIG.recipe.to_dict())
     summary = tmp_path / "summary.json"
     summary.write_text(
         json.dumps(
@@ -88,6 +105,8 @@ def test_manifest_lifecycle_and_g1_authorization_are_idempotent(tmp_path: Path) 
                 "g0_manifest_id": g0_id,
                 "gate": gate,
                 "integrity_checks": {"complete": True},
+                "recipe_id": "B",
+                "recipe_sha256": recipe_sha256,
             }
         ),
         encoding="utf-8",
@@ -100,6 +119,8 @@ def test_manifest_lifecycle_and_g1_authorization_are_idempotent(tmp_path: Path) 
         summary_path=summary,
         gate=gate,
         integrity_checks={"complete": True},
+        qualified_recipe_id="B",
+        qualified_recipe_sha256=recipe_sha256,
     )
     second = write_g1_authorization(
         authorization_path,
@@ -108,6 +129,8 @@ def test_manifest_lifecycle_and_g1_authorization_are_idempotent(tmp_path: Path) 
         summary_path=summary,
         gate=gate,
         integrity_checks={"complete": True},
+        qualified_recipe_id="B",
+        qualified_recipe_sha256=recipe_sha256,
     )
     assert first == second
     assert verify_g1_authorization(authorization_path, expected_g0_manifest_id=g0_id) == first
@@ -130,4 +153,6 @@ def test_authorization_refuses_failed_integrity(tmp_path: Path) -> None:
             summary_path=summary,
             gate={"passed": True},
             integrity_checks={"complete": False},
+            qualified_recipe_id="B",
+            qualified_recipe_sha256=json_hash(G1_CONFIG.recipe.to_dict()),
         )

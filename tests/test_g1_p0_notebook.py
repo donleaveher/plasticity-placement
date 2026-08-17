@@ -36,6 +36,8 @@ def test_notebook_has_one_safe_control_cell_and_ordered_lifecycle() -> None:
     assert "RUN_P0 = False" in source
     assert "USE_GOOGLE_DRIVE = False" in source
     assert 'APPROVER = ""' in source
+    assert 'G1_RECIPE = "B"' in source
+    assert 'RUN_LABEL = "pathmem-g1-recipe-b"' in source
 
     tags = [cell["metadata"]["tags"][0] for cell in notebook["cells"]]
     assert tags.index("user-controls") < tags.index("setup")
@@ -45,13 +47,30 @@ def test_notebook_has_one_safe_control_cell_and_ordered_lifecycle() -> None:
 
 def test_notebook_control_assignments_occur_only_in_control_cell() -> None:
     notebook = _builder().build_notebook()
-    names = ("RUN_G1 =", "RUN_P0 =", "USE_GOOGLE_DRIVE =", "APPROVER =", "RUN_LABEL =")
+    names = (
+        "RUN_G1 =",
+        "RUN_P0 =",
+        "USE_GOOGLE_DRIVE =",
+        "APPROVER =",
+        "RUN_LABEL =",
+        "G1_RECIPE =",
+    )
     for cell in notebook["cells"]:
         if cell["cell_type"] != "code":
             continue
         source = "".join(cell["source"])
         is_control = "user-controls" in cell["metadata"].get("tags", [])
         assert is_control or not any(name in source for name in names)
+
+
+def test_notebook_runs_recipe_b_and_cpu_diagnostic() -> None:
+    notebook = _builder().build_notebook()
+    combined = "\n".join("".join(cell["source"]) for cell in notebook["cells"])
+    assert '"--recipe", G1_RECIPE' in combined
+    assert '"diagnose-g1", "--run-root"' in combined
+    assert 'diagnostic_path = G1_ROOT / "g1_diagnostic.json"' in combined
+    assert "if USE_GOOGLE_DRIVE:" in combined
+    assert "if USE_GOOGLE_DRIVE and (RUN_G1 or RUN_P0):" not in combined
 
 
 def test_embedded_protocol_snapshot_verifies_with_frozen_g0() -> None:

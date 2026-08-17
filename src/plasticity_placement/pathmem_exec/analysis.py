@@ -26,6 +26,7 @@ def summarize_g1(
     rows: list[dict[str, Any]],
     *,
     verified_attempts: int,
+    additional_integrity: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
     by_arm = _rows_by_arm(rows)
     required_counts = {
@@ -79,6 +80,11 @@ def summarize_g1(
         "precision_locked": {row.get("evaluation_precision") for row in rows} == {"nf4-bfloat16"},
         "same_adapter_rescore_within_tolerance": same_adapter_rescore_delta <= 1e-5,
     }
+    if additional_integrity:
+        overlap = set(integrity) & set(additional_integrity)
+        if overlap:
+            raise ValueError(f"duplicate G1 integrity checks: {sorted(overlap)}")
+        integrity.update(additional_integrity)
     gate = evaluate_g1_gate(metrics).to_dict()
     return {
         "phase": "G1",

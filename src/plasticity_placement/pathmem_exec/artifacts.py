@@ -224,9 +224,14 @@ def write_g1_authorization(
     summary_path: Path,
     gate: dict[str, Any],
     integrity_checks: dict[str, bool],
+    qualified_recipe_id: str,
+    qualified_recipe_sha256: str,
 ) -> dict[str, Any]:
     require_sha256(g0_manifest_id, "g0_manifest_id")
     require_sha256(run_id, "run_id")
+    require_sha256(qualified_recipe_sha256, "qualified_recipe_sha256")
+    if qualified_recipe_id not in {"A", "B"}:
+        raise ValueError("G1 authorization has an unregistered recipe")
     if gate.get("passed") is not True or not integrity_checks or not all(integrity_checks.values()):
         raise PermissionError("G1 authorization requires a passing gate and all integrity checks")
     identity = {
@@ -236,6 +241,8 @@ def write_g1_authorization(
         "summary_sha256": file_hash(summary_path),
         "gate": gate,
         "integrity_checks": integrity_checks,
+        "qualified_recipe_id": qualified_recipe_id,
+        "qualified_recipe_sha256": qualified_recipe_sha256,
         "scope": "authorize_P0_only",
     }
     payload = {**identity, "authorization_id": json_hash(identity)}
@@ -266,6 +273,8 @@ def verify_g1_authorization(path: Path, *, expected_g0_manifest_id: str) -> dict
         or summary.get("g0_manifest_id") != expected_g0_manifest_id
         or summary.get("gate") != payload.get("gate")
         or summary.get("integrity_checks") != checks
+        or summary.get("recipe_id") != payload.get("qualified_recipe_id")
+        or summary.get("recipe_sha256") != payload.get("qualified_recipe_sha256")
     ):
         raise ValueError("G1 authorization summary contents mismatch")
     return {**payload, "authorization_id": authorization_id}

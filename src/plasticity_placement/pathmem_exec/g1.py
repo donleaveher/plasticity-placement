@@ -22,7 +22,7 @@ from plasticity_placement.pathmem_exec.artifacts import (
     read_jsonl,
     write_g1_authorization,
 )
-from plasticity_placement.pathmem_exec.config import G1_CONFIG, G1_SCHEMA_VERSION
+from plasticity_placement.pathmem_exec.config import G1_CONFIG, G1_SCHEMA_VERSION, PhaseConfig
 from plasticity_placement.pathmem_exec.environment import (
     execution_environment,
     resolve_and_verify_model,
@@ -40,15 +40,24 @@ from plasticity_placement.pathmem_exec.training import (
     runtime_identity,
     train_event_node,
 )
+from plasticity_placement.pathmem_exec.training_audit import audit_training_scoring_parity
 from plasticity_placement.training.model_utils import chat_prompt
 
 
-def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str, Any]:
+def run_g1(
+    *,
+    output_root: Path,
+    g0_dir: Path,
+    protocol_root: Path,
+    config: PhaseConfig = G1_CONFIG,
+) -> dict[str, Any]:
     output_root.mkdir(parents=True, exist_ok=True)
     g0 = verify_g0_or_raise(g0_dir, protocol_root)
-    environment = execution_environment(G1_CONFIG)
+    if config.phase != "G1":
+        raise ValueError("G1 execution requires a G1 phase config")
+    environment = execution_environment(config)
     bank = compile_bank()
-    items = tuple(item for item in bank.items if item.split == G1_CONFIG.split)
+    items = tuple(item for item in bank.items if item.split == config.split)
     if len(items) != 12:
         raise RuntimeError(f"G1 split changed: {len(items)} items")
     blocks_by_item = _group_by_item(
@@ -57,8 +66,15 @@ def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str,
     probes_by_item = _group_by_item(bank.probes, lambda probe: probe.item_id)
     families_by_item = _group_by_item(bank.history_families, lambda family: family.item_id)
 
-    tokenizer, _ = resolve_and_verify_model(G1_CONFIG)
-    preflight = _preflight(items, blocks_by_item, probes_by_item, tokenizer, environment)
+    tokenizer, _ = resolve_and_verify_model(config)
+    preflight = _preflight(
+        items,
+        blocks_by_item,
+        probes_by_item,
+        tokenizer,
+        environment,
+        config,
+    )
     immutable_json_write(output_root / "preflight.json", preflight, "G1 preflight")
 
     runtimes: dict[str, Any] = {}
@@ -68,9 +84,9 @@ def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str,
     plans: dict[str, DAGNodePlan] = {}
     for item in items:
         root_dir = output_root / "roots" / item.item_id
-        root = create_root_adapter(config=G1_CONFIG, item_id=item.item_id, output_dir=root_dir)
+        root = create_root_adapter(config=config, item_id=item.item_id, output_dir=root_dir)
         runtime = runtime_identity(
-            config=G1_CONFIG,
+            config=config,
             item_id=item.item_id,
             root_adapter_sha256=str(root["adapter_sha256"]),
             environment=environment,
@@ -85,7 +101,7 @@ def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str,
         roots[item.item_id] = root_dir
         for logical_name in ("A2", "B2"):
             plan = next(node for node in dag.nodes if node.logical_name == logical_name)
-            attempt_id = _attempt_id(item.item_id, logical_name)
+            attempt_id = _attempt_id(item.item_id, logical_name, config)
             planned[attempt_id] = {
                 "item_id": item.item_id,
                 "terminal_state": logical_name[0],
@@ -97,7 +113,7 @@ def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str,
 
     identity = {
         "schema_version": G1_SCHEMA_VERSION,
-        "phase_config": G1_CONFIG.to_dict(),
+        "phase_config": config.to_dict(),
         "environment_fingerprint": environment["environment_fingerprint"],
         "preflight_sha256": file_hash(output_root / "preflight.json"),
     }
@@ -123,7 +139,7 @@ def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str,
         manifest.mark(attempt_id, AttemptState.TRAINING)
         try:
             lineage = train_event_node(
-                config=G1_CONFIG,
+                config=config,
                 attempt_id=attempt_id,
                 block=block,
                 plan=plan,
@@ -146,10 +162,40 @@ def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str,
             manifest.mark(attempt_id, AttemptState.FAILED)
             raise
 
+    verified_lineages: dict[str, dict[str, Any]] = {}
+    for attempt_id, unit in sorted(planned.items()):
+        item_id = str(unit["item_id"])
+        runtime = runtimes[item_id]
+        plan = plans[attempt_id]
+        block = next(block for block in blocks_by_item[item_id] if block.block_id == plan.block_id)
+        lineage = train_event_node(
+            config=config,
+            attempt_id=attempt_id,
+            block=block,
+            plan=plan,
+            dag=dags[item_id],
+            runtime=runtime,
+            parent_adapter_dir=roots[item_id],
+            parent_state_sha256=runtime.root_state_sha256,
+            root_state_sha256=runtime.root_state_sha256,
+            data_path=output_root / "data" / f"{block.block_id.replace(':', '__')}.jsonl",
+            output_dir=_adapter_dir(output_root, attempt_id),
+        )
+        manifest_metadata = manifest.payload["units"][attempt_id].get("metadata", {})
+        if (
+            manifest_metadata.get("node_id") != lineage["node_id"]
+            or manifest_metadata.get("adapter_sha256") != lineage["adapter_sha256"]
+        ):
+            raise ValueError(f"G1 manifest/lineage mismatch: {attempt_id}")
+        verified_lineages[attempt_id] = lineage
+
     controls_path = output_root / "results" / "base_controls.jsonl"
-    bundle = load_model_bundle(G1_CONFIG)
+    bundle = load_model_bundle(config)
     try:
-        if controls_path.exists():
+        existing_controls_sha256 = manifest.payload.get("control_results_sha256")
+        if controls_path.exists() and existing_controls_sha256 is not None:
+            if file_hash(controls_path) != existing_controls_sha256:
+                raise ValueError("G1 base-control result hash changed")
             control_rows = read_jsonl(controls_path)
         else:
             control_rows = _score_controls(
@@ -159,18 +205,29 @@ def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str,
                 run_id=str(manifest.payload["run_id"]),
             )
             immutable_jsonl_write(controls_path, control_rows, "G1 base controls")
+        controls_sha256 = file_hash(controls_path)
+        if existing_controls_sha256 not in {None, controls_sha256}:
+            raise ValueError("G1 base-control result hash changed")
+        if existing_controls_sha256 is None:
+            manifest.payload["control_results_sha256"] = controls_sha256
+            manifest.save()
 
         all_rows = list(control_rows)
         for attempt_id, unit in sorted(planned.items()):
             result_path = output_root / "results" / f"{attempt_id.replace('::', '__')}.jsonl"
             if manifest.state(attempt_id) is AttemptState.VERIFIED:
+                expected_result_sha256 = manifest.payload["units"][attempt_id]["metadata"].get(
+                    "result_sha256"
+                )
+                if file_hash(result_path) != expected_result_sha256:
+                    raise ValueError(f"G1 verified result hash changed: {attempt_id}")
                 all_rows.extend(read_jsonl(result_path))
                 continue
             if manifest.state(attempt_id) is AttemptState.TRAINED:
                 manifest.mark(attempt_id, AttemptState.SCORING)
             item_id = str(unit["item_id"])
             terminal_state = str(unit["terminal_state"])
-            lineage = _read_lineage(_adapter_dir(output_root, attempt_id))
+            lineage = verified_lineages[attempt_id]
             activate_adapter(bundle, _adapter_dir(output_root, attempt_id), attempt_id)
             try:
                 rows = _score_anchor(
@@ -198,13 +255,25 @@ def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str,
         release_model_bundle(bundle)
 
     manifest.require_all_verified()
-    summary = summarize_g1(all_rows, verified_attempts=len(planned))
+    summary = summarize_g1(
+        all_rows,
+        verified_attempts=len(planned),
+        additional_integrity={
+            "training_scoring_token_parity": bool(preflight["training_scoring_token_parity"]),
+            "event_optimizer_step_exposure_exact": bool(
+                preflight["event_optimizer_step_exposure_matches"]
+            ),
+            "artifact_lineage_hashes_verified": True,
+        },
+    )
     summary.update(
         {
             "schema_version": G1_SCHEMA_VERSION,
             "run_id": manifest.payload["run_id"],
             "g0_manifest_id": g0["manifest_id"],
             "environment_fingerprint": environment["environment_fingerprint"],
+            "recipe_id": config.recipe.recipe_id,
+            "recipe_sha256": json_hash(config.recipe.to_dict()),
         }
     )
     summary_path = output_root / "summary.json"
@@ -217,6 +286,8 @@ def run_g1(*, output_root: Path, g0_dir: Path, protocol_root: Path) -> dict[str,
             summary_path=summary_path,
             gate=summary["gate"],
             integrity_checks=summary["integrity_checks"],
+            qualified_recipe_id=config.recipe.recipe_id,
+            qualified_recipe_sha256=json_hash(config.recipe.to_dict()),
         )
         summary = {**summary, "authorization": authorization}
     return summary
@@ -228,6 +299,7 @@ def _preflight(
     probes_by_item: dict[str, list[Probe]],
     tokenizer: Any,
     environment: dict[str, Any],
+    config: PhaseConfig,
 ) -> dict[str, Any]:
     prompt_audits: list[dict[str, Any]] = []
     training_audits: list[dict[str, Any]] = []
@@ -236,18 +308,21 @@ def _preflight(
             if block.state_label not in {"A", "B"} or not block.block_id.endswith("2"):
                 continue
             for example in block.examples:
-                prompt_ids = tokenizer(
-                    chat_prompt(tokenizer, example.prompt), add_special_tokens=False
-                )["input_ids"]
-                completion_ids = tokenizer(example.completion, add_special_tokens=False)[
-                    "input_ids"
-                ]
+                formatted = chat_prompt(tokenizer, example.prompt)
+                audit = audit_training_scoring_parity(
+                    tokenizer=tokenizer,
+                    formatted_prompt=formatted,
+                    completion=example.completion,
+                    action_choices=item.action_choices,
+                    training_max_length=config.recipe.training_max_length,
+                    evaluation_max_length=config.recipe.evaluation_max_length,
+                )
                 training_audits.append(
                     {
                         "example_id": example.example_id,
-                        "fits": len(prompt_ids) + len(completion_ids) + 1
-                        <= G1_CONFIG.recipe.training_max_length,
-                        "completion_token_count": len(completion_ids),
+                        "passed": audit["passed"],
+                        "checks": audit["checks"],
+                        "completion_token_ids": audit["completion_token_ids"],
                     }
                 )
         for probe in _qualification_probes(tuple(probes_by_item[item.item_id]), None):
@@ -265,18 +340,35 @@ def _preflight(
                     tokenizer,
                     chat_prompt(tokenizer, raw_prompt),
                     qualified_probe.action_choices,
-                    evaluation_max_length=G1_CONFIG.recipe.evaluation_max_length,
+                    evaluation_max_length=config.recipe.evaluation_max_length,
                 )
                 prompt_audits.append(
                     {
                         "probe_id": probe.probe_id,
                         "kind": kind,
                         "all_candidates_valid": audit["all_candidates_valid"],
+                        "equal_candidate_token_lengths": (
+                            len(
+                                {
+                                    int(candidate["token_count"])
+                                    for candidate in audit["candidates"]
+                                }
+                            )
+                            == 1
+                        ),
                     }
                 )
-    passed = all(row["all_candidates_valid"] for row in prompt_audits) and all(
-        row["fits"] and row["completion_token_count"] > 0 for row in training_audits
+    passed = all(
+        row["all_candidates_valid"] and row["equal_candidate_token_lengths"]
+        for row in prompt_audits
+    ) and all(row["passed"] for row in training_audits)
+    step_exposure_matches = all(
+        block.optimizer_steps == config.recipe.optimizer_steps_per_event
+        for item in items
+        for block in blocks_by_item[item.item_id]
+        if block.state_label in {"A", "B"} and block.block_id.endswith("2")
     )
+    passed = passed and step_exposure_matches
     if not passed:
         raise RuntimeError("G1 tokenizer/truncation preflight failed")
     return {
@@ -286,6 +378,12 @@ def _preflight(
         "gpu_scoring_started": False,
         "prompt_audit_count": len(prompt_audits),
         "training_example_audit_count": len(training_audits),
+        "training_scoring_token_parity": all(row["passed"] for row in training_audits),
+        "equal_candidate_token_lengths": all(
+            row["equal_candidate_token_lengths"] for row in prompt_audits
+        ),
+        "event_optimizer_step_exposure_matches": step_exposure_matches,
+        "recipe_id": config.recipe.recipe_id,
         "environment": environment,
     }
 
@@ -441,15 +539,9 @@ def _obsolete_action(item: SemanticItem, state: str) -> str:
     return item.state_b_action if state == "A" else item.state_a_action
 
 
-def _attempt_id(item_id: str, logical_name: str) -> str:
-    return f"{item_id}::seed-{G1_CONFIG.training_seeds[0]}::{logical_name}"
+def _attempt_id(item_id: str, logical_name: str, config: PhaseConfig) -> str:
+    return f"{item_id}::seed-{config.training_seeds[0]}::{logical_name}"
 
 
 def _adapter_dir(output_root: Path, attempt_id: str) -> Path:
     return output_root / "adapters" / attempt_id.replace("::", "__")
-
-
-def _read_lineage(adapter_dir: Path) -> dict[str, Any]:
-    import json
-
-    return json.loads((adapter_dir / "pathmem_lineage.json").read_text(encoding="utf-8"))

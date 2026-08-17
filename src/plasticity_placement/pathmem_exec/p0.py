@@ -16,6 +16,7 @@ from plasticity_placement.pathmem.schema import AccessMode, Probe, SemanticItem
 from plasticity_placement.pathmem.scoring import audit_candidate_tokenization
 from plasticity_placement.pathmem_exec.analysis import summarize_p0
 from plasticity_placement.pathmem_exec.artifacts import (
+    ADAPTER_LINEAGE_VERSION,
     AttemptState,
     PhaseManifest,
     adapter_bundle_hash,
@@ -44,6 +45,7 @@ from plasticity_placement.pathmem_exec.training import (
     runtime_identity,
     train_event_node,
 )
+from plasticity_placement.pathmem_exec.training_audit import audit_training_scoring_parity
 from plasticity_placement.training.model_utils import chat_prompt
 
 PATH_SUFFIXES = {
@@ -69,6 +71,12 @@ def run_p0(
         g1_authorization_path,
         expected_g0_manifest_id=str(g0["manifest_id"]),
     )
+    expected_recipe_sha256 = json_hash(P0_CONFIG.recipe.to_dict())
+    if (
+        authorization.get("qualified_recipe_id") != P0_CONFIG.recipe.recipe_id
+        or authorization.get("qualified_recipe_sha256") != expected_recipe_sha256
+    ):
+        raise PermissionError("P0 recipe differs from the G1-qualified recipe")
     environment = execution_environment(P0_CONFIG)
     bank = compile_bank()
     items = tuple(item for item in bank.items if item.split == P0_CONFIG.split)
@@ -206,11 +214,23 @@ def run_p0(
             manifest.mark(attempt_id, AttemptState.FAILED)
             raise
 
+    lineage_verified = _verify_lineages(
+        output_root=output_root,
+        planned=planned,
+        runtimes=runtimes,
+        manifest=manifest,
+    )
+    if not lineage_verified:
+        raise ValueError("P0 trained adapter lineage verification failed")
+
     control_path = output_root / "results" / "no_memory.jsonl"
     bundle = load_model_bundle(P0_CONFIG)
     all_rows: list[dict[str, Any]] = []
     try:
-        if control_path.exists():
+        existing_control_sha256 = manifest.payload.get("control_results_sha256")
+        if control_path.exists() and existing_control_sha256 is not None:
+            if file_hash(control_path) != existing_control_sha256:
+                raise ValueError("P0 no-memory result hash changed")
             all_rows.extend(read_jsonl(control_path))
         else:
             controls = _score_no_memory(
@@ -221,6 +241,12 @@ def run_p0(
             )
             immutable_jsonl_write(control_path, controls, "P0 no-memory controls")
             all_rows.extend(controls)
+        control_sha256 = file_hash(control_path)
+        if existing_control_sha256 not in {None, control_sha256}:
+            raise ValueError("P0 no-memory result hash changed")
+        if existing_control_sha256 is None:
+            manifest.payload["control_results_sha256"] = control_sha256
+            manifest.save()
 
         for attempt_id in execution_order:
             unit = planned[attempt_id]
@@ -230,6 +256,11 @@ def run_p0(
             state = manifest.state(attempt_id)
             if state is AttemptState.VERIFIED:
                 if needs_scoring:
+                    expected_result_sha256 = manifest.payload["units"][attempt_id].get(
+                        "metadata", {}
+                    ).get("result_sha256")
+                    if file_hash(result_path) != expected_result_sha256:
+                        raise ValueError(f"P0 verified result hash changed: {attempt_id}")
                     all_rows.extend(read_jsonl(result_path))
                 continue
             if state is AttemptState.TRAINED:
@@ -237,48 +268,45 @@ def run_p0(
             if not needs_scoring:
                 manifest.mark(attempt_id, AttemptState.VERIFIED, scoring_not_required=True)
                 continue
-            if result_path.exists():
-                rows = read_jsonl(result_path)
+            item_id = str(unit["item_id"])
+            item = next(candidate for candidate in items if candidate.item_id == item_id)
+            lineage = _read_lineage(_adapter_dir(output_root, attempt_id))
+            activate_adapter(bundle, _adapter_dir(output_root, attempt_id), attempt_id)
+            if bool(unit["technical_duplicate"]):
+                rows = _score_duplicate(
+                    bundle=bundle,
+                    item=item,
+                    probes=tuple(probes_by_item[item_id]),
+                    attempt_id=attempt_id,
+                    duplicate_of=str(unit["duplicate_of"]),
+                    node_id=str(lineage["node_id"]),
+                    adapter_sha256=str(lineage["adapter_sha256"]),
+                    run_id=str(manifest.payload["run_id"]),
+                )
+            elif logical_name in {"A2", "B2"}:
+                rows = _score_latest_anchor(
+                    bundle=bundle,
+                    item=item,
+                    probes=tuple(probes_by_item[item_id]),
+                    logical_name=logical_name,
+                    attempt_id=attempt_id,
+                    node_id=str(lineage["node_id"]),
+                    adapter_sha256=str(lineage["adapter_sha256"]),
+                    run_id=str(manifest.payload["run_id"]),
+                )
             else:
-                item_id = str(unit["item_id"])
-                item = next(candidate for candidate in items if candidate.item_id == item_id)
-                lineage = _read_lineage(_adapter_dir(output_root, attempt_id))
-                activate_adapter(bundle, _adapter_dir(output_root, attempt_id), attempt_id)
-                if bool(unit["technical_duplicate"]):
-                    rows = _score_duplicate(
-                        bundle=bundle,
-                        item=item,
-                        probes=tuple(probes_by_item[item_id]),
-                        attempt_id=attempt_id,
-                        duplicate_of=str(unit["duplicate_of"]),
-                        node_id=str(lineage["node_id"]),
-                        adapter_sha256=str(lineage["adapter_sha256"]),
-                        run_id=str(manifest.payload["run_id"]),
-                    )
-                elif logical_name in {"A2", "B2"}:
-                    rows = _score_latest_anchor(
-                        bundle=bundle,
-                        item=item,
-                        probes=tuple(probes_by_item[item_id]),
-                        logical_name=logical_name,
-                        attempt_id=attempt_id,
-                        node_id=str(lineage["node_id"]),
-                        adapter_sha256=str(lineage["adapter_sha256"]),
-                        run_id=str(manifest.payload["run_id"]),
-                    )
-                else:
-                    rows = _score_final_path(
-                        bundle=bundle,
-                        item=item,
-                        probes=tuple(probes_by_item[item_id]),
-                        blocks=tuple(blocks_by_item[item_id]),
-                        logical_name=logical_name,
-                        attempt_id=attempt_id,
-                        node_id=str(lineage["node_id"]),
-                        adapter_sha256=str(lineage["adapter_sha256"]),
-                        run_id=str(manifest.payload["run_id"]),
-                    )
-                immutable_jsonl_write(result_path, rows, "P0 scored unit")
+                rows = _score_final_path(
+                    bundle=bundle,
+                    item=item,
+                    probes=tuple(probes_by_item[item_id]),
+                    blocks=tuple(blocks_by_item[item_id]),
+                    logical_name=logical_name,
+                    attempt_id=attempt_id,
+                    node_id=str(lineage["node_id"]),
+                    adapter_sha256=str(lineage["adapter_sha256"]),
+                    run_id=str(manifest.payload["run_id"]),
+                )
+            immutable_jsonl_write(result_path, rows, "P0 scored unit")
             manifest.mark(
                 attempt_id,
                 AttemptState.VERIFIED,
@@ -302,11 +330,6 @@ def run_p0(
         release_model_bundle(bundle)
 
     manifest.require_all_verified()
-    lineage_verified = _verify_lineages(
-        output_root=output_root,
-        planned=planned,
-        runtimes=runtimes,
-    )
     summary = summarize_p0(
         all_rows,
         verified_artifacts=sum(
@@ -323,6 +346,8 @@ def run_p0(
             "g0_manifest_id": g0["manifest_id"],
             "g1_authorization_id": authorization["authorization_id"],
             "environment_fingerprint": environment["environment_fingerprint"],
+            "recipe_id": P0_CONFIG.recipe.recipe_id,
+            "recipe_sha256": expected_recipe_sha256,
         }
     )
     immutable_json_write(output_root / "summary.json", summary, "P0 summary")
@@ -338,22 +363,24 @@ def _preflight(
 ) -> dict[str, Any]:
     candidate_audits: list[bool] = []
     training_audits: list[bool] = []
+    step_exposure_audits: list[bool] = []
     external_hashes: dict[tuple[str, str, str], set[str]] = {}
     for item in items:
         blocks = tuple(blocks_by_item[item.item_id])
         for block in blocks:
+            step_exposure_audits.append(
+                block.optimizer_steps == P0_CONFIG.recipe.optimizer_steps_per_event
+            )
             for example in block.examples:
-                prompt_ids = tokenizer(
-                    chat_prompt(tokenizer, example.prompt), add_special_tokens=False
-                )["input_ids"]
-                completion_ids = tokenizer(example.completion, add_special_tokens=False)[
-                    "input_ids"
-                ]
-                training_audits.append(
-                    bool(completion_ids)
-                    and len(prompt_ids) + len(completion_ids) + 1
-                    <= P0_CONFIG.recipe.training_max_length
+                parity = audit_training_scoring_parity(
+                    tokenizer=tokenizer,
+                    formatted_prompt=chat_prompt(tokenizer, example.prompt),
+                    completion=example.completion,
+                    action_choices=item.action_choices,
+                    training_max_length=P0_CONFIG.recipe.training_max_length,
+                    evaluation_max_length=P0_CONFIG.recipe.evaluation_max_length,
                 )
+                training_audits.append(bool(parity["passed"]))
         for path_name in FINAL_PATHS:
             external_state, icl_state = _render_states(blocks, path_name)
             terminal_state = path_name[-1]
@@ -388,7 +415,13 @@ def _preflight(
     prompts_identical = bool(external_hashes) and all(
         len(hashes) == 1 for hashes in external_hashes.values()
     )
-    passed = all(candidate_audits) and all(training_audits) and prompts_identical
+    step_exposure_matches = bool(step_exposure_audits) and all(step_exposure_audits)
+    passed = (
+        all(candidate_audits)
+        and all(training_audits)
+        and prompts_identical
+        and step_exposure_matches
+    )
     if not passed:
         raise RuntimeError("P0 tokenizer/exposure preflight failed")
     return {
@@ -399,7 +432,10 @@ def _preflight(
         "candidate_prompt_audit_count": len(candidate_audits),
         "training_example_audit_count": len(training_audits),
         "external_prompts_byte_identical": prompts_identical,
-        "exposure_verified": True,
+        "exposure_verified": step_exposure_matches,
+        "event_optimizer_step_exposure_matches": step_exposure_matches,
+        "training_scoring_token_parity": all(training_audits),
+        "recipe_id": P0_CONFIG.recipe.recipe_id,
         "environment": environment,
     }
 
@@ -673,7 +709,11 @@ def _core_probes(probes: tuple[Probe, ...], state: str | None) -> tuple[Probe, .
 
 
 def _verify_lineages(
-    *, output_root: Path, planned: dict[str, dict[str, Any]], runtimes: dict[str, Any]
+    *,
+    output_root: Path,
+    planned: dict[str, dict[str, Any]],
+    runtimes: dict[str, Any],
+    manifest: PhaseManifest,
 ) -> bool:
     adapter_root = output_root / "adapters"
     observed_dirs = {
@@ -685,7 +725,12 @@ def _verify_lineages(
     if observed_dirs != expected_dirs:
         return False
     for attempt_id, unit in planned.items():
-        lineage = _read_lineage(_adapter_dir(output_root, attempt_id))
+        adapter_dir = _adapter_dir(output_root, attempt_id)
+        lineage = _read_lineage(adapter_dir)
+        metadata_path = adapter_dir / "training_metadata.json"
+        if not metadata_path.is_file():
+            return False
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         runtime = runtimes[str(unit["item_id"])]
         parent_attempt_id = unit["parent_attempt_id"]
         parent_state = (
@@ -700,10 +745,16 @@ def _verify_lineages(
         )
         summary = lineage.get("training_summary", {})
         identity = lineage.get("node_identity", {})
+        trainer = metadata.get("config", {})
+        manifest_metadata = manifest.payload["units"][attempt_id].get("metadata", {})
         checks = (
+            lineage.get("schema_version") == ADAPTER_LINEAGE_VERSION,
             lineage.get("attempt_id") == attempt_id,
+            lineage.get("recipe_id") == P0_CONFIG.recipe.recipe_id,
             lineage.get("adapter_sha256")
-            == adapter_bundle_hash(_adapter_dir(output_root, attempt_id)),
+            == adapter_bundle_hash(adapter_dir),
+            manifest_metadata.get("node_id") == lineage.get("node_id"),
+            manifest_metadata.get("adapter_sha256") == lineage.get("adapter_sha256"),
             lineage.get("parent_adapter_sha256") == adapter_bundle_hash(parent_adapter),
             lineage.get("parent_state_sha256") == parent_state,
             lineage.get("root_state_sha256") == runtime.root_state_sha256,
@@ -715,6 +766,19 @@ def _verify_lineages(
             summary.get("optimizer_steps") == P0_CONFIG.recipe.optimizer_steps_per_event,
             summary.get("precision") == "nf4-bfloat16",
             summary.get("model_revision") == P0_CONFIG.model.revision,
+            summary.get("adapter_sha256") == lineage.get("adapter_sha256"),
+            metadata.get("summary") == summary,
+            trainer.get("rank") == P0_CONFIG.recipe.rank,
+            trainer.get("alpha") == P0_CONFIG.recipe.alpha,
+            trainer.get("dropout") == P0_CONFIG.recipe.dropout,
+            trainer.get("target_modules") == list(P0_CONFIG.recipe.target_modules),
+            trainer.get("learning_rate") == P0_CONFIG.recipe.learning_rate,
+            trainer.get("weight_decay") == P0_CONFIG.recipe.weight_decay,
+            trainer.get("warmup_ratio") == P0_CONFIG.recipe.warmup_ratio,
+            trainer.get("max_grad_norm") == P0_CONFIG.recipe.max_grad_norm,
+            trainer.get("max_steps") == P0_CONFIG.recipe.optimizer_steps_per_event,
+            trainer.get("use_4bit") is True,
+            trainer.get("use_chat_template") is True,
         )
         if not all(checks):
             return False

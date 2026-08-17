@@ -149,7 +149,7 @@ def train_lora(config: LoraTrainingConfig) -> TrainingSummary:
             is_update = batch_index % config.gradient_accumulation_steps == 0
             is_last = batch_index == len(loader)
             if is_update or is_last:
-                torch.nn.utils.clip_grad_norm_(trainable, max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(trainable, max_norm=config.max_grad_norm)
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad(set_to_none=True)

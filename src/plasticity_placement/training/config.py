@@ -34,6 +34,7 @@ class LoraTrainingConfig:
     max_length: int = 512
     warmup_ratio: float = 0.03
     max_steps: int | None = None
+    max_grad_norm: float = 1.0
     seed: int = 42
     use_4bit: bool = False
     gradient_checkpointing: bool = True
@@ -62,6 +63,8 @@ class LoraTrainingConfig:
             raise ValueError("warmup_ratio must be in [0, 1)")
         if self.max_steps is not None and self.max_steps <= 0:
             raise ValueError("max_steps must be positive when provided")
+        if self.max_grad_norm <= 0.0:
+            raise ValueError("max_grad_norm must be positive")
         if self.layer_band is LayerBand.EXPLICIT and not self.explicit_layers:
             raise ValueError("explicit layer band requires --layers")
         if self.layer_band is not LayerBand.EXPLICIT and self.explicit_layers:

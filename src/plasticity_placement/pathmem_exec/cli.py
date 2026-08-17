@@ -7,9 +7,15 @@ from pathlib import Path
 from typing import Any
 
 from plasticity_placement.pathmem.compiler import compile_bank
-from plasticity_placement.pathmem_exec.config import P0_DUPLICATE_NODE_BY_ITEM_INDEX
+from plasticity_placement.pathmem.io import immutable_json_write
+from plasticity_placement.pathmem_exec.config import (
+    G1_CONFIGS,
+    P0_CONFIG,
+    P0_DUPLICATE_NODE_BY_ITEM_INDEX,
+)
 from plasticity_placement.pathmem_exec.environment import verify_g0_or_raise
 from plasticity_placement.pathmem_exec.g1 import run_g1
+from plasticity_placement.pathmem_exec.g1_diagnostics import diagnose_g1_run
 from plasticity_placement.pathmem_exec.p0 import run_p0
 
 
@@ -26,6 +32,13 @@ def build_parser() -> argparse.ArgumentParser:
     g1 = subparsers.add_parser("g1", help="Run formal CUDA G1 qualification")
     _add_g0_paths(g1)
     g1.add_argument("--output", type=Path, required=True)
+    g1.add_argument("--recipe", choices=sorted(G1_CONFIGS), default="B")
+
+    diagnose = subparsers.add_parser(
+        "diagnose-g1", help="CPU-only post-hoc diagnosis of a completed G1 run"
+    )
+    diagnose.add_argument("--run-root", type=Path, required=True)
+    diagnose.add_argument("--output", type=Path)
 
     p0 = subparsers.add_parser("p0", help="Run G1-authorized CUDA P0 smoke")
     _add_g0_paths(p0)
@@ -46,7 +59,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             output_root=arguments.output,
             g0_dir=arguments.g0,
             protocol_root=arguments.protocol_root,
+            config=G1_CONFIGS[arguments.recipe],
         )
+    elif arguments.command == "diagnose-g1":
+        result = diagnose_g1_run(arguments.run_root)
+        if arguments.output is not None:
+            immutable_json_write(arguments.output, result, "G1 post-hoc diagnostic")
     elif arguments.command == "p0":
         result = run_p0(
             output_root=arguments.output,
@@ -75,6 +93,11 @@ def execution_plan_summary() -> dict[str, Any]:
             "item_count": len(g1_items),
             "current_only_anchors_per_item": ["A2", "B2"],
             "trained_artifact_count": len(g1_items) * 2,
+            "recipes": {
+                recipe_id: config.recipe.to_dict()
+                for recipe_id, config in sorted(G1_CONFIGS.items())
+            },
+            "default_recipe": "B",
         },
         "p0": {
             "split": "smoke",
@@ -82,6 +105,7 @@ def execution_plan_summary() -> dict[str, Any]:
             "core_nodes_per_item": ["A1", "B1", "AB", "BA", "ABA", "BAA", "BAB", "ABB", "A2", "B2"],
             "technical_duplicate_by_item": duplicate_map,
             "trained_artifact_count": len(p0_items) * 11,
+            "qualified_recipe_required": P0_CONFIG.recipe.recipe_id,
         },
     }
 
