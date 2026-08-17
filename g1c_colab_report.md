@@ -1,6 +1,6 @@
 # G1-C R-OPCD Colab implementation report
 
-Status: implementation and verification complete; ready to publish.
+Status: implementation, verification, commit, and GitHub publication complete.
 
 ## Delivered
 
@@ -27,3 +27,9 @@ path contrast, or add a learned/RL controller. The frozen G0-v1 snapshot remains
 - Full Ruff, Python compileall, and diff checks: passed.
 - Final deterministic plan ID:
   `9eea51b86368aaf1b96deadd9883ddaa033c14f2f700cc8336484bd21bc6911e`.
+
+## Publication
+
+- Implementation commit: `709a196c9dffe268de1d3cd11fb5bfff94a52a24`.
+- Branch: `agent/add-lora-evaluation`.
+- Existing draft PR: `https://github.com/donleaveher/plasticity-placement/pull/1`.

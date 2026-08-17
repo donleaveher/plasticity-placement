@@ -30,3 +30,11 @@
 - Full repository: 457 tests passed in 103.07 seconds.
 - Full Ruff, Python compileall, and `git diff --check`: passed.
 - Frozen G0-v1 snapshot has no working-tree modification.
+
+## Publication
+
+- Implementation commit: `709a196c9dffe268de1d3cd11fb5bfff94a52a24`.
+- Remote branch: `origin/agent/add-lora-evaluation`.
+- The remote branch and local commit matched after push.
+- GitHub content API confirmed the generated notebook at the expected branch path.
+- Existing open draft PR: `https://github.com/donleaveher/plasticity-placement/pull/1`.
