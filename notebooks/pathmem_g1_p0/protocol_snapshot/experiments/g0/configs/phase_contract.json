@@ -1,0 +1,103 @@
+{
+  "action_universe": [
+    "act_n7",
+    "act_p3",
+    "act_v9",
+    "act_k2"
+  ],
+  "authorization_order": [
+    "G0",
+    "G1",
+    "P0",
+    "P1",
+    "P1b",
+    "P2",
+    "P3"
+  ],
+  "bootstrap": {
+    "samples": 10000,
+    "seed": 20260813,
+    "unit": "semantic_item"
+  },
+  "epsilon_js_nats": 0.02,
+  "g1_thresholds": {
+    "adapter_disable_max_candidate_delta": {
+      "maximum": 1e-05
+    },
+    "answer_copy_top1": {
+      "minimum": 0.98
+    },
+    "external_current_top1": {
+      "minimum": 0.95
+    },
+    "external_obsolete_intrusion": {
+      "maximum": 0.05
+    },
+    "parametric_current_top1": {
+      "minimum": 0.8
+    },
+    "parametric_per_action_min_top1": {
+      "minimum": 0.7
+    },
+    "parametric_unrelated_regression_pp": {
+      "maximum": 5.0
+    },
+    "parser_validity": {
+      "minimum": 1.0
+    }
+  },
+  "generator_seed": 20260813,
+  "no_pretraining_required": true,
+  "p0_model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+    "role": "engineering_smoke_only"
+  },
+  "p1_model": {
+    "name": "Qwen/Qwen2.5-1.5B-Instruct",
+    "revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+    "role": "first_outcome_bearing_operator_audit"
+  },
+  "primary_paths": {
+    "A": {
+      "ABA": [
+        "A1",
+        "B1",
+        "A2"
+      ],
+      "BAA": [
+        "B1",
+        "A1",
+        "A2"
+      ]
+    },
+    "B": {
+      "ABB": [
+        "A1",
+        "B1",
+        "B2"
+      ],
+      "BAB": [
+        "B1",
+        "A1",
+        "B2"
+      ]
+    }
+  },
+  "result_cells": "TBD_until_verified_execution",
+  "seed_fields": [
+    "training_seed",
+    "panel_seed",
+    "bootstrap_seed",
+    "execution_order_seed"
+  ],
+  "split_counts": {
+    "confirmatory": 24,
+    "hardware_dev": 4,
+    "interface_dev": 12,
+    "kill": 12,
+    "reserve": 12,
+    "smoke": 4
+  },
+  "technical_tolerance_js_nats": 0.002
+}

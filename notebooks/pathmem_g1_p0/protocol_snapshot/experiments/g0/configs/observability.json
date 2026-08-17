@@ -1,0 +1,2309 @@
+{
+  "cells": [
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "commit_or_encode",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "supersede_or_resolve",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "This is a reference arm, not absence of all model memory.",
+      "locus": "apply_or_infer",
+      "operator": "no_additional_write",
+      "status": "observable",
+      "trace_field": "base_candidate_distribution_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "maintain_or_future_update",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "commit_or_encode",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "supersede_or_resolve",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "This is a reference arm, not absence of all model memory.",
+      "locus": "apply_or_infer",
+      "operator": "no_additional_write",
+      "status": "observable",
+      "trace_field": "base_candidate_distribution_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "maintain_or_future_update",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "commit_or_encode",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "supersede_or_resolve",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "This is a reference arm, not absence of all model memory.",
+      "locus": "apply_or_infer",
+      "operator": "no_additional_write",
+      "status": "observable",
+      "trace_field": "base_candidate_distribution_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "maintain_or_future_update",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "commit_or_encode",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "supersede_or_resolve",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "This is a reference arm, not absence of all model memory.",
+      "locus": "apply_or_infer",
+      "operator": "no_additional_write",
+      "status": "observable",
+      "trace_field": "base_candidate_distribution_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "maintain_or_future_update",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "commit_or_encode",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "supersede_or_resolve",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "This is a reference arm, not absence of all model memory.",
+      "locus": "apply_or_infer",
+      "operator": "no_additional_write",
+      "status": "observable",
+      "trace_field": "base_candidate_distribution_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "maintain_or_future_update",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "commit_or_encode",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "supersede_or_resolve",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "This is a reference arm, not absence of all model memory.",
+      "locus": "apply_or_infer",
+      "operator": "no_additional_write",
+      "status": "observable",
+      "trace_field": "base_candidate_distribution_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "maintain_or_future_update",
+      "operator": "no_additional_write",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "external_latest",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "external_latest",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "external_latest",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "external_latest",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "external_latest",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "external_latest",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "external_latest",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "external_latest",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "external_latest",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "external_latest",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "external_latest",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "external_latest",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "external_latest",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Chronological rendering intentionally preserves path order.",
+      "locus": "commit_or_encode",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "history_event_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "icl_history",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Chronological rendering intentionally preserves path order.",
+      "locus": "commit_or_encode",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "history_event_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "icl_history",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Chronological rendering intentionally preserves path order.",
+      "locus": "commit_or_encode",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "history_event_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "icl_history",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Chronological rendering intentionally preserves path order.",
+      "locus": "commit_or_encode",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "history_event_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "icl_history",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Chronological rendering intentionally preserves path order.",
+      "locus": "commit_or_encode",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "history_event_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "icl_history",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Chronological rendering intentionally preserves path order.",
+      "locus": "commit_or_encode",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "history_event_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "icl_history",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "icl_history",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "icl_history",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_reset_at_event",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_carried",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_carried",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_carried",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_carried",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_carried",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_adamw_carried",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_adamw_carried",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_adamw_carried",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_sgd_memoryless",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_sgd_memoryless",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_sgd_memoryless",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_sgd_memoryless",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_sgd_memoryless",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Internal semantic resolution is not directly observed.",
+      "locus": "supersede_or_resolve",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "stale_current_behavior_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "retrieve_or_surface",
+      "operator": "lora_sgd_memoryless",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "lora_sgd_memoryless",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "lora_sgd_memoryless",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Canonical refit is a whole-operator repair, not a pure commit cut.",
+      "locus": "commit_or_encode",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "event_loss_delta_and_child_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Adapter disable is an access control, not semantic rollback.",
+      "locus": "activate",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "active_adapter_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Inference traces do not identify the training mechanism alone.",
+      "locus": "apply_or_infer",
+      "operator": "hybrid_current_override",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "A common suffix tests operational equivalence only.",
+      "locus": "maintain_or_future_update",
+      "operator": "hybrid_current_override",
+      "status": "intervention-accessible",
+      "trace_field": "parent_state_or_future_suffix_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "textual_consolidator",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "textual_consolidator",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "terminal_consistency",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "textual_consolidator",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "textual_consolidator",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "latest_write_wins",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "textual_consolidator",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "textual_consolidator",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "idempotence",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "textual_consolidator",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "textual_consolidator",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "independent_update_commutativity",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "textual_consolidator",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "textual_consolidator",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "isolation_locality",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "A committed artifact does not prove behavioral use.",
+      "locus": "commit_or_encode",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "stored_artifact_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Resolver alignment is pathway evidence until a valid intervention changes behavior.",
+      "locus": "supersede_or_resolve",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "resolver_output_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Retrieved text is not proof of necessity.",
+      "locus": "retrieve_or_surface",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "rendered_evidence_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "No such lifecycle event exists.",
+      "locus": "activate",
+      "operator": "textual_consolidator",
+      "status": "N/A",
+      "trace_field": "N/A"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Behavior must be compared under a frozen scorer.",
+      "locus": "apply_or_infer",
+      "operator": "textual_consolidator",
+      "status": "observable",
+      "trace_field": "candidate_distribution_sha256"
+    },
+    {
+      "contract": "rollback_inverse",
+      "interpretation_boundary": "Future-suffix equivalence is not a rescue estimand.",
+      "locus": "maintain_or_future_update",
+      "operator": "textual_consolidator",
+      "status": "intervention-accessible",
+      "trace_field": "version_or_future_suffix_sha256"
+    }
+  ],
+  "version": "pathmem-observability-v1"
+}

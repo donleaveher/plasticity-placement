@@ -27,6 +27,7 @@ class LoraTrainingConfig:
     alpha: int = 32
     dropout: float = 0.05
     learning_rate: float = 2e-4
+    weight_decay: float = 0.01
     epochs: int = 3
     batch_size: int = 1
     gradient_accumulation_steps: int = 4
@@ -55,6 +56,8 @@ class LoraTrainingConfig:
                 raise ValueError(f"{name} must be positive")
         if not 0.0 <= self.dropout < 1.0:
             raise ValueError("dropout must be in [0, 1)")
+        if self.weight_decay < 0.0:
+            raise ValueError("weight_decay must be non-negative")
         if not 0.0 <= self.warmup_ratio < 1.0:
             raise ValueError("warmup_ratio must be in [0, 1)")
         if self.max_steps is not None and self.max_steps <= 0:

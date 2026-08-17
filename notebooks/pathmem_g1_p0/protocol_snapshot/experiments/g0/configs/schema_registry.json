@@ -1,0 +1,98 @@
+{
+  "compiler_version": "pathmem-history-compiler-v1",
+  "enums": {
+    "access_modes": [
+      "memory_on",
+      "memory_off"
+    ],
+    "content_domains": [
+      "fact_mapping",
+      "procedure_recovery"
+    ],
+    "contract_families": [
+      "terminal_consistency",
+      "latest_write_wins",
+      "idempotence",
+      "independent_update_commutativity",
+      "isolation_locality",
+      "rollback_inverse"
+    ],
+    "diagnostic_kinds": [
+      "access_off",
+      "canonicalization_defect_reduction",
+      "artifact_necessity",
+      "future_suffix_equivalence",
+      "restore_or_refit"
+    ],
+    "episode_roles": [
+      "root/cold",
+      "update-path",
+      "qualification",
+      "eval-near",
+      "eval-far",
+      "control"
+    ],
+    "event_kinds": [
+      "WRITE",
+      "REVISE",
+      "DELETE",
+      "RESTORE",
+      "NOOP",
+      "IDLE",
+      "CLOCK_NULL"
+    ],
+    "evidence_kinds": [
+      "integrity",
+      "utility",
+      "endpoint_defect",
+      "trace",
+      "counterfactual_rescue",
+      "transfer",
+      "downstream_consequence"
+    ],
+    "lifecycle_loci": [
+      "commit_or_encode",
+      "supersede_or_resolve",
+      "retrieve_or_surface",
+      "activate",
+      "apply_or_infer",
+      "maintain_or_future_update"
+    ],
+    "observability_statuses": [
+      "observable",
+      "intervention-accessible",
+      "N/A"
+    ],
+    "operators": [
+      "no_additional_write",
+      "external_latest",
+      "icl_history",
+      "lora_adamw_reset_at_event",
+      "lora_adamw_carried",
+      "lora_sgd_memoryless",
+      "hybrid_current_override",
+      "textual_consolidator"
+    ],
+    "probe_categories": [
+      "qualification",
+      "exact",
+      "paraphrase",
+      "transfer",
+      "stale_conflict",
+      "near_neighbor",
+      "unrelated"
+    ]
+  },
+  "event_schema_version": "pathmem-event-v1",
+  "fresh_session_clears_volatile_conversation_state": true,
+  "gate_schema_version": "pathmem-gates-v1",
+  "generator_version": "pathmem-v1-generator-20260813",
+  "history_family_is_provenance_object": true,
+  "history_family_schema_version": "pathmem-history-family-v1",
+  "missing_lifecycle_fields_serialize_as": "N/A",
+  "probe_schema_version": "pathmem-probe-v1",
+  "reducer_version": "pathmem-latest-valid-write-reducer-v1",
+  "schema_version": "pathmem-schema-v1",
+  "scoring_version": "pathmem-four-candidate-js-v1",
+  "semantic_item_is_statistical_unit": true
+}

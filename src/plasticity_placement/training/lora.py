@@ -118,7 +118,11 @@ def train_lora(config: LoraTrainingConfig) -> TrainingSummary:
     )
 
     trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
-    optimizer = torch.optim.AdamW(trainable, lr=config.learning_rate)
+    optimizer = torch.optim.AdamW(
+        trainable,
+        lr=config.learning_rate,
+        weight_decay=config.weight_decay,
+    )
     updates_per_epoch = math.ceil(len(loader) / config.gradient_accumulation_steps)
     natural_total_steps = updates_per_epoch * config.epochs
     total_steps = config.max_steps or natural_total_steps

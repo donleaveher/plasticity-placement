@@ -1,0 +1,104 @@
+{
+  "artifacts": {
+    "compiled/audit.json": "e829f8d6b802617294401297e1cd1015d4ba2c93c7db70353518ee68876bf00e",
+    "compiled/diagnostic_specs.jsonl": "1f0ada3119edb1d0e327496378f616e6480adaef036d25a0d820ae6dc3b4446b",
+    "compiled/event_blocks.jsonl": "10b89ca19a7ae5dd3a37fa3f587890df3d3b9739c5755b094d02e8ca2c8fe895",
+    "compiled/history_families.jsonl": "ad790361a9de766b60d3a83b5a3de083c736fe94313291cb27b8fef2f8d13b9b",
+    "compiled/items.jsonl": "e009729a9de0d5e345687b9f580a57ef4a388fe6c8f67165e6508207ccd8d9f3",
+    "compiled/probes.jsonl": "c33faf2f52be76866e633eaf0a24b65b9a851c55f7375fa184dfd6543653aa7c",
+    "configs/claim_evidence.json": "5a920002aa71c2c3623afd6f026b85190dd0009eb74cd7c740a7d66ff1ed0c67",
+    "configs/observability.json": "5446b289e03499acac714d7a89407e089393b4f366dedcd0b26be197c0143e02",
+    "configs/phase_contract.json": "712ad2e42f8e9799ac7e1dee1759f1d21677980751aa28c1e082fcfa7af8b51d",
+    "configs/schema_registry.json": "c15b4cef50b9cd5cdb35e1144b34baf601060cd1663d21bfd26e93ae91e7e01e"
+  },
+  "counts": {
+    "diagnostic_specs": 5,
+    "event_blocks": 272,
+    "history_families": 136,
+    "items": 68,
+    "probes": 4080
+  },
+  "g0_gate": {
+    "blockers": [],
+    "checks": [
+      [
+        "protocol_sources_hashed",
+        true
+      ],
+      [
+        "schemas_frozen",
+        true
+      ],
+      [
+        "split_bank_complete",
+        true
+      ],
+      [
+        "endpoint_equivalence_verified",
+        true
+      ],
+      [
+        "exposure_controls_verified",
+        true
+      ],
+      [
+        "observability_matrix_complete",
+        true
+      ],
+      [
+        "claim_falsifiers_complete",
+        true
+      ],
+      [
+        "manifest_identity_verified",
+        true
+      ],
+      [
+        "training_not_started",
+        true
+      ]
+    ],
+    "gate": "G0",
+    "passed": true
+  },
+  "g1_authorized": false,
+  "gpu_inference_started": false,
+  "implementation_sources": {
+    "pyproject.toml": "0f04985bc95d67d90f8de13a96f326654ae1ab835643767c4ec492e89ee17b76",
+    "src/plasticity_placement/pathmem/__init__.py": "5fa25d096bac33817a1d266789f62cd242351cbc8dea9c9499ffc8e536e9132b",
+    "src/plasticity_placement/pathmem/backends.py": "5e20bfeb8d8cc9ef62fed4bdeb1d2ee91cc0dd2938acae5b2d212dc7240914ff",
+    "src/plasticity_placement/pathmem/cli.py": "abc8fb2dc20fc988d956c0b3e890454200ae4cca5a7ad8bdf2c6c3fe96acdafb",
+    "src/plasticity_placement/pathmem/compiler.py": "7a4b3fb7178b3f4fb785f1589e7235ca6b5d414a554e5ce1cdb3b044a8f2c7fb",
+    "src/plasticity_placement/pathmem/dag.py": "b51447c58b11a7fdeb6801a339543f030ea04bfd44b329ca543349f6e4a19f5d",
+    "src/plasticity_placement/pathmem/gates.py": "123082fd26ff3c8adc803b637abcd8251cb8c10c624b1e1862208d86fa06e21a",
+    "src/plasticity_placement/pathmem/generator.py": "64760b7fa739bd69d6e97fdac4696338afdef212a39b2b8e63f1cba9bd718505",
+    "src/plasticity_placement/pathmem/identity.py": "44be9679efadce5ae0c3cbaf9e147dfe4ecdcfe917cefa8093d228c4631128aa",
+    "src/plasticity_placement/pathmem/io.py": "ae3e9761a4dbb458bb66b98498cd2944556275c917c24f262f79e4ff319b5167",
+    "src/plasticity_placement/pathmem/manifest.py": "f7493ef4b7c021f26a99e6739ad7405e5e8cfcf5e818036a1b1eb5a2c389c942",
+    "src/plasticity_placement/pathmem/observability.py": "1d0bc41cb279a2004f081bce15365e54b10b9e9317a97fb36b8f0a70984e4f44",
+    "src/plasticity_placement/pathmem/reducer.py": "d0813663382c663c69bb3b127e75c007256dafba8993975afcefcddde21b4486",
+    "src/plasticity_placement/pathmem/run_manifest.py": "26ff7acf15cfbcfc7f32a2f970c81d090076e06caec4b7aa2b02c536b6a77a08",
+    "src/plasticity_placement/pathmem/schema.py": "835e95c0117cbf15b00566c95e939b0952ff9cf2395786d79cb3e98e27aa3835",
+    "src/plasticity_placement/pathmem/scoring.py": "4303408c4b0c2fd95b45983cbc87cb8db481f0db6a67ccfa95383bcf92df2d88",
+    "tests/test_pathmem_compiler_backends.py": "5b392a10f35883b8372913d384f55be8a8c36a454b3ded82ca7a67f387ff881f",
+    "tests/test_pathmem_identity_dag.py": "32af072cc98e81c5b49dc8161ceed0ec93e1ad1ba02fa1d6f04542e188fef414",
+    "tests/test_pathmem_schema_generator.py": "7863e35a6c9c7e7c2336b99c1a869c878572ce8412c38998533216412e68be14",
+    "tests/test_pathmem_scoring_manifest_cli.py": "53bab7a727eb113eaf907ed693ba74f96684d3ed7a622bdefe0b1a0b8946e6b4",
+    "uv.lock": "bb8065808a99516a65b1ee3d7f655d550b8029be70885c04aa02eeeadb6473ee"
+  },
+  "manifest_id": "e40879f25bc088cbc3c16f9ab3271b7a2b550610c1d94b0b9f1393c09e30aa5f",
+  "manifest_version": "pathmem-g0-manifest-v1",
+  "p0_authorized": false,
+  "protocol_sources": {
+    "README.md": "2be72ec7db64e1449e96382620f20fc22dbd7a67baf4c3b2dfefd4d3ca876689",
+    "ccfa.yaml": "c4305327ece4261c94be8b4ac44e4c1e1056014efea3cf37441dd9d00d1dec94",
+    "docs/experiment-plan.md": "f4552f50f0e52df8e0dde5c2e0c3eb9c4942261e6426ca0c716e2245c7928281",
+    "docs/goals-and-gates.md": "f33f9b541e0036cf596080b2c006c38ffd76966428bfe1a2d4bb6d4a12e2aa57",
+    "docs/idea.md": "8fa893a2934c97a7f2b76e75cc0c389fe65c117d549f68bdc8ba7eaade62b3d4",
+    "docs/principles.md": "bf7196e39f748ae94352db12fb0dd98fb7f01bd1a685b086d8b11ed1a8352183",
+    "docs/related-work.md": "ebdb25b15aee698b4c026bd3a9f327c525c3160ee2289002409c78396f2386f3",
+    "experiments/README.md": "8f65288c9b72d5dd367d130198343ad2a00b17404e71fd596019dbfeb930701b",
+    "research-question-card.md": "8b929960bdc614477716a7eee25ddadfa07999632511a5e489722259a321f4e1"
+  },
+  "training_started": false
+}

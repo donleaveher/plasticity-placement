@@ -1,0 +1,198 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+COLAB_URL = (
+    "https://colab.research.google.com/github/donleaveher/plasticity-placement/"
+    "blob/agent%2Fadd-lora-evaluation/notebooks/pathmem_g1_p0/pathmem_g1_p0_colab.ipynb"
+)
+NOTEBOOK_PATH = Path(__file__).with_name("pathmem_g1_p0_colab.ipynb")
+
+
+def markdown(source: str, *, tag: str) -> dict[str, Any]:
+    return {
+        "cell_type": "markdown",
+        "metadata": {"tags": [tag]},
+        "source": source.splitlines(keepends=True),
+    }
+
+
+def code(source: str, *, tag: str) -> dict[str, Any]:
+    return {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {"tags": [tag]},
+        "outputs": [],
+        "source": source.splitlines(keepends=True),
+    }
+
+
+def build_notebook() -> dict[str, Any]:
+    cells = [
+        markdown(
+            f"[Open this notebook in Google Colab]({COLAB_URL})\n\n"
+            "# PathMem G1 qualification → gated P0 smoke\n\n"
+            "This notebook is restart-safe and evidence-preserving. Its safe default only checks "
+            "the frozen G0 bundle and prints the 24-anchor/44-artifact plan; it does not train or "
+            "run GPU inference. Use an NVIDIA runtime with native BF16 support "
+            "(A100, L4, or newer).",
+            tag="colab-url",
+        ),
+        markdown(
+            "## Run passes\n\n"
+            "Edit **only the next cell** between passes.\n\n"
+            "1. Inspection: keep all defaults and run all cells.\n"
+            "2. G1: set `USE_GOOGLE_DRIVE=True`, `RUN_G1=True`, and set `APPROVER` to your own "
+            "name or lab identifier; run all cells.\n"
+            "3. P0: after G1 writes a passing authorization, set `RUN_G1=False`, `RUN_P0=True`, "
+            "keep the same `APPROVER` and `RUN_LABEL`, then run all cells.\n\n"
+            "`APPROVER` is a responsible-party identifier, not a password or API key. Never put "
+            "secrets in this notebook.",
+            tag="instructions",
+        ),
+        code(
+            "# @title User controls — this is the only cell to edit\n"
+            'RUN_G1 = False  # @param {type:"boolean"}\n'
+            'RUN_P0 = False  # @param {type:"boolean"}\n'
+            'USE_GOOGLE_DRIVE = False  # @param {type:"boolean"}\n'
+            'APPROVER = ""  # @param {type:"string"}\n'
+            'RUN_LABEL = "pathmem-v1"  # @param {type:"string"}\n',
+            tag="user-controls",
+        ),
+        code(
+            "from __future__ import annotations\n\n"
+            "import json\n"
+            "import re\n"
+            "import subprocess\n"
+            "import sys\n"
+            "from pathlib import Path\n\n"
+            "if RUN_G1 and RUN_P0:\n"
+            '    raise ValueError("Run G1 and P0 in separate passes")\n'
+            "if (RUN_G1 or RUN_P0) and not APPROVER.strip():\n"
+            '    raise ValueError("APPROVER must identify the responsible human for execution")\n'
+            'if not re.fullmatch(r"[A-Za-z0-9._-]+", RUN_LABEL):\n'
+            '    raise ValueError("RUN_LABEL contains an unsupported character")\n\n'
+            'REPOSITORY_URL = "https://github.com/donleaveher/plasticity-placement.git"\n'
+            'REPOSITORY_BRANCH = "agent/add-lora-evaluation"\n'
+            'REPOSITORY_ROOT = Path("/content/plasticity-placement")\n'
+            "if not REPOSITORY_ROOT.exists():\n"
+            "    subprocess.run(\n"
+            '        ["git", "clone", "--branch", REPOSITORY_BRANCH, "--single-branch", '
+            "REPOSITORY_URL, str(REPOSITORY_ROOT)],\n"
+            "        check=True,\n"
+            "    )\n"
+            "else:\n"
+            "    observed = subprocess.run(\n"
+            '        ["git", "-C", str(REPOSITORY_ROOT), "remote", "get-url", "origin"],\n'
+            "        check=True, capture_output=True, text=True,\n"
+            "    ).stdout.strip()\n"
+            "    if observed != REPOSITORY_URL:\n"
+            '        raise RuntimeError(f"Unexpected existing checkout remote: {observed}")\n\n'
+            'subprocess.run([sys.executable, "-m", "pip", "install", "-q", "uv"], check=True)\n'
+            "subprocess.run(\n"
+            '    ["uv", "sync", "--extra", "train", "--extra", "colab"],\n'
+            "    cwd=REPOSITORY_ROOT, check=True,\n"
+            ")\n"
+            "CHECKOUT_REVISION = subprocess.run(\n"
+            '    ["git", "-C", str(REPOSITORY_ROOT), "rev-parse", "HEAD"],\n'
+            "    check=True, capture_output=True, text=True,\n"
+            ").stdout.strip()\n"
+            'PROTOCOL_ROOT = REPOSITORY_ROOT / "notebooks/pathmem_g1_p0/protocol_snapshot"\n'
+            'G0_ROOT = PROTOCOL_ROOT / "experiments/g0"\n'
+            'print({"checkout_revision": CHECKOUT_REVISION,\n'
+            '       "execution_requested": RUN_G1 or RUN_P0})\n',
+            tag="setup",
+        ),
+        code(
+            "if USE_GOOGLE_DRIVE and (RUN_G1 or RUN_P0):\n"
+            "    from google.colab import drive\n"
+            '    drive.mount("/content/drive")\n'
+            '    OUTPUT_BASE = Path("/content/drive/MyDrive/pathmem_g1_p0")\n'
+            "else:\n"
+            '    OUTPUT_BASE = Path("/content/pathmem_g1_p0")\n\n'
+            "RUN_ROOT = OUTPUT_BASE / RUN_LABEL\n"
+            'G1_ROOT = RUN_ROOT / "g1"\n'
+            'P0_ROOT = RUN_ROOT / "p0"\n'
+            'G1_AUTHORIZATION = G1_ROOT / "g1_authorization.json"\n'
+            "RUN_ROOT.mkdir(parents=True, exist_ok=True)\n"
+            'responsibility_path = RUN_ROOT / "responsible_party.json"\n'
+            "responsibility = {\n"
+            '    "approver": APPROVER.strip(),\n'
+            '    "checkout_revision": CHECKOUT_REVISION,\n'
+            '    "run_label": RUN_LABEL,\n'
+            "}\n"
+            "if not (RUN_G1 or RUN_P0):\n"
+            '    print("Inspection does not create an execution identity.")\n'
+            "elif responsibility_path.exists():\n"
+            "    if json.loads(responsibility_path.read_text()) != responsibility:\n"
+            '        raise RuntimeError("Run identity changed; choose a new RUN_LABEL")\n'
+            "else:\n"
+            '    temporary = responsibility_path.with_suffix(".json.tmp")\n'
+            '    payload = json.dumps(responsibility, indent=2, sort_keys=True) + "\\n"\n'
+            "    temporary.write_text(payload)\n"
+            "    temporary.replace(responsibility_path)\n\n"
+            "BASE_COMMAND = [\n"
+            '    "uv", "run", "python", "-m", "plasticity_placement.pathmem_exec.cli"\n'
+            "]\n"
+            "plan_command = BASE_COMMAND + [\n"
+            '    "show-plan", "--g0", str(G0_ROOT), "--protocol-root", str(PROTOCOL_ROOT)\n'
+            "]\n"
+            "subprocess.run(plan_command, cwd=REPOSITORY_ROOT, check=True)\n",
+            tag="identity-and-plan",
+        ),
+        code(
+            "if RUN_G1:\n"
+            "    command = BASE_COMMAND + [\n"
+            '        "g1", "--g0", str(G0_ROOT), "--protocol-root", str(PROTOCOL_ROOT),\n'
+            '        "--output", str(G1_ROOT),\n'
+            "    ]\n"
+            "    subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)\n"
+            "elif RUN_P0:\n"
+            "    if not G1_AUTHORIZATION.is_file():\n"
+            '        raise PermissionError("P0 is blocked: no passing G1 authorization artifact")\n'
+            "    command = BASE_COMMAND + [\n"
+            '        "p0", "--g0", str(G0_ROOT), "--protocol-root", str(PROTOCOL_ROOT),\n'
+            '        "--g1-authorization", str(G1_AUTHORIZATION), "--output", str(P0_ROOT),\n'
+            "    ]\n"
+            "    subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)\n"
+            "else:\n"
+            '    print("Inspection complete: no training or GPU inference was requested.")\n',
+            tag="lifecycle-execution",
+        ),
+        code(
+            "from IPython.display import JSON, display\n\n"
+            'summaries = (("G1", G1_ROOT / "summary.json"), '
+            '("P0", P0_ROOT / "summary.json"))\n'
+            "for label, path in summaries:\n"
+            "    if path.is_file():\n"
+            '        print(f"{label} summary: {path}")\n'
+            "        display(JSON(json.loads(path.read_text())))\n"
+            'print(f"Artifacts root: {RUN_ROOT}")\n',
+            tag="results",
+        ),
+    ]
+    return {
+        "cells": cells,
+        "metadata": {
+            "accelerator": "GPU",
+            "colab": {"gpuType": "A100", "name": "PathMem G1 and P0"},
+            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+            "language_info": {"name": "python", "version": "3"},
+        },
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+
+
+def main() -> None:
+    NOTEBOOK_PATH.write_text(
+        json.dumps(build_notebook(), ensure_ascii=False, indent=1) + "\n",
+        encoding="utf-8",
+    )
+    print(NOTEBOOK_PATH)
+
+
+if __name__ == "__main__":
+    main()
