@@ -227,6 +227,51 @@ Colab runtime interruption without retraining adapters or manually releasing cla
 generated Colab, protocol documentation, 400-test regression, Ruff, compile, parity,
 and diff checks are complete; the notebook handoff commit remains to be published.
 
+---
+
+# Task Plan: R-OPCD-specific P0 implementation
+
+## Goal
+Implement a separately gated P0 runner that consumes the verified G1-C R-OPCD
+qualification, preserves the frozen scientific DAG and controls, and cannot run
+without an exact human authorization bound to the qualified recipe and code.
+
+## Phases
+- [x] Phase 1: Recover the canonical P0 contract, G1-C handoff, and repository constraints
+- [x] Phase 2: Freeze schemas, identities, authorization, DAG, metrics, and stop conditions
+- [x] Phase 3: Implement the R-OPCD P0 package, immutable artifacts, and CLI
+- [x] Phase 4: Implement the generated Colab workflow with safe defaults and resume controls
+- [x] Phase 5: Add focused contract, runtime, integrity, gate, and notebook tests
+- [x] Phase 6: Run focused/full tests, Ruff, parity, compile, and diff verification
+- [x] Phase 7: Review scope, document the handoff, commit, and push the bounded change
+
+## Key Questions
+1. Which P0 DAG and comparisons remain canonical after replacing the old event operator with R-OPCD?
+2. Which exact G1-C artifacts must be revalidated before P0 authorization can be adopted?
+3. How should side-memory lineage, privileged-teacher exposure, rollback, routing, and locality be represented per node?
+4. Which P0 outcomes are implementation-review evidence versus authorization for later path contrasts?
+
+## Decisions Made
+- Preserve `g1c-r-opcd-r1`, the G0-v2 bundle, and all older P0/G1 artifacts as read-only.
+- Do not reuse the old `pathmem_exec` P0 authorization as evidence for the R-OPCD operator.
+- Use the exact G1-C-qualified Qwen2.5-1.5B revision and R-OPCD recipe; the legacy 0.5B P0 model was never qualified under this operator.
+- Compile 4 smoke items × 11 isolated nodes = 44 units: the ten-node path DAG plus one balanced technical duplicate per item.
+- Each child side-memory adapter starts from its exact immutable parent adapter, resets AdamW at the semantic consolidation boundary, and runs the frozen 48-step R-OPCD objective.
+- Match step RNG by semantic event block across comparator paths; keep each node in its own namespace and route only the selected final module.
+- Use four deterministic item-specific roots. Derive training, panel, and execution-order seeds from the exact G1-C recipe (`41`, `20260814`, and `20260817`) and keep the preregistered bootstrap seed `20260813` separate.
+- Score a separately frozen 2,168-row matrix: the prior 1,848 engineering-control rows, 256 paired base/parametric unrelated rows, and 64 path-qualification rows required by G2. Keep endpoint JS restricted to the 14 core probes and do not use P0 to change `epsilon_JS`.
+- A new P0 approval may authorize only smoke training/inference and the two smoke path contrasts; P1, kill/reserve, learned routing, RL, and automatic search remain false.
+- Validate the old locked G1-C run transitively from its recorded Git revision and artifact hashes instead of rewriting or reauthorizing it under new code.
+
+## Errors Encountered
+- The historical 1,848-row P0 matrix omitted the unrelated probes required by the current G2 scope. Before execution or result access, the new plan was corrected to 2,104 rows by adding 128 base and 128 routed-parametric unrelated rows across the 16 final paths.
+- The 14 endpoint core probes exclude the four qualification probes, so the first corrected matrix still could not support path write/joint-pass reporting. A separate 64-row `path_qualification` arm was added prospectively, bringing the final frozen matrix to 2,168 without changing the endpoint-defect panel.
+- The initial implementation reused one LoRA root across all four items and merely recorded an execution-order seed. The frozen contract instead requires an item-specific root shared only within an `item × seed × operator` cell and a dependency-respecting order generated from its separate seed. The planner, manifest, runtime, lineage verifier, and tests now enforce four roots plus a seeded topological order.
+- One intermediate Ruff run found a non-canonical import order after the root/order correction. Ruff fixed the import block; the subsequent focused and full checks passed.
+
+## Status
+**Complete** - The implementation, generated Colab, protocol, focused/full regression, Ruff, compile, parity, and diff checks are complete. The bounded branch publication contains no P0 authorization or execution artifact.
+
 ## Formal-result review
 
 - [x] Transcribe the supplied aggregate without redefining old strict metrics.
