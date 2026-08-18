@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import re
 from pathlib import Path
 from types import ModuleType
 
@@ -149,3 +150,26 @@ def test_gpu_install_is_stage_gated_and_forbidden_permissions_remain_false() -> 
         assert f'"{permission}": True' not in source
     for forbidden in ("RUN_P0", "RUN_PATH_CONTRAST", "RUN_KILL", "RUN_HPO"):
         assert forbidden not in source
+
+
+def test_target_unit_selector_accepts_only_frozen_g1c_unit_ids() -> None:
+    builder = _builder()
+    for item_index in range(1, 13):
+        for terminal_state in ("A", "B"):
+            unit_id = f"g1c:pmv1-interface_dev-{item_index:02d}:{terminal_state}"
+            assert re.fullmatch(builder.TARGET_UNIT_PATTERN, unit_id)
+    for invalid in (
+        "g1c:pmv1-interface_dev-00:A",
+        "g1c:pmv1-interface_dev-13:B",
+        "g1c:pmv1-interface_dev-01:C",
+        "pmv1-interface_dev-01:A",
+        "g1c:pmv1-interface_dev-01:A/../other",
+    ):
+        assert re.fullmatch(builder.TARGET_UNIT_PATTERN, invalid) is None
+
+    notebook_source = "\n".join(
+        "".join(cell["source"])
+        for cell in builder.build_notebook()["cells"]
+        if cell["cell_type"] == "code"
+    )
+    assert builder.TARGET_UNIT_PATTERN in notebook_source

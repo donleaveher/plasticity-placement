@@ -108,7 +108,13 @@ def summarize_g1c(
             and all(integrity_checks.values())
         ),
     }
-    gate = evaluate_g1c_gate(metrics).to_dict()
+    gate_result = evaluate_g1c_gate(metrics)
+    gate = {
+        "gate": gate_result.gate,
+        "passed": gate_result.passed,
+        "checks": [[metric, passed] for metric, passed in gate_result.checks],
+        "blockers": list(gate_result.blockers),
+    }
     wrong_swap_accuracy = _accuracy(by_arm["wrong_swap"])
     summary = {
         "schema_version": SUMMARY_SCHEMA_VERSION,

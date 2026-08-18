@@ -8,6 +8,7 @@ from typing import Any
 BRANCH = "agent/add-lora-evaluation"
 OUTPUT_DIR = Path(__file__).resolve().parent
 NOTEBOOK_NAME = "pathmem_g1c_execution_colab.ipynb"
+TARGET_UNIT_PATTERN = r"g1c:pmv1-interface_dev-(?:0[1-9]|1[0-2]):[AB]"
 COLAB_URL = (
     "https://colab.research.google.com/github/donleaveher/"
     "plasticity-placement/blob/"
@@ -81,8 +82,11 @@ if not re.fullmatch(r"[A-Za-z0-9._-]+", RUN_LABEL):
     raise ValueError("RUN_LABEL contains an unsupported path character")
 if MAX_UNITS < 1:
     raise ValueError("MAX_UNITS must be positive")
-if TARGET_UNIT_ID and not re.fullmatch(r"[A-Za-z0-9._-]+", TARGET_UNIT_ID):
-    raise ValueError("TARGET_UNIT_ID contains an unsupported character")
+if TARGET_UNIT_ID and not re.fullmatch(r"{TARGET_UNIT_PATTERN}", TARGET_UNIT_ID):
+    raise ValueError(
+        "TARGET_UNIT_ID must match g1c:pmv1-interface_dev-01:A through "
+        "g1c:pmv1-interface_dev-12:B"
+    )
 
 REPOSITORY_URL = "https://github.com/donleaveher/plasticity-placement.git"
 REPOSITORY_BRANCH = "{BRANCH}"

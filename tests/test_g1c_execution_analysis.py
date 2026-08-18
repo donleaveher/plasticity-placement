@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from plasticity_placement.pathmem_consolidation_exec.analysis import (
@@ -98,6 +99,9 @@ def test_g1c_summary_passes_exact_matrix_and_retains_all_boundaries() -> None:
     assert summary["p0_authorized"] is False
     assert summary["path_contrast_authorized"] is False
     assert summary["rl_controller_authorized"] is False
+    assert json.loads(json.dumps(summary)) == summary
+    assert isinstance(summary["gate"]["checks"], list)
+    assert isinstance(summary["gate"]["blockers"], list)
 
 
 def test_g1c_summary_fails_retention_and_incomplete_matrix() -> None:

@@ -7,7 +7,12 @@ from typing import Any
 
 from plasticity_placement.pathmem.backends import render_fresh_session_probe
 from plasticity_placement.pathmem.compiler import compile_bank
-from plasticity_placement.pathmem.io import file_hash, immutable_json_write, json_hash
+from plasticity_placement.pathmem.io import (
+    canonical_json_bytes,
+    file_hash,
+    immutable_json_write,
+    json_hash,
+)
 from plasticity_placement.pathmem.schema import AccessMode, Probe
 from plasticity_placement.pathmem_consolidation_exec.analysis import summarize_g1c
 from plasticity_placement.pathmem_consolidation_exec.config import (
@@ -398,7 +403,7 @@ def verify_run(
     )
     summary_path = output_root / "aggregate/summary.json"
     observed_summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    if observed_summary != expected_summary:
+    if canonical_json_bytes(observed_summary) != canonical_json_bytes(expected_summary):
         raise ValueError("G1-C aggregate regeneration mismatch")
     aggregate = context.manifest.payload.get("aggregate", {})
     report_path = output_root / "aggregate/report.md"
@@ -408,7 +413,8 @@ def verify_run(
         aggregate.get("state") != "complete"
         or aggregate.get("summary_sha256") != file_hash(summary_path)
         or aggregate.get("report_sha256") != file_hash(report_path)
-        or aggregate.get("gate") != expected_summary["gate"]
+        or canonical_json_bytes(aggregate.get("gate"))
+        != canonical_json_bytes(expected_summary["gate"])
     ):
         raise ValueError("G1-C manifest aggregate binding mismatch")
     if any(

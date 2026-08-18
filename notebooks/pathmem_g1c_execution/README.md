@@ -22,7 +22,8 @@ Use `USE_GOOGLE_DRIVE=True` to consume the planning bundle at
 `/content/drive/MyDrive/pathmem/g0-v2-r-opcd-plans/v1/g0-v2-r-opcd-plan-v1/bundle`
 and persist the execution. Keep the same `RUN_LABEL` throughout. Training and
 evaluation are bounded by `MAX_UNITS`; `TARGET_UNIT_ID` is an optional recovery
-selector.
+selector. Leave it empty for normal ordered execution. A targeted recovery uses
+an exact frozen ID such as `g1c:pmv1-interface_dev-04:A`.
 
 Authorization is exact and immutable: it binds the source manifest and plan,
 recipe, source hashes, Git revision, and resolved output directory. It permits
