@@ -46,7 +46,9 @@ The notebook installs only the base project environment. It does not request a
 GPU or expose any training, G1-C execution, P0, kill/reserve, RL-controller, or
 path-contrast switch.
 
-The next implementation slice must freeze the CUDA rollout, distillation loss,
-optimizer, side-memory parameterization, and persistence recipe before formal
-G1-C execution. Passing G1-C would authorize only a separately reviewed
-R-OPCD-specific P0 implementation.
+The separately gated execution slice is documented in
+`docs/pathmem-g1c-r-opcd-execution-protocol.md` and orchestrated by
+`notebooks/pathmem_g1c_execution/pathmem_g1c_execution_colab.ipynb`. It freezes
+the CUDA rollout, distillation loss, optimizer, side-memory parameterization,
+and persistence recipe. Passing G1-C authorizes only a separately reviewed
+R-OPCD-specific P0 implementation; it never starts or authorizes P0 itself.

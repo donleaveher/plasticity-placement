@@ -133,6 +133,15 @@ P0-D2H-CBR-v1 counterbalanced binding remediation 使用新的独立目录：
 后续 1/4/8 mappings、ICL-K、hard-B、recurrence–volatility 和 P0-E GRPO/RLVR 仍必须各自
 创建新目录和 notebook。
 
+PathMem G1-C R-OPCD 使用两个相互分离的入口：
+
+- [`pathmem_g1c_consolidation/pathmem_g1c_consolidation_colab.ipynb`](pathmem_g1c_consolidation/pathmem_g1c_consolidation_colab.ipynb)：
+  CPU-only 生成和验证不可变 G0-v2 规划 bundle；
+- [`pathmem_g1c_execution/pathmem_g1c_execution_colab.ipynb`](pathmem_g1c_execution/pathmem_g1c_execution_colab.ipynb)：
+  外部人工授权后执行冻结的 CUDA preflight、24 个 side-memory 单元训练、精确评测矩阵、
+  aggregate 和 read-only verify。默认仍为 inspection-only，且不包含 P0/path/kill/RL/HPO
+  开关。
+
 ## Drive 目录规则
 
 - 不同实验必须使用不同输出目录；

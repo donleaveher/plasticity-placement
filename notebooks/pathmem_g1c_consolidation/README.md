@@ -17,9 +17,9 @@ same `RUN_LABEL` and storage choice for the prepare and verify passes.
 
 This workflow does not install training dependencies, request a GPU, load a
 model, execute consolidation, authorize G1-C/P0, expose kill/reserve examples,
-or calculate a path contrast. The later CUDA rollout, distillation loss,
-optimizer, side-memory recipe, and G1-C GPU runner remain a separate gated
-implementation slice.
+or calculate a path contrast. Its immutable output is the source for the
+separately gated CUDA runner in `notebooks/pathmem_g1c_execution`; preparing a
+bundle here never authorizes that runner.
 
 Regenerate the checked-in notebook with:
 
