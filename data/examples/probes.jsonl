@@ -1,0 +1,4 @@
+{"id":"lesson-exact","prompt":"上下文：target-demo\n请选择工具动作。\n动作只能是 a0 或 a1。\n动作：","expected_action":"a1","category":"lesson"}
+{"id":"lesson-paraphrase","prompt":"当前环境标识为 target-demo。下一步应执行哪个工具动作？只回答 a0 或 a1：","expected_action":"a1","category":"paraphrase"}
+{"id":"interference-0","prompt":"上下文：background-0\n请选择工具动作。\n动作只能是 a0 或 a1。\n动作：","expected_action":"a0","category":"interference"}
+{"id":"interference-1","prompt":"上下文：background-1\n请选择工具动作。\n动作只能是 a0 或 a1。\n动作：","expected_action":"a1","category":"interference"}

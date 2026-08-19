@@ -9,6 +9,25 @@ dependencies = []
 [project.scripts]
 plasticity-pilot = "plasticity_placement.simulation.cli:main"
 plasticity-train-lora = "plasticity_placement.training.cli:main"
+plasticity-evaluate-lora = "plasticity_placement.evaluation.cli:main"
+plasticity-p0c = "plasticity_placement.p0c.cli:main"
+plasticity-p0d = "plasticity_placement.p0d.cli:main"
+plasticity-p0d2 = "plasticity_placement.p0d2.cli:main"
+plasticity-p0d2h = "plasticity_placement.p0d2h.cli:main"
+plasticity-p0d2hc = "plasticity_placement.p0d2hc.cli:main"
+plasticity-p0d2hfc = "plasticity_placement.p0d2hfc.cli:main"
+plasticity-p0d2hcrd = "plasticity_placement.p0d2hcrd.cli:main"
+plasticity-p0d2hrr = "plasticity_placement.p0d2hrr.cli:main"
+plasticity-p0d2hcpr = "plasticity_placement.p0d2hcpr.cli:main"
+plasticity-p0d2hcbr = "plasticity_placement.p0d2hcbr.cli:main"
+plasticity-p0d2hrtb = "plasticity_placement.p0d2hrtb.cli:main"
+plasticity-p0d2hrsh = "plasticity_placement.p0d2hrsh.cli:main"
+plasticity-p0d2hrab = "plasticity_placement.p0d2hrab.cli:main"
+plasticity-p0d2hrabd = "plasticity_placement.p0d2hrabd.cli:main"
+plasticity-p0d2hrabdl = "plasticity_placement.p0d2hrabdl.cli:main"
+plasticity-p0d2hrabc = "plasticity_placement.p0d2hrabc.cli:main"
+plasticity-p0d2hrabx = "plasticity_placement.p0d2hrabx.cli:main"
+plasticity-pathmem = "plasticity_placement.pathmem.cli:main"
 
 [project.optional-dependencies]
 train = [

@@ -1,0 +1,72 @@
+{
+  "allows_checkpoint_selection": false,
+  "allows_full_parameter_training": false,
+  "allows_hyperparameter_search": false,
+  "allows_mappings_per_adapter_scan": false,
+  "curricula": [
+    "coupled",
+    "disentangled"
+  ],
+  "data": {
+    "dev_group_count": 12,
+    "examples_per_group": 24,
+    "generator_version": "p0d2hcbr-training-bank-v1",
+    "heldout_bank_version": "p0d2hcbr-rab-gen-v1",
+    "heldout_conditions_per_group": 64,
+    "heldout_group_count": 24,
+    "seed": 20260810,
+    "train_group_count": 48
+  },
+  "experiment_id": "P0-D2H-COUNTERBALANCED-BINDING-REMEDIATION-v1",
+  "gates": {
+    "binding_min_accuracy": 0.75,
+    "bootstrap_samples": 10000,
+    "bootstrap_seed": 20260810,
+    "combined_noninferiority_margin": 0.02,
+    "confidence": 0.95,
+    "conditional_route_min_accuracy": 0.75,
+    "factor_equivalence_margin": 0.05,
+    "guardrail_c_to_w_max": 0.02,
+    "parameter_budget_relative_tolerance": 0.01,
+    "placement_noninferiority_margin": 0.02,
+    "retrieval_only_min_accuracy": 1.0,
+    "sentinel_score_tolerance": 0.00001
+  },
+  "locked_evaluation_limit": 12,
+  "model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+  "model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+  "placements": [
+    "full_depth",
+    "late_matched"
+  ],
+  "schema_version": "p0d2hcbr-spec-v1",
+  "training": {
+    "batch_size": 4,
+    "checkpoint_selection": "fixed_final_step",
+    "dropout": 0.0,
+    "epochs": 1,
+    "full_depth_alpha": 16,
+    "full_depth_rank": 8,
+    "gradient_accumulation_steps": 4,
+    "gradient_checkpointing": true,
+    "late_matched_alpha": 48,
+    "late_matched_rank": 24,
+    "learning_rate": 0.0002,
+    "max_length": 512,
+    "max_steps": 72,
+    "objective": "equal_weight_sft_route_retrieval_combined",
+    "seeds": [
+      20260810,
+      20260811,
+      20260812
+    ],
+    "target_modules": [
+      "q_proj",
+      "v_proj"
+    ],
+    "use_4bit": true,
+    "use_chat_template": true,
+    "warmup_ratio": 0.03
+  },
+  "training_run_limit": 12
+}

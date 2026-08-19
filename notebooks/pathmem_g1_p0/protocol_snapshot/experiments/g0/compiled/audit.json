@@ -1,0 +1,17 @@
+{
+  "action_universe": [
+    "act_n7",
+    "act_p3",
+    "act_v9",
+    "act_k2"
+  ],
+  "compiler_version": "pathmem-history-compiler-v1",
+  "diagnostic_spec_count": 5,
+  "event_blocks": 272,
+  "history_families": 136,
+  "history_family_adds_independent_unit": false,
+  "item_count": 68,
+  "probes": 4080,
+  "semantic_item_is_statistical_unit": true,
+  "training_probe_exact_overlap_count": 0
+}

@@ -1,0 +1,56 @@
+{
+  "claims": [
+    {
+      "claim": "The endpoint-controlled audit is technically valid.",
+      "claim_id": "C0",
+      "falsifier": "Any lineage, endpoint, exposure, RNG, cache, or isolation mismatch.",
+      "phase": "P0-P1",
+      "required_evidence": "shared full-parent hash; reducer endpoint equivalence; equal event/example multisets; common block RNG; fresh-session isolation; token/step audit"
+    },
+    {
+      "claim": "A named update operator violates terminal consistency.",
+      "claim_id": "C1",
+      "falsifier": "Upper CI below epsilon_JS or a contaminated execution.",
+      "phase": "P1-P2",
+      "required_evidence": "Item-paired endpoint-defect lower CI above epsilon_JS."
+    },
+    {
+      "claim": "Violation structure exceeds generic sequential-update geometry.",
+      "claim_id": "C2",
+      "falsifier": "No frozen held-out improvement beyond the complete baseline stack.",
+      "phase": "P1b-P2",
+      "required_evidence": "Held-out incremental prediction beyond update-count, terminal-loss, gradient, optimizer-kernel, and Lie-bracket baselines."
+    },
+    {
+      "claim": "The failure matters beyond synthetic reset-LoRA.",
+      "claim_id": "C3",
+      "falsifier": "Failure is confined to nonce prompts, one lineage, or one toy operator.",
+      "phase": "P2",
+      "required_evidence": "Different model lineage, realistic task, existing parametric updater, textual consolidator, and a task-native consequence."
+    },
+    {
+      "claim": "A new repair is needed.",
+      "claim_id": "C4",
+      "falsifier": "A simple baseline closes the resource-matched deployment gap.",
+      "phase": "P3",
+      "required_evidence": "Restore, refit, modular, and existing-editor baselines leave a gap."
+    },
+    {
+      "claim": "A contract-aware repair improves the deployment frontier.",
+      "claim_id": "C5",
+      "falsifier": "No resource-matched frontier improvement over simple baselines.",
+      "phase": "P3",
+      "required_evidence": "Untouched-data improvement in consistency, accuracy, locality, compute, storage, and rollback latency."
+    }
+  ],
+  "non_claims": [
+    "first path dependence in language-model updates",
+    "first optimizer-state memory",
+    "first latest-write failure",
+    "first schedule-sensitive textual consolidation",
+    "first rollback or versioned memory",
+    "first fresh-session persistent-memory attribution benchmark",
+    "universal ranking of external versus parametric memory"
+  ],
+  "version": "pathmem-claim-evidence-v1"
+}
