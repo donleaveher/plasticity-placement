@@ -438,7 +438,7 @@ DAG, and can run reproducibly in Colab without starting formal P1 locally.
   inspect/plan/authorize/preflight/train/evaluate/aggregate/verify passes.
 - [x] Phase 6: Add focused tests for DAG matching, split isolation, statistics,
   artifact lineage, recovery, permissions, and notebook parity.
-- [ ] Phase 7: Run focused/full verification, review scope, update protocols,
+- [x] Phase 7: Run focused/full verification, review scope, update protocols,
   commit, push, and provide the exact operator handoff.
 
 ## Key Questions
@@ -478,7 +478,7 @@ DAG, and can run reproducibly in Colab without starting formal P1 locally.
 
 ## Status
 
-**Currently in Phase 7** - The complete P1 runner, generated Colab, protocol,
-and focused tests are implemented. Ruff passes and all 511 repository tests
-pass. Reviewing the final commit scope and publishing the implementation next;
-no P1 plan, authorization, GPU run, or `kill` outcome was created locally.
+**Completed** - The complete P1 runner, generated Colab, protocol, and focused
+tests were published in implementation commit `b734e34`. Ruff passes and all
+511 repository tests pass. No P1 plan, authorization, GPU run, or `kill`
+outcome was created locally.
