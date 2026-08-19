@@ -59,3 +59,24 @@ identical, all rows are finite/valid/untied/untruncated, and no order/cache or
 lineage contamination is detected. P0 output is engineering evidence only; it
 cannot establish a scientific path result, change `epsilon_JS`, or authorize P1
 without another implementation review and human decision.
+
+## Post-execution qualification-label amendment
+
+The first aggregate implementation treated the intentional
+`path_qualification.obsolete_action=null` sentinel as the candidate string
+`"None"`. This is an analysis defect, not a missing score or incomplete unit.
+The frozen recovery rule requires exactly four qualification rows and fourteen
+matching `parametric_path` core rows per `item × path`, recovers the single
+unambiguous current/obsolete label pair from those core rows, and checks that
+both labels occur in every qualification candidate set. It never uses outcome
+probabilities to choose labels and never filters a failed path.
+
+An already completed, commit-bound run is repaired only through the separate
+CPU analysis-repair lifecycle in
+`notebooks/pathmem_ropcd_p0_repair/pathmem_ropcd_p0_analysis_repair_colab.ipynb`.
+That lifecycle revalidates the recorded Git objects and all source artifacts,
+requires its own exact human approval, and writes a new repair manifest,
+summary, and report outside the source run. It cannot train, load a model,
+rescore candidates, authorize P1, or modify the original authorization,
+manifest, adapters, checkpoints, or 2,168 result rows. G2 remains undecided
+until the separate repaired aggregate passes regeneration verification.

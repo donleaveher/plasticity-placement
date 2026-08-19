@@ -60,7 +60,10 @@ def summarize_p0(
     disable_delta = _paired_max_delta(
         by_arm.get("base_before", []), by_arm.get("adapter_disabled", [])
     )
-    path_qualification = _path_qualification(by_arm.get("path_qualification", []))
+    path_qualification = _path_qualification(
+        by_arm.get("path_qualification", []),
+        by_arm.get("parametric_path", []),
+    )
     joint_pass = _joint_path_pass(path_qualification)
     unrelated = _unrelated_regression(
         by_arm.get("base_unrelated", []), by_arm.get("parametric_unrelated", [])
@@ -253,19 +256,43 @@ def _paired_max_delta(left: list[dict[str, Any]], right: list[dict[str, Any]]) -
     )
 
 
-def _path_qualification(rows: list[dict[str, Any]]) -> dict[str, bool]:
+def _path_qualification(
+    rows: list[dict[str, Any]], reference_rows: list[dict[str, Any]]
+) -> dict[str, bool]:
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         if row.get("probe_category") == "qualification":
             grouped[(str(row["item_id"]), str(row["logical_name"]))].append(row)
+    references: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in reference_rows:
+        references[(str(row["item_id"]), str(row["logical_name"]))].append(row)
     result: dict[str, bool] = {}
     for (item_id, path), values in sorted(grouped.items()):
         if len(values) != 4:
             raise ValueError(f"R-OPCD P0 path qualification panel changed: {item_id}/{path}")
+        reference = references.get((item_id, path), [])
+        label_pairs = {
+            (row.get("expected_action"), row.get("obsolete_action")) for row in reference
+        }
+        if (
+            len(reference) != 14
+            or len(label_pairs) != 1
+            or any(not isinstance(label, str) for label in next(iter(label_pairs), (None, None)))
+        ):
+            raise ValueError(f"R-OPCD P0 path qualification labels are ambiguous: {item_id}/{path}")
+        current_action, obsolete_action = next(iter(label_pairs))
+        if any(
+            row.get("expected_action") != current_action
+            or row.get("obsolete_action") not in {None, obsolete_action}
+            or current_action not in row.get("ordered_actions", [])
+            or obsolete_action not in row.get("ordered_actions", [])
+            for row in values
+        ):
+            raise ValueError(f"R-OPCD P0 qualification/reference labels changed: {item_id}/{path}")
         result[f"{item_id}:{path}"] = write_qualified(
             tuple(_distribution(row) for row in sorted(values, key=lambda row: row["probe_id"])),
-            current_action=str(values[0]["expected_action"]),
-            obsolete_action=str(values[0]["obsolete_action"]),
+            current_action=current_action,
+            obsolete_action=obsolete_action,
         )
     return result
 

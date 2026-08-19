@@ -32,3 +32,11 @@ Regenerate the notebook with:
 ```bash
 uv run python notebooks/pathmem_ropcd_p0_execution/build_notebook.py
 ```
+
+The completed `ropcd-p0-r1` run exposed an aggregate-only compatibility defect:
+its 64 valid qualification rows store `obsolete_action=null`, while the original
+analyzer requested the nonexistent candidate string `"None"`. Do not retrain,
+rescore, edit, or rerun normal verification against that old commit-bound
+directory. Use the separate CPU-only
+[`pathmem_ropcd_p0_repair`](../pathmem_ropcd_p0_repair/README.md) workflow; it
+writes an independently authorized repaired aggregate and leaves the run intact.

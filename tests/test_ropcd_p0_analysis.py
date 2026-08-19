@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+import pytest
+
 from plasticity_placement.pathmem_ropcd_p0.analysis import summarize_p0
 
 ACTIONS = ("act_a", "act_b", "act_c", "act_d")
@@ -135,7 +137,7 @@ def _rows() -> list[dict[str, Any]]:
                     probe_id=f"{item_id}:{terminal_state}:qualification-{probe_index:02d}",
                     terminal_state=terminal_state,
                     expected=expected,
-                    obsolete=obsolete,
+                    obsolete=None,
                     category="qualification",
                 )
         duplicate_of = DUPLICATES[item_index]
@@ -196,3 +198,15 @@ def test_p0_summary_preserves_failed_paths_and_fails_integrity() -> None:
     assert summary["metrics"]["path_write_qualification_rate"] < 1.0
     assert len(summary["path_write_qualification"]) == 16
     assert "same_adapter_rescore_within_tolerance" in summary["gate"]["blockers"]
+
+
+def test_p0_summary_rejects_ambiguous_reference_labels() -> None:
+    rows = _rows()
+    reference = next(row for row in rows if row["arm"] == "parametric_path")
+    reference["obsolete_action"] = ACTIONS[2]
+    with pytest.raises(ValueError, match="qualification labels are ambiguous"):
+        summarize_p0(
+            rows,
+            verified_units=44,
+            integrity_checks={"lineage_verified": True},
+        )

@@ -272,6 +272,53 @@ without an exact human authorization bound to the qualified recipe and code.
 ## Status
 **Complete** - The implementation, generated Colab, protocol, focused/full regression, Ruff, compile, parity, and diff checks are complete. The bounded branch publication contains no P0 authorization or execution artifact.
 
+---
+
+# Task Plan: R-OPCD P0 qualification-label repair
+
+## Goal
+Fix the deterministic P0 aggregation crash caused by qualification probes carrying
+`obsolete_action=null`, preserve the completed immutable run, and provide a
+reviewable recovery path without retraining or editing result rows.
+
+## Phases
+- [x] Phase 1: Reproduce the stack path and locate the schema/analysis mismatch
+- [x] Phase 2: Freeze the backward-compatible label recovery rule and authorization boundary
+- [x] Phase 3: Implement the minimal analysis fix and regression tests
+- [x] Phase 4: Run focused/full verification and audit existing-run recovery
+- [x] Phase 5: Commit, push, and document the exact Colab recovery sequence
+
+## Decisions Made
+- Qualification probes intentionally carry no row-level obsolete label; this is
+  distinct from malformed result data.
+- Recover current/obsolete labels from the matching `parametric_path` core panel,
+  whose rows already carry the frozen terminal-state labels, and reject any
+  ambiguity or action-set mismatch.
+- Never rewrite the 2,168 scored rows, execution manifest, adapters, or checkpoints.
+- Keep normal plan/run verification bound to the current implementation. Permit old
+  commit-bound inputs only in a separately authorized CPU repair namespace that
+  verifies the recorded Git objects and writes a new aggregate/repair manifest.
+- Require exactly 64 null-obsolete qualification rows and an unambiguous 14-row
+  core reference panel for each item/path. Do not use observed probabilities to
+  recover labels or suppress failed paths.
+
+## Errors Encountered
+- `str(None)` produced the literal candidate label `"None"`, causing
+  `CandidateDistribution.probability()` to raise `KeyError` during aggregation.
+- The first combined focused-test command named two nonexistent legacy test
+  modules. The command was corrected to the repository's five actual R-OPCD test
+  files; this was an invocation error, not a test failure.
+- The first generated repair notebook consumed three `\n` escapes inside builder
+  string literals and failed AST parsing. The escapes were doubled in the builder,
+  the notebook regenerated, and exact builder/notebook parity retested.
+
+## Status
+**Complete** - The source fix, separate CPU repair lifecycle, generated Colab,
+protocol amendment, 499-test regression, Ruff, compile, CLI, notebook parity,
+and diff checks pass. The exact four-pass operator handoff is documented; the
+formal repaired G2 result remains pending execution against the immutable Drive
+artifacts.
+
 ## Formal-result review
 
 - [x] Transcribe the supplied aggregate without redefining old strict metrics.

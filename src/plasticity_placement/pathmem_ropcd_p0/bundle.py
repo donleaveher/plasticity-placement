@@ -13,7 +13,10 @@ from plasticity_placement.pathmem.io import (
 from plasticity_placement.pathmem_ropcd_p0.config import PLAN_MANIFEST_SCHEMA_VERSION
 from plasticity_placement.pathmem_ropcd_p0.identity import implementation_identity
 from plasticity_placement.pathmem_ropcd_p0.planner import audit_p0_plan, compile_p0_plan
-from plasticity_placement.pathmem_ropcd_p0.source import verify_g1c_handoff
+from plasticity_placement.pathmem_ropcd_p0.source import (
+    _verify_git_implementation,
+    verify_g1c_handoff,
+)
 
 
 def inspect_plan(
@@ -89,6 +92,40 @@ def verify_plan_bundle(
     g1c_run_root: Path,
     plan_root: Path,
 ) -> dict[str, Any]:
+    return _verify_plan_bundle(
+        bundle_root=bundle_root,
+        parent_manifest=parent_manifest,
+        g1c_run_root=g1c_run_root,
+        plan_root=plan_root,
+        require_current_implementation=True,
+    )
+
+
+def verify_recorded_plan_bundle(
+    *,
+    bundle_root: Path,
+    parent_manifest: Path,
+    g1c_run_root: Path,
+    plan_root: Path,
+) -> dict[str, Any]:
+    """Verify an immutable old plan against its recorded Git objects."""
+    return _verify_plan_bundle(
+        bundle_root=bundle_root,
+        parent_manifest=parent_manifest,
+        g1c_run_root=g1c_run_root,
+        plan_root=plan_root,
+        require_current_implementation=False,
+    )
+
+
+def _verify_plan_bundle(
+    *,
+    bundle_root: Path,
+    parent_manifest: Path,
+    g1c_run_root: Path,
+    plan_root: Path,
+    require_current_implementation: bool,
+) -> dict[str, Any]:
     expected_files = {"g1c_handoff.json", "p0_plan.json", "manifest.json"}
     observed_files = {path.name for path in plan_root.iterdir() if path.is_file()}
     if observed_files != expected_files:
@@ -121,12 +158,20 @@ def verify_plan_bundle(
     if canonical_json_bytes(plan) != canonical_json_bytes(expected_plan):
         raise ValueError("R-OPCD P0 plan regeneration mismatch")
     audit_p0_plan(plan)
-    implementation, implementation_sha256 = implementation_identity()
-    if (
-        manifest.get("implementation") != implementation
-        or manifest.get("implementation_sha256") != implementation_sha256
-    ):
-        raise ValueError("R-OPCD P0 planning implementation changed")
+    if require_current_implementation:
+        implementation, implementation_sha256 = implementation_identity()
+        if (
+            manifest.get("implementation") != implementation
+            or manifest.get("implementation_sha256") != implementation_sha256
+        ):
+            raise ValueError("R-OPCD P0 planning implementation changed")
+    else:
+        implementation = manifest.get("implementation")
+        if not isinstance(implementation, dict) or manifest.get(
+            "implementation_sha256"
+        ) != json_hash(implementation):
+            raise ValueError("recorded R-OPCD P0 planning implementation changed")
+        _verify_git_implementation(implementation)
     if manifest.get("permissions") != plan["permissions"]:
         raise ValueError("R-OPCD P0 planning permissions changed")
     return {

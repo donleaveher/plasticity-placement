@@ -9,6 +9,13 @@ from plasticity_placement.pathmem_ropcd_p0.bundle import (
     prepare_plan_bundle,
     verify_plan_bundle,
 )
+from plasticity_placement.pathmem_ropcd_p0.repair import (
+    adopt_analysis_repair_authorization,
+    aggregate_analysis_repair,
+    analysis_repair_authorization_template,
+    inspect_analysis_repair,
+    verify_analysis_repair,
+)
 from plasticity_placement.pathmem_ropcd_p0.runtime import (
     adopt_run_authorization,
     aggregate_run,
@@ -50,6 +57,20 @@ def build_parser() -> argparse.ArgumentParser:
         _add_common(child)
         child.add_argument("--max-units", type=int, default=1)
         child.add_argument("--unit-id")
+    for command, help_text in (
+        ("repair-inspect", "verify the immutable old run without recomputing outcomes"),
+        ("repair-authorization-template", "print the exact CPU analysis-repair approval"),
+        ("repair-aggregate", "write a separate corrected aggregate without mutating the run"),
+        ("repair-verify", "regenerate and verify the separate analysis repair"),
+    ):
+        child = subparsers.add_parser(command, help=help_text)
+        _add_repair_common(child)
+    repair_adopt = subparsers.add_parser(
+        "repair-adopt-authorization",
+        help="verify and adopt the separate analysis-repair approval",
+    )
+    _add_repair_common(repair_adopt)
+    repair_adopt.add_argument("--approval", type=Path, required=True)
     return parser
 
 
@@ -65,6 +86,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "plan_root": arguments.plan,
         "output_root": arguments.output,
     }
+    repair_common = (
+        {**common, "repair_output_root": arguments.repair_output}
+        if hasattr(arguments, "repair_output")
+        else None
+    )
     if arguments.command == "inspect":
         result = inspect_execution(**source, output_root=arguments.output)
     elif arguments.command == "prepare-plan":
@@ -93,6 +119,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = aggregate_run(**common)
     elif arguments.command == "verify":
         result = verify_run(**common)
+    elif arguments.command == "repair-inspect":
+        assert repair_common is not None
+        result = inspect_analysis_repair(**repair_common)
+    elif arguments.command == "repair-authorization-template":
+        assert repair_common is not None
+        result = analysis_repair_authorization_template(**repair_common)
+    elif arguments.command == "repair-adopt-authorization":
+        assert repair_common is not None
+        result = adopt_analysis_repair_authorization(
+            **repair_common,
+            approval_path=arguments.approval,
+        )
+    elif arguments.command == "repair-aggregate":
+        assert repair_common is not None
+        result = aggregate_analysis_repair(**repair_common)
+    elif arguments.command == "repair-verify":
+        assert repair_common is not None
+        result = verify_analysis_repair(**repair_common)
     else:  # pragma: no cover
         raise AssertionError(arguments.command)
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
@@ -105,3 +149,8 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--g1c-run", type=Path, required=True)
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+
+
+def _add_repair_common(parser: argparse.ArgumentParser) -> None:
+    _add_common(parser)
+    parser.add_argument("--repair-output", type=Path, required=True)

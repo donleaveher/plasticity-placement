@@ -851,6 +851,14 @@ def _integrity_checks(
         g1c_run_root=g1c_run_root,
         plan_root=plan_root,
     )
+    return _artifact_integrity(output_root, context, plan_report)
+
+
+def _artifact_integrity(
+    output_root: Path,
+    context: RunContext,
+    plan_report: dict[str, Any],
+) -> dict[str, bool]:
     preflight = context.manifest.require_preflight()
     preflight_artifact = json.loads(
         (output_root / "preflight/preflight.json").read_text(encoding="utf-8")
