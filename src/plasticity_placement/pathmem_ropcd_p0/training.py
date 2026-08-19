@@ -4,6 +4,7 @@ import json
 import shutil
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,23 @@ from plasticity_placement.pathmem_ropcd_p0.config import (
 from plasticity_placement.training.model_utils import set_seed
 
 
+@dataclass(frozen=True, slots=True)
+class TrainingArtifactContract:
+    root_schema_version: str
+    training_schema_version: str
+    checkpoint_schema_version: str
+    label: str
+    include_training_seed: bool = False
+
+
+P0_ARTIFACT_CONTRACT = TrainingArtifactContract(
+    root_schema_version="pathmem-ropcd-p0-root-v1",
+    training_schema_version=TRAINING_SCHEMA_VERSION,
+    checkpoint_schema_version=CHECKPOINT_SCHEMA_VERSION,
+    label="R-OPCD P0",
+)
+
+
 def prepare_root_adapter(
     session: TrainingSession,
     *,
@@ -31,7 +49,10 @@ def prepare_root_adapter(
     run_id: str,
     item_id: str,
     root_seed: int,
+    root_id: str | None = None,
+    contract: TrainingArtifactContract = P0_ARTIFACT_CONTRACT,
 ) -> dict[str, Any]:
+    artifact_root_id = item_id if root_id is None else root_id
     if root.exists():
         return verify_root_adapter(
             root,
@@ -39,6 +60,8 @@ def prepare_root_adapter(
             item_id=item_id,
             root_seed=root_seed,
             recipe=session.recipe,
+            root_id=root_id,
+            contract=contract,
         )
     from peft import LoraConfig, get_peft_model
 
@@ -62,7 +85,7 @@ def prepare_root_adapter(
     session.base_model = model.unload()
     session.base_model.config.use_cache = False
     identity = {
-        "schema_version": "pathmem-ropcd-p0-root-v1",
+        "schema_version": contract.root_schema_version,
         "run_id": run_id,
         "item_id": item_id,
         "recipe": session.recipe.to_dict(),
@@ -72,7 +95,9 @@ def prepare_root_adapter(
         "effective_initial_delta": "zero",
         "adapter_sha256": adapter_bundle_hash(staging / "adapter"),
     }
-    immutable_json_write(staging / "root.json", identity, "R-OPCD P0 root")
+    if root_id is not None:
+        identity["root_id"] = artifact_root_id
+    immutable_json_write(staging / "root.json", identity, f"{contract.label} root")
     staging.rename(root)
     return verify_root_adapter(
         root,
@@ -80,6 +105,8 @@ def prepare_root_adapter(
         item_id=item_id,
         root_seed=root_seed,
         recipe=session.recipe,
+        root_id=root_id,
+        contract=contract,
     )
 
 
@@ -90,12 +117,14 @@ def verify_root_adapter(
     item_id: str,
     root_seed: int,
     recipe: RopcdExecutionRecipe = P0_ROPCD_RECIPE,
+    root_id: str | None = None,
+    contract: TrainingArtifactContract = P0_ARTIFACT_CONTRACT,
 ) -> dict[str, Any]:
     if {path.name for path in root.iterdir()} != {"adapter", "root.json"}:
-        raise ValueError("R-OPCD P0 root file set changed")
+        raise ValueError(f"{contract.label} root file set changed")
     metadata = json.loads((root / "root.json").read_text(encoding="utf-8"))
     expected = {
-        "schema_version": "pathmem-ropcd-p0-root-v1",
+        "schema_version": contract.root_schema_version,
         "run_id": run_id,
         "item_id": item_id,
         "recipe": recipe.to_dict(),
@@ -105,8 +134,10 @@ def verify_root_adapter(
         "effective_initial_delta": "zero",
         "adapter_sha256": adapter_bundle_hash(root / "adapter"),
     }
+    if root_id is not None:
+        expected["root_id"] = root_id
     if metadata != expected:
-        raise ValueError("R-OPCD P0 root identity changed")
+        raise ValueError(f"{contract.label} root identity changed")
     return {
         **metadata,
         "adapter_dir": str((root / "adapter").resolve()),
@@ -122,8 +153,11 @@ def train_p0_unit(
     root_adapter_sha256: str,
     run_id: str,
     output_root: Path,
+    training_seed: int | None = None,
+    contract: TrainingArtifactContract = P0_ARTIFACT_CONTRACT,
 ) -> dict[str, Any]:
     recipe = session.recipe
+    artifact_training_seed = recipe.training_seed if training_seed is None else training_seed
     unit_id = str(unit["unit_id"])
     unit_sha256 = json_hash(unit)
     parent_adapter_sha256 = adapter_bundle_hash(parent_adapter_dir)
@@ -136,6 +170,8 @@ def train_p0_unit(
             root_adapter_sha256=root_adapter_sha256,
             run_id=run_id,
             recipe=recipe,
+            training_seed=artifact_training_seed,
+            contract=contract,
         )
     checkpoint_root = output_root / "work" / unit_slug(unit_id) / "checkpoints"
     checkpoint_root.mkdir(parents=True, exist_ok=True)
@@ -146,6 +182,7 @@ def train_p0_unit(
         root_adapter_sha256=root_adapter_sha256,
         run_id=run_id,
         recipe=recipe,
+        contract=contract,
     )
     model = _load_model(session, checkpoint, parent_adapter_dir)
     optimizer = session.torch.optim.AdamW(
@@ -171,7 +208,9 @@ def train_p0_unit(
     try:
         for step in range(start_step, recipe.optimizer_steps_per_unit):
             pair = unit["rollout_prompt_pairs"][step % recipe.prompt_pairs_per_unit]
-            step_seed = _step_seed(recipe.training_seed, str(unit["step_seed_namespace"]), step)
+            step_seed = _step_seed(
+                artifact_training_seed, str(unit["step_seed_namespace"]), step
+            )
             set_seed(step_seed, session.torch)
             optimizer.zero_grad(set_to_none=True)
             loss, record = _distillation_loss(
@@ -182,13 +221,13 @@ def train_p0_unit(
                 step=step,
                 step_seed=step_seed,
             )
-            _require_finite_tensor(session.torch, loss, "P0 distillation loss")
+            _require_finite_tensor(session.torch, loss, f"{contract.label} distillation loss")
             loss.backward()
             gradient_norm = session.torch.nn.utils.clip_grad_norm_(
                 [parameter for parameter in model.parameters() if parameter.requires_grad],
                 recipe.max_grad_norm,
             )
-            _require_finite_tensor(session.torch, gradient_norm, "P0 gradient norm")
+            _require_finite_tensor(session.torch, gradient_norm, f"{contract.label} gradient norm")
             optimizer.step()
             scheduler.step()
             records.append(
@@ -221,6 +260,7 @@ def train_p0_unit(
                     run_id=run_id,
                     recipe=recipe,
                     torch=session.torch,
+                    contract=contract,
                 )
         final_checkpoint = _latest_checkpoint(
             checkpoint_root,
@@ -229,9 +269,10 @@ def train_p0_unit(
             root_adapter_sha256=root_adapter_sha256,
             run_id=run_id,
             recipe=recipe,
+            contract=contract,
         )
         if final_checkpoint is None:
-            raise RuntimeError("R-OPCD P0 final checkpoint is missing")
+            raise RuntimeError(f"{contract.label} final checkpoint is missing")
         _publish_final_unit(
             final_root,
             final_checkpoint=final_checkpoint,
@@ -242,6 +283,8 @@ def train_p0_unit(
             run_id=run_id,
             recipe=recipe,
             elapsed_seconds=time.perf_counter() - started,
+            training_seed=artifact_training_seed,
+            contract=contract,
         )
     finally:
         session.base_model = model.unload()
@@ -255,6 +298,8 @@ def train_p0_unit(
         root_adapter_sha256=root_adapter_sha256,
         run_id=run_id,
         recipe=recipe,
+        training_seed=artifact_training_seed,
+        contract=contract,
     )
 
 
@@ -266,16 +311,19 @@ def verify_p0_unit(
     root_adapter_sha256: str,
     run_id: str,
     recipe: RopcdExecutionRecipe = P0_ROPCD_RECIPE,
+    training_seed: int | None = None,
+    contract: TrainingArtifactContract = P0_ARTIFACT_CONTRACT,
 ) -> dict[str, Any]:
+    artifact_training_seed = recipe.training_seed if training_seed is None else training_seed
     expected_files = {"adapter", "training_metadata.json", "training_records.json"}
     if {path.name for path in final_root.iterdir()} != expected_files:
-        raise ValueError("R-OPCD P0 trained-unit file set changed")
+        raise ValueError(f"{contract.label} trained-unit file set changed")
     metadata_path = final_root / "training_metadata.json"
     records_path = final_root / "training_records.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     records = json.loads(records_path.read_text(encoding="utf-8"))
     expected = {
-        "schema_version": TRAINING_SCHEMA_VERSION,
+        "schema_version": contract.training_schema_version,
         "unit_id": unit["unit_id"],
         "unit_sha256": json_hash(unit),
         "run_id": run_id,
@@ -290,20 +338,22 @@ def verify_p0_unit(
         "adapter_sha256": adapter_bundle_hash(final_root / "adapter"),
         "records_sha256": json_hash(records),
     }
+    if contract.include_training_seed:
+        expected["training_seed"] = artifact_training_seed
     for key, value in expected.items():
         if metadata.get(key) != value:
-            raise ValueError(f"R-OPCD P0 trained-unit metadata changed: {key}")
+            raise ValueError(f"{contract.label} trained-unit metadata changed: {key}")
     if len(records) != recipe.optimizer_steps_per_unit:
-        raise ValueError("R-OPCD P0 step record count changed")
+        raise ValueError(f"{contract.label} step record count changed")
     for step, record in enumerate(records):
         if (
             record.get("step") != step
             or record.get("step_seed")
-            != _step_seed(recipe.training_seed, str(unit["step_seed_namespace"]), step)
+            != _step_seed(artifact_training_seed, str(unit["step_seed_namespace"]), step)
             or record.get("block_id") != unit["block_id"]
             or record.get("ordered_exposure_sha256") != unit["ordered_exposure_sha256"]
         ):
-            raise ValueError("R-OPCD P0 step exposure record changed")
+            raise ValueError(f"{contract.label} step exposure record changed")
     return {
         **metadata,
         "adapter_dir": str((final_root / "adapter").resolve()),
@@ -336,6 +386,7 @@ def _save_checkpoint(
     run_id: str,
     recipe: RopcdExecutionRecipe,
     torch: Any,
+    contract: TrainingArtifactContract = P0_ARTIFACT_CONTRACT,
 ) -> Path:
     final = checkpoint_root / f"step-{completed_steps:04d}"
     if final.exists():
@@ -346,6 +397,7 @@ def _save_checkpoint(
             root_adapter_sha256=root_adapter_sha256,
             run_id=run_id,
             recipe=recipe,
+            contract=contract,
         )
         return final
     staging = Path(tempfile.mkdtemp(prefix=f".step-{completed_steps:04d}.", dir=checkpoint_root))
@@ -359,7 +411,7 @@ def _save_checkpoint(
         encoding="utf-8",
     )
     identity = {
-        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "schema_version": contract.checkpoint_schema_version,
         "run_id": run_id,
         "unit_sha256": unit_sha256,
         "recipe_sha256": json_hash(recipe.to_dict()),
@@ -370,7 +422,7 @@ def _save_checkpoint(
         "training_state_sha256": file_hash(state_path),
         "records_sha256": file_hash(staging / "records.json"),
     }
-    immutable_json_write(staging / "checkpoint.json", identity, "R-OPCD P0 checkpoint")
+    immutable_json_write(staging / "checkpoint.json", identity, f"{contract.label} checkpoint")
     staging.rename(final)
     return final
 
@@ -383,6 +435,7 @@ def _latest_checkpoint(
     root_adapter_sha256: str,
     run_id: str,
     recipe: RopcdExecutionRecipe,
+    contract: TrainingArtifactContract = P0_ARTIFACT_CONTRACT,
 ) -> Path | None:
     checkpoints = sorted(
         (path for path in checkpoint_root.glob("step-*") if path.is_dir()),
@@ -396,6 +449,7 @@ def _latest_checkpoint(
             root_adapter_sha256=root_adapter_sha256,
             run_id=run_id,
             recipe=recipe,
+            contract=contract,
         )
     return checkpoints[-1] if checkpoints else None
 
@@ -408,10 +462,11 @@ def _verify_checkpoint(
     root_adapter_sha256: str,
     run_id: str,
     recipe: RopcdExecutionRecipe,
+    contract: TrainingArtifactContract = P0_ARTIFACT_CONTRACT,
 ) -> dict[str, Any]:
     metadata = json.loads((path / "checkpoint.json").read_text(encoding="utf-8"))
     expected = {
-        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "schema_version": contract.checkpoint_schema_version,
         "run_id": run_id,
         "unit_sha256": unit_sha256,
         "recipe_sha256": json_hash(recipe.to_dict()),
@@ -423,10 +478,10 @@ def _verify_checkpoint(
         "records_sha256": file_hash(path / "records.json"),
     }
     if metadata != expected:
-        raise ValueError(f"R-OPCD P0 checkpoint identity changed: {path}")
+        raise ValueError(f"{contract.label} checkpoint identity changed: {path}")
     records = json.loads((path / "records.json").read_text(encoding="utf-8"))
     if len(records) != expected["completed_steps"]:
-        raise ValueError("R-OPCD P0 checkpoint record count changed")
+        raise ValueError(f"{contract.label} checkpoint record count changed")
     return metadata
 
 
@@ -441,6 +496,8 @@ def _publish_final_unit(
     run_id: str,
     recipe: RopcdExecutionRecipe,
     elapsed_seconds: float,
+    training_seed: int,
+    contract: TrainingArtifactContract = P0_ARTIFACT_CONTRACT,
 ) -> None:
     final_root.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{final_root.name}.", dir=final_root.parent))
@@ -450,7 +507,7 @@ def _publish_final_unit(
         encoding="utf-8",
     )
     metadata = {
-        "schema_version": TRAINING_SCHEMA_VERSION,
+        "schema_version": contract.training_schema_version,
         "unit_id": unit["unit_id"],
         "unit_sha256": json_hash(unit),
         "run_id": run_id,
@@ -468,7 +525,11 @@ def _publish_final_unit(
         "final_total_loss": float(records[-1]["total_loss"]),
         "final_checkpoint_sha256": file_hash(final_checkpoint / "checkpoint.json"),
     }
-    immutable_json_write(staging / "training_metadata.json", metadata, "R-OPCD P0 training")
+    if contract.include_training_seed:
+        metadata["training_seed"] = training_seed
+    immutable_json_write(
+        staging / "training_metadata.json", metadata, f"{contract.label} training"
+    )
     staging.rename(final_root)
 
 

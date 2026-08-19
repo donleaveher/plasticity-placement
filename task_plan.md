@@ -413,3 +413,72 @@ for comparison.
   model. Every prospective CRD status remains diagnostic only.
 - No commit or push was made because the user did not request one for this
   implementation turn.
+
+---
+
+# Task Plan: R-OPCD-specific P1 investment runner
+
+## Goal
+
+Implement and verify the separately authorized R-OPCD P1 investment workflow
+that consumes the passing repaired G2 handoff, freezes the 12-item/3-seed path
+DAG, and can run reproducibly in Colab without starting formal P1 locally.
+
+## Phases
+
+- [x] Phase 1: Audit the P0 implementation, repaired-G2 artifacts, P1 protocol,
+  existing manifests, training/scoring primitives, and notebook conventions.
+- [x] Phase 2: Freeze the R-OPCD P1 operator, counts, estimands, three-way gate,
+  resource boundary, authorization contract, and G2-to-P1 handoff.
+- [x] Phase 3: Implement CPU inspect/prepare/verify planning and immutable bundle
+  identities without exposing training by default.
+- [x] Phase 4: Implement authorization-gated CUDA preflight, resumable roots,
+  396-unit training/evaluation, aggregation, and exact verification.
+- [x] Phase 5: Add a generated Colab with one safe control cell and explicit
+  inspect/plan/authorize/preflight/train/evaluate/aggregate/verify passes.
+- [x] Phase 6: Add focused tests for DAG matching, split isolation, statistics,
+  artifact lineage, recovery, permissions, and notebook parity.
+- [ ] Phase 7: Run focused/full verification, review scope, update protocols,
+  commit, push, and provide the exact operator handoff.
+
+## Key Questions
+
+1. How should the passing analysis-repair manifest become the sole G2 handoff
+   without rewriting the old P0 run or treating P0 smoke metrics as P1 evidence?
+2. Which P1 recipe elements are inherited unchanged from G1-C/P0, and which
+   elements still require prospective freezing before any `kill` result is read?
+3. How can 12 items, three seeds, 360 core nodes, and 36 technical duplicates be
+   compiled with exact parent/root/event-exposure matching and bounded resume?
+4. How should item-clustered bootstrap, `D_A/D_B/D`, `C`, utility, qualification,
+   and the three-way `epsilon_JS=0.02` decision be persisted and regenerated?
+5. Which positive permissions are minimally required for P1a, while P1b, P2,
+   learned routing, RL, HPO, and automatic continuation remain false?
+
+## Decisions Made
+
+- “Complete P1” means complete the reviewed runner and Colab workflow, not start
+  a formal GPU run under the old P0 authorization.
+- The source P0 run and repaired G2 directory are immutable inputs. P1 must use a
+  new plan, authorization, output namespace, run identity, and code revision.
+- P1a is an investment/kill experiment. It must not start P1b or P2 automatically
+  for any observed result.
+- Freeze P1 training seeds as `(41, 42, 43)` and keep the G1-C-qualified 48-step
+  R-OPCD recipe unchanged for every node.
+- Require a separately authorized four-item `hardware_dev` benchmark and bind its
+  immutable profile into the later formal P1 authorization.
+
+## Errors Encountered
+
+- The first generated notebook encoded embedded `\n` literals as physical
+  newlines inside Python strings. Notebook AST parity caught the syntax error;
+  the builder now escapes those literals and regeneration is tested exactly.
+- Parameterizing the qualified P0 training core initially passed a synthesized
+  P0 `root_id` into legacy verification. The default path now preserves the old
+  P0 root schema byte-for-byte, while P1 opts into its explicit item-seed root.
+
+## Status
+
+**Currently in Phase 7** - The complete P1 runner, generated Colab, protocol,
+and focused tests are implemented. Ruff passes and all 511 repository tests
+pass. Reviewing the final commit scope and publishing the implementation next;
+no P1 plan, authorization, GPU run, or `kill` outcome was created locally.
